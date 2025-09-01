@@ -1,15 +1,15 @@
 import 'dart:developer';
 import 'dart:async';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 class SocketService {
-  IO.Socket? _socket;
+  io.Socket? _socket;
 
-  IO.Socket connect(String url) {
+  io.Socket connect(String url) {
     // force websocket; no polling
-    final socket = IO.io(
+    final socket = io.io(
       url,
-      IO.OptionBuilder()
+      io.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
           .enableReconnection()
@@ -25,7 +25,7 @@ class SocketService {
     return socket;
   }
 
-  IO.Socket get socket {
+  io.Socket get socket {
     final s = _socket;
     if (s == null) {
       throw StateError('Socket non initialisé. Appelez connect(url).');
@@ -33,8 +33,11 @@ class SocketService {
     return s;
   }
 
-  Future<Map<String, dynamic>> emitAck(IO.Socket socket, String event, dynamic payload,
-      {Duration timeout = const Duration(seconds: 8)}) async {
+  Future<Map<String, dynamic>> emitAck(
+     String event,
+     Map<String, Object?> payload, {
+      Duration timeout = const Duration(seconds: 8),
+    })async {
     try {
       final res = await socket.emitWithAckAsync(event, payload).timeout(timeout);
       if (res is Map) {

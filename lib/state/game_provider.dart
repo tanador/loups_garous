@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 final gameProvider = StateNotifierProvider<GameController, GameModel>((ref) => GameController());
 
@@ -13,10 +14,10 @@ class GameController extends StateNotifier<GameModel> {
 
   // ------------- Socket lifecycle -------------
   Future<void> connect(String url) async {
-    final s = _socketSvc.connect(url);
+    final io.Socket s = _socketSvc.connect(url);
     state = state.copy(serverUrl: url, socketConnected: false);
 
-    s.onConnect((_) async {
+    s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
       log('[event] connect');
       // If we have a session, resume
@@ -31,7 +32,7 @@ class GameController extends StateNotifier<GameModel> {
       _listGames();
     });
 
-    s.onDisconnect((_) {
+    s.on('disconnect', (_) {
       state = state.copy(socketConnected: false);
       log('[event] disconnect');
     });
