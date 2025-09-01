@@ -47,3 +47,6 @@ node_modules
 
 # Node server build output
 server/dist/
+/server/coverage
+/server/dist
+dist
