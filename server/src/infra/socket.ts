@@ -41,8 +41,10 @@ export function createSocketServer(httpServer: HttpServer) {
     });
 
     // Lobby
-    socket.on('lobby:listGames', (ack?: (res: any) => void) => {
-      ack?.({ ok: true, data: { games: orch.listGames() } });
+    socket.on('lobby:listGames', (_: unknown, ack?: (res: any) => void) => {
+      if (typeof ack === 'function') {
+        ack({ ok: true, data: { games: orch.listGames() } });
+      }
     });
 
     handle(socket, 'lobby:create', CreateGameSchema, (data, ack) => {
