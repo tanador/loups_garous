@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
@@ -10,10 +12,23 @@ class ConnectScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
-  final _url = TextEditingController(text: 'http://localhost:3000');
+  late final TextEditingController _url;
   final _nick = TextEditingController();
   String _variant = 'AUTO';
   String? _selectedGame;
+
+  @override
+  void initState() {
+    super.initState();
+    _url = TextEditingController(text: Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _nick.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
