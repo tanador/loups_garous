@@ -18,16 +18,22 @@ export function createSocketServer(httpServer: HttpServer) {
     socket.on(event, (payload: any, ack?: (res: any) => void) => {
       try {
         if (!orch.limit(socket, event)) {
-          ack?.({ ok: false, error: 'rate_limited' });
+          if (typeof ack === 'function') {
+            ack({ ok: false, error: 'rate_limited' });
+          }
           return;
         }
         const data = schema.parse(payload ?? {});
         Promise.resolve(fn(data, ack)).catch((e) => {
           logger.warn({ event, err: String(e?.message ?? e) }, 'handler_error');
-          ack?.({ ok: false, error: String(e?.message ?? e) });
+          if (typeof ack === 'function') {
+            ack({ ok: false, error: String(e?.message ?? e) });
+          }
         });
       } catch (e: any) {
-        ack?.({ ok: false, error: e?.message ?? 'invalid_payload' });
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: e?.message ?? 'invalid_payload' });
+        }
       }
     });
   }
@@ -49,52 +55,93 @@ export function createSocketServer(httpServer: HttpServer) {
 
     handle(socket, 'lobby:create', CreateGameSchema, (data, ack) => {
       const res = orch.createGame(data.nickname, data.variant, socket);
-      ack?.({ ok: true, data: res });
+      if (typeof ack === 'function') {
+        ack({ ok: true, data: res });
+      }
     });
 
     handle(socket, 'lobby:join', JoinGameSchema, (data, ack) => {
       const res = orch.joinGame(data.gameId, data.nickname, socket);
-      ack?.({ ok: true, data: res });
+      if (typeof ack === 'function') {
+        ack({ ok: true, data: res });
+      }
     });
 
     handle(socket, 'session:resume', ResumeSchema, (data, ack) => {
       orch.resume(data.gameId, data.playerId, socket);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     handle(socket, 'player:ready', ReadySchema, (_data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) { ack?.({ ok: false, error: 'missing_context' }); return; }
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
       orch.playerReady(gameId, playerId);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     handle(socket, 'wolves:chooseTarget', WolvesChooseSchema, (data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) { ack?.({ ok: false, error: 'missing_context' }); return; }
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
       orch.wolvesChoose(gameId, playerId, data.targetId);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     handle(socket, 'witch:decision', WitchDecisionSchema, (data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) { ack?.({ ok: false, error: 'missing_context' }); return; }
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
       orch.witchDecision(gameId, playerId, data.save, data.poisonTargetId);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     handle(socket, 'day:ack', DayAckSchema, (_data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) { ack?.({ ok: false, error: 'missing_context' }); return; }
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
       orch.dayAck(gameId, playerId);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     handle(socket, 'vote:cast', VoteCastSchema, (data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) { ack?.({ ok: false, error: 'missing_context' }); return; }
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
       orch.voteCast(gameId, playerId, data.targetId);
-      ack?.({ ok: true });
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     });
 
     // Context binder after lobby actions
@@ -106,9 +153,13 @@ export function createSocketServer(httpServer: HttpServer) {
         socket.data.gameId = gameId;
         socket.data.playerId = playerId;
         socket.join(`room:${gameId}`);
-        ack?.({ ok: true });
+        if (typeof ack === 'function') {
+          ack({ ok: true });
+        }
       } catch (e: any) {
-        ack?.({ ok: false, error: e?.message ?? 'invalid_context' });
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: e?.message ?? 'invalid_context' });
+        }
       }
     });
   });
