@@ -1,0 +1,7 @@
+export const DURATION = {
+  WOLVES_MS: 45_000,
+  WITCH_MS: 45_000,
+  MORNING_MS: 20_000,
+  VOTE_MS: 45_000,
+  CRITICAL_DISCONNECT_MS: 30_000
+} as const;
