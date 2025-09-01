@@ -30,5 +30,6 @@ export function addPlayer(game: Game, p: Omit<Player, 'connected'|'lastSeen'|'is
   };
   game.players.push(player);
   game.alive.add(player.id);
+  game.updatedAt = Date.now();
   return player;
 }
