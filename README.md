@@ -1,19 +1,4 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# loup_garou
+# loup_garou_flutter
 
 A new Flutter project.
 
