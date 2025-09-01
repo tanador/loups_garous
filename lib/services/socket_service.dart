@@ -32,12 +32,17 @@ class SocketService {
     return s;
   }
 
-  Future<Map<String, dynamic>> emitAck(String event, dynamic payload, {Duration timeout = const Duration(seconds: 8)}) async {
-    final res = await socket.emitWithAck(event, payload).timeout(timeout);
-    if (res is Map) {
-      return res.map((k, v) => MapEntry(k.toString(), v));
+  Future<Map<String, dynamic>> emitAck(IO.Socket socket, String event, dynamic payload,
+      {Duration timeout = const Duration(seconds: 8)}) async {
+    try {
+      final res = await socket.emitWithAckAsync(event, payload).timeout(timeout);
+      if (res is Map) {
+        return res.map((k, v) => MapEntry(k.toString(), v));
+      }
+      return {'ok': false, 'error': 'bad_ack_format', 'got': res};
+    } on TimeoutException {
+      return {'ok': false, 'error': 'timeout'};
     }
-    return {'ok': false, 'error': 'bad_ack_format'};
   }
 
   void dispose() {
