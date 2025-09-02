@@ -67,7 +67,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   ? () async {
                       final err = await ctl.createGame(_nick.text.trim(), _variant);
                       if (err != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(backgroundColor: Colors.red, content: Text(err)),
+                        );
                       }
                     }
                   : null,
@@ -114,7 +116,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                     ? () async {
                         final err = await ctl.joinGame(_selectedGame!, _nick.text.trim());
                         if (err != null && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(backgroundColor: Colors.red, content: Text(err)),
+                          );
                         }
                       }
                     : null,

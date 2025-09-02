@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'crypto';
+import { randomInt } from 'crypto';
 
 export function secureShuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -10,5 +10,7 @@ export function secureShuffle<T>(arr: T[]): T[] {
 }
 
 export function id(): string {
-  return randomUUID();
+  const letters = Array.from({ length: 3 }, () => String.fromCharCode(65 + randomInt(26))).join('');
+  const digit = randomInt(10).toString();
+  return letters + digit;
 }

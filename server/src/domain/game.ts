@@ -22,6 +22,9 @@ export function createGame(variant: Variant): Game {
 }
 
 export function addPlayer(game: Game, p: Omit<Player, 'connected'|'lastSeen'|'isReady'>): Player {
+  if (game.players.some(existing => existing.nickname === p.nickname)) {
+    throw new Error('nickname_taken');
+  }
   const player: Player = {
     ...p,
     isReady: false,
