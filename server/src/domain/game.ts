@@ -21,12 +21,18 @@ export function createGame(variant: Variant): Game {
   };
 }
 
+function normalize(n: string) {
+  return n.trim().toLowerCase();
+}
+
 export function addPlayer(game: Game, p: Omit<Player, 'connected'|'lastSeen'|'isReady'>): Player {
-  if (game.players.some(existing => existing.nickname === p.nickname)) {
+  const nickname = p.nickname.trim();
+  if (game.players.some(existing => normalize(existing.nickname) === normalize(nickname))) {
     throw new Error('nickname_taken');
   }
   const player: Player = {
     ...p,
+    nickname,
     isReady: false,
     connected: true,
     lastSeen: Date.now()
