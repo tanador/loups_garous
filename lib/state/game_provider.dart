@@ -167,7 +167,11 @@ class GameController extends StateNotifier<GameModel> {
   // ------------- Lobby actions -------------
   Future<String?> createGame(String nickname, String variant) async {
     final ack = await _socketSvc.emitAck('lobby:create', {'nickname': nickname, 'variant': variant});
-    if (ack['ok'] != true) return ack['error']?.toString() ?? 'unknown_error';
+    if (ack['ok'] != true) {
+      final err = ack['error']?.toString() ?? 'unknown_error';
+      if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
+      return err;
+    }
     final data = Map<String, dynamic>.from(ack['data']);
     state = state.copy(
       nickname: nickname,
@@ -181,7 +185,11 @@ class GameController extends StateNotifier<GameModel> {
 
   Future<String?> joinGame(String gameId, String nickname) async {
     final ack = await _socketSvc.emitAck('lobby:join', {'gameId': gameId, 'nickname': nickname});
-    if (ack['ok'] != true) return ack['error']?.toString() ?? 'unknown_error';
+    if (ack['ok'] != true) {
+      final err = ack['error']?.toString() ?? 'unknown_error';
+      if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
+      return err;
+    }
     final data = Map<String, dynamic>.from(ack['data']);
     state = state.copy(
       nickname: nickname,

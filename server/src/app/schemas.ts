@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const zNickname = z.string().min(1).max(20);
-export const zGameId = z.string().min(1);
+export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 export const zPlayerId = z.string().min(1);
 
 export const CreateGameSchema = z.object({
