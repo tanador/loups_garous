@@ -56,11 +56,28 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
           const SizedBox(height: 12),
           if (s.lastVote != null) ...[
             const Divider(),
-            Text(s.lastVote!.eliminatedId == null
-                ? 'Aucune élimination (égalité ou abstentions).'
-                : 'Éliminé: ${s.lastVote!.eliminatedId} • rôle: ${s.lastVote!.role}'),
+            Builder(builder: (_) {
+              if (s.lastVote!.eliminatedId == null) {
+                return const Text('Aucune élimination (égalité ou abstentions).');
+              }
+              String name = s.lastVote!.eliminatedId!;
+              final match =
+                  s.players.where((p) => p.id == s.lastVote!.eliminatedId).toList();
+              if (match.isNotEmpty) name = match.first.nickname;
+              return Text('Éliminé: $name • rôle: ${s.lastVote!.role}');
+            }),
             const SizedBox(height: 8),
-            Text('Comptage: ${s.lastVote!.tally}'),
+            Builder(builder: (_) {
+              final entries = s.lastVote!.tally.entries
+                  .map((e) {
+                    String name = e.key;
+                    final match = s.players.where((p) => p.id == e.key).toList();
+                    if (match.isNotEmpty) name = match.first.nickname;
+                    return '$name: ${e.value}';
+                  })
+                  .join(', ');
+              return Text('Comptage: $entries');
+            }),
           ]
         ]),
       ),

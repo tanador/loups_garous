@@ -40,7 +40,14 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
             ),
           ),
           if (s.wolvesLockedTargetId != null)
-            Text('Cible verrouillée: ${s.wolvesLockedTargetId} • confirmations restantes: ${s.confirmationsRemaining}'),
+            Builder(builder: (_) {
+              String locked = s.wolvesLockedTargetId!;
+              final match =
+                  s.wolvesTargets.where((t) => t.id == s.wolvesLockedTargetId).toList();
+              if (match.isNotEmpty) locked = match.first.nickname;
+              return Text(
+                  'Cible verrouillée: $locked • confirmations restantes: ${s.confirmationsRemaining}');
+            }),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: selectedId == null ? null : () => ctl.wolvesChoose(selectedId!),

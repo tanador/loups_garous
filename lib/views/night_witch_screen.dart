@@ -29,7 +29,18 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
             : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 DeadlineChip(deadlineMs: s.deadlineMs),
                 const SizedBox(height: 12),
-                Text('Attaqué par les loups: ${ww.attacked ?? 'Personne'}'),
+                Builder(
+                  builder: (_) {
+                    String attackedName = 'Personne';
+                    if (ww.attacked != null) {
+                      final match =
+                          ww.alive.where((p) => p.id == ww.attacked).toList();
+                      attackedName =
+                          match.isEmpty ? ww.attacked! : match.first.nickname;
+                    }
+                    return Text('Attaqué par les loups: $attackedName');
+                  },
+                ),
                 const SizedBox(height: 12),
                 CheckboxListTile(
                   value: save,

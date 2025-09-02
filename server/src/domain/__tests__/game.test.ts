@@ -23,4 +23,16 @@ describe('game', () => {
     addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
     expect(() => addPlayer(g, { id: 'B', nickname: 'Alice', socketId: 'sB' })).toThrow('nickname_taken');
   });
+
+  it('rejects duplicate nicknames case-insensitively', () => {
+    const g = createGame('V1');
+    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
+    expect(() => addPlayer(g, { id: 'B', nickname: 'alice', socketId: 'sB' })).toThrow('nickname_taken');
+  });
+
+  it('rejects duplicate nicknames with extra spaces', () => {
+    const g = createGame('V1');
+    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
+    expect(() => addPlayer(g, { id: 'B', nickname: ' Alice ', socketId: 'sB' })).toThrow('nickname_taken');
+  });
 });

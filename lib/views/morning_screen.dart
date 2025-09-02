@@ -25,13 +25,25 @@ class MorningScreen extends ConsumerWidget {
             else ...[
               const Text('Morts cette nuit :'),
               const SizedBox(height: 8),
-              ...r.deaths.map((d) => ListTile(
-                    leading: const Icon(Icons.close),
-                    title: Text(d.$1),
-                    subtitle: Text('Rôle: ${d.$2}'),
-                  ))
+              ...r.deaths.map((d) {
+                String name = d.$1;
+                final match = s.players.where((p) => p.id == d.$1).toList();
+                if (match.isNotEmpty) name = match.first.nickname;
+                return ListTile(
+                  leading: const Icon(Icons.close),
+                  title: Text(name),
+                  subtitle: Text('Rôle: ${d.$2}'),
+                );
+              })
             ],
-            if (r.saved != null) Text('Sauvé par la potion de vie : ${r.saved}')
+            if (r.saved != null) ...[
+              Builder(builder: (_) {
+                String name = r.saved!;
+                final match = s.players.where((p) => p.id == r.saved).toList();
+                if (match.isNotEmpty) name = match.first.nickname;
+                return Text('Sauvé par la potion de vie : $name');
+              })
+            ]
           ],
           const Spacer(),
           ElevatedButton(
