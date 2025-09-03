@@ -243,10 +243,9 @@ export class Orchestrator {
     applyDeaths(game, deaths);
     const recap = {
       deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
-      saved: game.night.saved
     };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
-    this.log(game.id, game.state, undefined, 'day.recap', { deaths: deaths.length, saved: game.night.saved ?? null });
+    this.log(game.id, game.state, undefined, 'day.recap', { deaths: deaths.length });
 
     // attente des acks OU timeout
     this.schedule(game.id, DURATION.MORNING_MS, () => this.beginVote(game));

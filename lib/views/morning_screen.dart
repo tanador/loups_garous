@@ -36,14 +36,6 @@ class MorningScreen extends ConsumerWidget {
                 );
               })
             ],
-            if (r.saved != null) ...[
-              Builder(builder: (_) {
-                String name = r.saved!;
-                final match = s.players.where((p) => p.id == r.saved).toList();
-                if (match.isNotEmpty) name = match.first.id;
-                return Text('Sauvé par la potion de vie : $name');
-              })
-            ]
           ],
           const Spacer(),
           ElevatedButton(

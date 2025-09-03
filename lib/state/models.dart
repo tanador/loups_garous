@@ -38,8 +38,7 @@ class WitchWake {
 
 class DayRecap {
   final List<(String playerId, String role)> deaths;
-  final String? saved;
-  const DayRecap({required this.deaths, this.saved});
+  const DayRecap({required this.deaths});
 }
 
 class VoteResult {
