@@ -32,5 +32,5 @@ export const WitchDecisionSchema = z.object({
 export const DayAckSchema = z.object({});
 
 export const VoteCastSchema = z.object({
-  targetId: z.union([zNickname, z.null()]) // null = abstention
+  targetId: zNickname
 });

@@ -38,7 +38,7 @@ export interface Game {
   alive: Set<string>; // set of nicknames
   night: NightState;
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
-  votes: Record<string, string | null>; // nickname -> target nickname|null
+  votes: Record<string, string>; // nickname -> target nickname
   history: HistoryEvent[];
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
