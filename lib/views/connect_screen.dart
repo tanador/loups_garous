@@ -15,7 +15,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController();
   String _variant = 'AUTO';
-  String? _selectedGame;
 
   @override
   void initState() {
@@ -99,33 +98,26 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               itemCount: gm.lobby.length,
               itemBuilder: (context, i) {
                 final g = gm.lobby[i];
-                final selected = _selectedGame == g.id;
                 return ListTile(
                   title: Text('${g.id} • ${g.variant}'),
                   subtitle: Text('Joueurs ${g.players}/3 • places ${g.slots}'),
-                  trailing: selected ? const Icon(Icons.check_circle) : null,
-                  onTap: () => setState(() => _selectedGame = g.id),
+                  onTap: gm.socketConnected
+                      ? () async {
+                          final err =
+                              await ctl.joinGame(g.id, _nick.text.trim());
+                          if (err != null && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  backgroundColor: Colors.red,
+                                  content: Text(err)),
+                            );
+                          }
+                        }
+                      : null,
                 );
               },
             ),
           ),
-          Row(children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: gm.socketConnected && _selectedGame != null
-                    ? () async {
-                        final err = await ctl.joinGame(_selectedGame!, _nick.text.trim());
-                        if (err != null && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(backgroundColor: Colors.red, content: Text(err)),
-                          );
-                        }
-                      }
-                    : null,
-                child: const Text('Rejoindre la partie sélectionnée'),
-              ),
-            ),
-          ])
         ]),
       ),
     );
