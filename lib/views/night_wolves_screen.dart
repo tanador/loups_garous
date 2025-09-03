@@ -12,6 +12,7 @@ class NightWolvesScreen extends ConsumerStatefulWidget {
 
 class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
   String? selectedId;
+  bool _locked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -22,22 +23,38 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
       appBar: AppBar(title: const Text('Nuit — Loups')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Choisissez une cible (consensus requis en V1).'),
           const SizedBox(height: 8),
           DeadlineChip(deadlineMs: s.deadlineMs),
           const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              children: s.wolvesTargets
-                  .map((t) => RadioListTile<String>(
-                        title: Text(t.id),
-                        value: t.id,
-                        groupValue: selectedId,
-                        onChanged: (v) => setState(() => selectedId = v),
-                      ))
-                  .toList(),
+          ListView(
+            shrinkWrap: true,
+            children: s.wolvesTargets
+                .map((t) => RadioListTile<String>(
+                      title: Text(t.id),
+                      value: t.id,
+                      groupValue: selectedId,
+                      onChanged:
+                          _locked ? null : (v) => setState(() => selectedId = v),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: selectedId == null
+                ? null
+                : () {
+                    final newLocked = !_locked;
+                    setState(() => _locked = newLocked);
+                    if (newLocked) {
+                      ctl.wolvesChoose(selectedId!);
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _locked ? Colors.green : null,
             ),
+            child: const Text('Valider la cible'),
           ),
           if (s.wolvesLockedTargetId != null)
             Builder(builder: (_) {
@@ -48,11 +65,6 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
               return Text(
                   'Cible verrouillée: $locked • confirmations restantes: ${s.confirmationsRemaining}');
             }),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: selectedId == null ? null : () => ctl.wolvesChoose(selectedId!),
-            child: const Text('Valider la cible'),
-          ),
         ]),
       ),
     );
