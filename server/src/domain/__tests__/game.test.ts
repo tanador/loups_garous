@@ -8,7 +8,7 @@ describe('game', () => {
     vi.setSystemTime(1_000);
     const g = createGame('V1');
     vi.setSystemTime(2_000);
-    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
+    addPlayer(g, { id: 'Alice', socketId: 'sA' });
     expect(g.updatedAt).toBe(2_000);
     vi.useRealTimers();
   });
@@ -20,19 +20,19 @@ describe('game', () => {
 
   it('rejects duplicate nicknames', () => {
     const g = createGame('V1');
-    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
-    expect(() => addPlayer(g, { id: 'B', nickname: 'Alice', socketId: 'sB' })).toThrow('nickname_taken');
+    addPlayer(g, { id: 'Alice', socketId: 'sA' });
+    expect(() => addPlayer(g, { id: 'Alice', socketId: 'sB' })).toThrow('nickname_taken');
   });
 
   it('rejects duplicate nicknames case-insensitively', () => {
     const g = createGame('V1');
-    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
-    expect(() => addPlayer(g, { id: 'B', nickname: 'alice', socketId: 'sB' })).toThrow('nickname_taken');
+    addPlayer(g, { id: 'Alice', socketId: 'sA' });
+    expect(() => addPlayer(g, { id: 'alice', socketId: 'sB' })).toThrow('nickname_taken');
   });
 
   it('rejects duplicate nicknames with extra spaces', () => {
     const g = createGame('V1');
-    addPlayer(g, { id: 'A', nickname: 'Alice', socketId: 'sA' });
-    expect(() => addPlayer(g, { id: 'B', nickname: ' Alice ', socketId: 'sB' })).toThrow('nickname_taken');
+    addPlayer(g, { id: 'Alice', socketId: 'sA' });
+    expect(() => addPlayer(g, { id: ' Alice ', socketId: 'sB' })).toThrow('nickname_taken');
   });
 });

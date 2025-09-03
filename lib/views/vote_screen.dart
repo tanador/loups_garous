@@ -30,7 +30,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             child: ListView(
               children: s.voteAlive
                   .map((p) => RadioListTile<String?>(
-                        title: Text(p.nickname),
+                        title: Text(p.id),
                         value: p.id,
                         groupValue: targetId,
                         onChanged: (v) => setState(() => targetId = v),
@@ -63,7 +63,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
               String name = s.lastVote!.eliminatedId!;
               final match =
                   s.players.where((p) => p.id == s.lastVote!.eliminatedId).toList();
-              if (match.isNotEmpty) name = match.first.nickname;
+              if (match.isNotEmpty) name = match.first.id;
               return Text('Éliminé: $name • rôle: ${s.lastVote!.role}');
             }),
             const SizedBox(height: 8),
@@ -72,7 +72,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                   .map((e) {
                     String name = e.key;
                     final match = s.players.where((p) => p.id == e.key).toList();
-                    if (match.isNotEmpty) name = match.first.nickname;
+                    if (match.isNotEmpty) name = match.first.id;
                     return '$name: ${e.value}';
                   })
                   .join(', ');

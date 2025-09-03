@@ -36,7 +36,7 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                       final match =
                           ww.alive.where((p) => p.id == ww.attacked).toList();
                       attackedName =
-                          match.isEmpty ? ww.attacked! : match.first.nickname;
+                          match.isEmpty ? ww.attacked! : match.first.id;
                     }
                     return Text('Attaqué par les loups: $attackedName');
                   },
@@ -53,7 +53,7 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                   child: ListView(
                     children: ww.alive
                         .map((p) => RadioListTile<String>(
-                              title: Text(p.nickname),
+                              title: Text(p.id),
                               value: p.id,
                               groupValue: poisonId,
                               onChanged: ww.poisonAvailable ? (v) => setState(() => poisonId = v) : null,

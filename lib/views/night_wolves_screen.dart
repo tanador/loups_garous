@@ -31,7 +31,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
             child: ListView(
               children: s.wolvesTargets
                   .map((t) => RadioListTile<String>(
-                        title: Text(t.nickname),
+                        title: Text(t.id),
                         value: t.id,
                         groupValue: selectedId,
                         onChanged: (v) => setState(() => selectedId = v),
@@ -44,7 +44,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
               String locked = s.wolvesLockedTargetId!;
               final match =
                   s.wolvesTargets.where((t) => t.id == s.wolvesLockedTargetId).toList();
-              if (match.isNotEmpty) locked = match.first.nickname;
+              if (match.isNotEmpty) locked = match.first.id;
               return Text(
                   'Cible verrouillée: $locked • confirmations restantes: ${s.confirmationsRemaining}');
             }),

@@ -18,16 +18,14 @@ class LobbyGameInfo {
 
 class PlayerView {
   final String id;
-  final String nickname;
   final bool connected;
   final bool alive;
-  const PlayerView({required this.id, required this.nickname, required this.connected, required this.alive});
+  const PlayerView({required this.id, required this.connected, required this.alive});
 }
 
 class Lite {
   final String id;
-  final String nickname;
-  const Lite({required this.id, required this.nickname});
+  const Lite({required this.id});
 }
 
 class WitchWake {
@@ -56,8 +54,7 @@ class GameModel {
   final bool socketConnected;
   final List<LobbyGameInfo> lobby;
   final String? gameId;
-  final String? playerId;
-  final String nickname;
+  final String? playerId; // also your nickname
   final Role? role;
   final GamePhase phase;
   final int round;
@@ -83,7 +80,6 @@ class GameModel {
     required this.lobby,
     required this.gameId,
     required this.playerId,
-    required this.nickname,
     required this.role,
     required this.phase,
     required this.round,
@@ -106,7 +102,6 @@ class GameModel {
         lobby: [],
         gameId: null,
         playerId: null,
-        nickname: '',
         role: null,
         phase: GamePhase.LOBBY,
         round: 0,
@@ -129,7 +124,6 @@ class GameModel {
     List<LobbyGameInfo>? lobby,
     String? gameId,
     String? playerId,
-    String? nickname,
     Role? role,
     GamePhase? phase,
     int? round,
@@ -151,7 +145,6 @@ class GameModel {
       lobby: lobby ?? this.lobby,
       gameId: gameId ?? this.gameId,
       playerId: playerId ?? this.playerId,
-      nickname: nickname ?? this.nickname,
       role: role ?? this.role,
       phase: phase ?? this.phase,
       round: round ?? this.round,

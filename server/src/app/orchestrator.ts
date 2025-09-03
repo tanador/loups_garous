@@ -6,7 +6,7 @@ import { assignRoles, wolvesOf, targetsForWolves, targetsForWitch, computeNightD
 import { setState, canTransition } from '../domain/fsm.js';
 import { DURATION } from './timers.js';
 import { logger } from '../logger.js';
-import { randomInt, randomUUID } from 'crypto';
+import { randomInt } from 'crypto';
 
 type Ack<T = unknown> = (res: { ok: true; data?: T } | { ok: false; error: string; code?: string }) => void;
 
@@ -31,7 +31,7 @@ export class Orchestrator {
   createGame(nickname: string, variant: 'V1'|'V2'|'AUTO', socket: Socket) {
     const v: Variant = variant === 'AUTO' ? (randomInt(2) === 0 ? 'V1' : 'V2') : variant;
     const game = createGame(v);
-    const player: Player = addPlayer(game, { id: randomUUID(), nickname, socketId: socket.id });
+    const player: Player = addPlayer(game, { id: nickname, socketId: socket.id });
     this.store.put(game);
     this.bindPlayerToRooms(game, player, socket);
     this.emitLobbyUpdate();
@@ -46,7 +46,7 @@ export class Orchestrator {
     if (game.state !== 'LOBBY') throw new Error('game_already_started');
     if (game.players.length >= 3) throw new Error('game_full');
 
-    const player: Player = addPlayer(game, { id: randomUUID(), nickname, socketId: socket.id });
+    const player: Player = addPlayer(game, { id: nickname, socketId: socket.id });
     this.bindPlayerToRooms(game, player, socket);
     this.store.put(game);
     this.emitLobbyUpdate();
@@ -330,7 +330,7 @@ export class Orchestrator {
 
   private playerLite(game: Game, pid: string) {
     const p = game.players.find(x => x.id === pid)!;
-    return { id: p.id, nickname: p.nickname };
+    return { id: p.id };
   }
 
   private broadcastState(game: Game) {
@@ -351,7 +351,7 @@ export class Orchestrator {
       state: game.state,
       round: game.round,
       players: game.players.map(p => ({
-        id: p.id, nickname: p.nickname, connected: p.connected, alive: game.alive.has(p.id)
+        id: p.id, connected: p.connected, alive: game.alive.has(p.id)
       })),
       you: { id: you.id, role: game.roles[you.id] },
       night: {

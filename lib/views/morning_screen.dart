@@ -28,7 +28,7 @@ class MorningScreen extends ConsumerWidget {
               ...r.deaths.map((d) {
                 String name = d.$1;
                 final match = s.players.where((p) => p.id == d.$1).toList();
-                if (match.isNotEmpty) name = match.first.nickname;
+                if (match.isNotEmpty) name = match.first.id;
                 return ListTile(
                   leading: const Icon(Icons.close),
                   title: Text(name),
@@ -40,7 +40,7 @@ class MorningScreen extends ConsumerWidget {
               Builder(builder: (_) {
                 String name = r.saved!;
                 final match = s.players.where((p) => p.id == r.saved).toList();
-                if (match.isNotEmpty) name = match.first.nickname;
+                if (match.isNotEmpty) name = match.first.id;
                 return Text('Sauvé par la potion de vie : $name');
               })
             ]
