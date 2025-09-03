@@ -206,6 +206,7 @@ export class Orchestrator {
     // poison
     if (poisonTargetId) {
       if (game.inventory.witch.poisonUsed) throw new Error('poison_already_used');
+      if (poisonTargetId === playerId) throw new Error('cannot_poison_self');
       if (!game.alive.has(poisonTargetId)) throw new Error('invalid_poison_target');
       game.night.poisoned = poisonTargetId;
       game.inventory.witch.poisonUsed = true;

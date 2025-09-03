@@ -78,8 +78,18 @@ export function targetsForWolves(game: Game): string[] {
 }
 
 export function targetsForWitch(game: Game): string[] {
-  // peut empoisonner n'importe qui encore en vie (y compris elle-même)
-  return alivePlayers(game);
+  // peut empoisonner n'importe qui encore en vie sauf elle-même
+  const wid = witchId(game);
+  return alivePlayers(game).filter(pid => pid !== wid);
+}
+
+export function canBeSaved(game: Game, pid: string): boolean {
+  // un joueur peut être sauvé s'il est attaqué et que la potion de vie est encore disponible
+  return (
+    game.night.attacked === pid &&
+    game.night.saved !== pid &&
+    !game.inventory.witch.healUsed
+  );
 }
 
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
