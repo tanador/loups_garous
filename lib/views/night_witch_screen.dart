@@ -67,6 +67,13 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                                 title: Text(p.id),
                                 value: p.id,
                                 groupValue: poisonId,
+                                secondary: poisonId == p.id
+                                    ? IconButton(
+                                        icon: const Icon(Icons.cancel),
+                                        onPressed: () => setState(
+                                            () => poisonId = null),
+                                      )
+                                    : null,
                                 onChanged: ww.poisonAvailable
                                     ? (v) => setState(() => poisonId = v)
                                     : null,
