@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/game_provider.dart';
 import 'views/connect_screen.dart';
 import 'views/role_screen.dart';
+import 'views/countdown_screen.dart';
 import 'views/night_wolves_screen.dart';
 import 'views/night_witch_screen.dart';
 import 'views/morning_screen.dart';
@@ -48,7 +49,7 @@ class _HomeRouter extends ConsumerWidget {
     // Phase-based routing
     switch (phase) {
       case GamePhase.ROLES:
-        return const RoleScreen();
+        return const CountdownScreen();
       case GamePhase.NIGHT_WOLVES:
         if (youRole == Role.WOLF) return const NightWolvesScreen();
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
