@@ -88,6 +88,20 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     });
 
+    handle(socket, 'player:unready', ReadySchema, (_data, ack) => {
+      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
+      orch.playerUnready(gameId, playerId);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
+    });
+
     handle(socket, 'wolves:chooseTarget', WolvesChooseSchema, (data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
       if (!gameId || !playerId) {

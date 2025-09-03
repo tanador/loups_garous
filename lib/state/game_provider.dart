@@ -212,9 +212,10 @@ class GameController extends StateNotifier<GameModel> {
     log('[ack] context:set $ack');
   }
 
-  Future<void> sendReady() async {
-    final ack = await _socketSvc.emitAck('player:ready', {});
-    log('[ack] player:ready $ack');
+  Future<void> toggleReady(bool ready) async {
+    final event = ready ? 'player:ready' : 'player:unready';
+    final ack = await _socketSvc.emitAck(event, {});
+    log('[ack] $event $ack');
   }
 
   // ------------- Wolves -------------
