@@ -6,8 +6,7 @@ export type Role = 'WOLF' | 'WITCH' | 'VILLAGER';
 export type Variant = 'V1' | 'V2';
 
 export interface Player {
-  id: string;
-  nickname: string;
+  id: string; // player's nickname (unique)
   socketId: string;
   role?: Role;
   isReady: boolean;
@@ -35,12 +34,12 @@ export interface Game {
   updatedAt: number;
   round: number;
   players: Player[];
-  roles: Record<string, Role>; // playerId -> role
-  alive: Set<string>;
+  roles: Record<string, Role>; // nickname -> role
+  alive: Set<string>; // set of nicknames
   night: NightState;
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
-  votes: Record<string, string | null>; // playerId -> targetId|null
+  votes: Record<string, string | null>; // nickname -> target nickname|null
   history: HistoryEvent[];
   deadlines?: { phaseEndsAt?: number };
-  wolvesChoices: Record<string, string | null>; // choix courant par loup
+  wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
 }

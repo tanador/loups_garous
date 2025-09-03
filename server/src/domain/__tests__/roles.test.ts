@@ -5,9 +5,9 @@ import { assignRoles } from '../rules.js';
 describe('assign roles', () => {
   it('V1 has 2 wolves + 1 witch', () => {
     const g = createGame('V1');
-    addPlayer(g, { id: 'A', nickname: 'A', socketId: 'sA' });
-    addPlayer(g, { id: 'B', nickname: 'B', socketId: 'sB' });
-    addPlayer(g, { id: 'C', nickname: 'C', socketId: 'sC' });
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
     assignRoles(g);
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(2);
@@ -16,9 +16,9 @@ describe('assign roles', () => {
 
   it('V2 has 1 wolf + 1 witch + 1 villager', () => {
     const g = createGame('V2');
-    addPlayer(g, { id: 'A', nickname: 'A', socketId: 'sA' });
-    addPlayer(g, { id: 'B', nickname: 'B', socketId: 'sB' });
-    addPlayer(g, { id: 'C', nickname: 'C', socketId: 'sC' });
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
     assignRoles(g);
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(1);

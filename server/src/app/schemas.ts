@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const zNickname = z.string().min(1).max(20);
 export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
-export const zPlayerId = z.string().min(1);
 
 export const CreateGameSchema = z.object({
   nickname: zNickname,
@@ -16,22 +15,22 @@ export const JoinGameSchema = z.object({
 
 export const ResumeSchema = z.object({
   gameId: zGameId,
-  playerId: zPlayerId
+  playerId: zNickname
 });
 
 export const ReadySchema = z.object({});
 
 export const WolvesChooseSchema = z.object({
-  targetId: zPlayerId
+  targetId: zNickname
 });
 
 export const WitchDecisionSchema = z.object({
   save: z.boolean(),
-  poisonTargetId: zPlayerId.optional()
+  poisonTargetId: zNickname.optional()
 });
 
 export const DayAckSchema = z.object({});
 
 export const VoteCastSchema = z.object({
-  targetId: z.union([zPlayerId, z.null()]) // null = abstention
+  targetId: z.union([zNickname, z.null()]) // null = abstention
 });

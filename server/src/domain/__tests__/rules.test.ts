@@ -4,9 +4,9 @@ import { assignRoles, computeNightDeaths, applyDeaths, winner } from '../rules.j
 
 function seedGameV1() {
   const g = createGame('V1');
-  const a = addPlayer(g, { id: 'A', nickname: 'A', socketId: 'sA' });
-  const b = addPlayer(g, { id: 'B', nickname: 'B', socketId: 'sB' });
-  const c = addPlayer(g, { id: 'C', nickname: 'C', socketId: 'sC' });
+  const a = addPlayer(g, { id: 'A', socketId: 'sA' });
+  const b = addPlayer(g, { id: 'B', socketId: 'sB' });
+  const c = addPlayer(g, { id: 'C', socketId: 'sC' });
   assignRoles(g);
   return g;
 }

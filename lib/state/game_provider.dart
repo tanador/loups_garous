@@ -67,7 +67,6 @@ class GameController extends StateNotifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => PlayerView(
                 id: j['id'],
-                nickname: j['nickname'],
                 connected: j['connected'] == true,
                 alive: j['alive'] == true,
               ))
@@ -89,7 +88,7 @@ class GameController extends StateNotifier<GameModel> {
     s.on('wolves:wake', (data) async {
       final list = ((data['alive'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .map((j) => Lite(id: j['id'], nickname: j['nickname']))
+          .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(wolvesTargets: list, wolvesLockedTargetId: null, confirmationsRemaining: 0);
       if (state.vibrations) await HapticFeedback.vibrate();
@@ -108,7 +107,7 @@ class GameController extends StateNotifier<GameModel> {
     s.on('witch:wake', (data) async {
       final alive = ((data['alive'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .map((j) => Lite(id: j['id'], nickname: j['nickname']))
+          .map((j) => Lite(id: j['id']))
           .toList();
       final ww = WitchWake(
         attacked: data['attacked'] as String?,
@@ -137,7 +136,7 @@ class GameController extends StateNotifier<GameModel> {
     s.on('vote:options', (data) {
       final alive = ((data['alive'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .map((j) => Lite(id: j['id'], nickname: j['nickname']))
+          .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(voteAlive: alive, lastVote: null);
       log('[evt] vote:options ${alive.length}');
@@ -173,8 +172,7 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
-    state = state.copy(
-      nickname: nickname,
+      state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
       players: [], // filled by snapshot/state changes
@@ -192,7 +190,6 @@ class GameController extends StateNotifier<GameModel> {
     }
     final data = Map<String, dynamic>.from(ack['data']);
     state = state.copy(
-      nickname: nickname,
       gameId: data['gameId'],
       playerId: data['playerId'],
     );

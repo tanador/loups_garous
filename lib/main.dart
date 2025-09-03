@@ -94,7 +94,7 @@ class WaitingLobby extends ConsumerWidget {
               child: ListView(
                 children: s.players
                     .map((p) => ListTile(
-                          title: Text(p.nickname),
+                          title: Text(p.id),
                           subtitle: Text(p.alive ? 'Vivant' : 'Mort'),
                           trailing: Icon(p.connected ? Icons.wifi : Icons.wifi_off),
                         ))

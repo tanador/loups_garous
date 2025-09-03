@@ -5,9 +5,9 @@ import { assignRoles, computeVoteResult } from '../rules.js';
 describe('vote ties', () => {
   it('no elimination on tie', () => {
     const g = createGame('V2');
-    addPlayer(g, { id: 'A', nickname: 'A', socketId: 'sA' });
-    addPlayer(g, { id: 'B', nickname: 'B', socketId: 'sB' });
-    addPlayer(g, { id: 'C', nickname: 'C', socketId: 'sC' });
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
     assignRoles(g);
 
     g.votes = { A: 'B', B: 'A' }; // C abstains
