@@ -17,7 +17,8 @@ export function createGame(variant: Variant): Game {
     votes: {},
     history: [],
     deadlines: {},
-    wolvesChoices: {}
+    wolvesChoices: {},
+    morningAcks: new Set<string>()
   };
 }
 

@@ -42,4 +42,5 @@ export interface Game {
   history: HistoryEvent[];
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
+  morningAcks: Set<string>;
 }
