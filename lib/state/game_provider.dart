@@ -126,10 +126,10 @@ class GameController extends StateNotifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
           .toList();
-      final recap = DayRecap(deaths: deaths, saved: data['saved'] as String?);
+      final recap = DayRecap(deaths: deaths);
       state = state.copy(recap: recap);
       if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] day:recap deaths=${deaths.length} saved=${recap.saved}');
+      log('[evt] day:recap deaths=${deaths.length}');
     });
 
     // --- Vote
