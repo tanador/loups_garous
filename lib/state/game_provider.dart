@@ -238,7 +238,7 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Vote -------------
-  Future<void> voteCast(String? targetId) async {
+  Future<void> voteCast(String targetId) async {
     final ack = await _socketSvc.emitAck('vote:cast', {'targetId': targetId});
     log('[ack] vote:cast $ack');
   }

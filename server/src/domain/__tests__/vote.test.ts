@@ -10,7 +10,7 @@ describe('vote ties', () => {
     addPlayer(g, { id: 'C', socketId: 'sC' });
     assignRoles(g);
 
-    g.votes = { A: 'B', B: 'A' }; // C abstains
+    g.votes = { A: 'B', B: 'C', C: 'A' };
     const { eliminated } = computeVoteResult(g);
     expect(eliminated).toBeNull();
   });

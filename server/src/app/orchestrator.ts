@@ -266,22 +266,20 @@ export class Orchestrator {
   private beginVote(game: Game) {
     if (!canTransition(game, game.state, 'VOTE')) return;
     setState(game, 'VOTE');
-    this.setDeadline(game, DURATION.VOTE_MS);
     game.votes = {};
+    game.deadlines = {};
     this.broadcastState(game);
 
     const alive = alivePlayers(game).map(pid => this.playerLite(game, pid));
     this.io.to(`room:${game.id}`).emit('vote:options', { alive });
     this.log(game.id, game.state, undefined, 'vote.begin', { alive: alive.length });
-
-    this.schedule(game.id, DURATION.VOTE_MS, () => this.endVote(game.id));
   }
 
-  voteCast(gameId: string, playerId: string, targetId: string | null) {
+  voteCast(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== 'VOTE') throw new Error('bad_state');
     if (!game.alive.has(playerId)) throw new Error('dead_cannot_vote');
-    if (targetId && !game.alive.has(targetId)) throw new Error('invalid_target');
+    if (!game.alive.has(targetId)) throw new Error('invalid_target');
     game.votes[playerId] = targetId;
     this.log(game.id, game.state, playerId, 'vote.cast', { targetId });
 

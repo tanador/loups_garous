@@ -10,7 +10,7 @@ class VoteScreen extends ConsumerStatefulWidget {
 }
 
 class _VoteScreenState extends ConsumerState<VoteScreen> {
-  String? targetId; // null => abstention
+  String? targetId;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +25,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
           children: [
             DeadlineChip(deadlineMs: s.deadlineMs),
             const SizedBox(height: 8),
-            const Text('Choisissez quelqu’un à éliminer (ou abstenez-vous).'),
+            const Text('Choisissez quelqu’un à éliminer.'),
             const SizedBox(height: 8),
             ...s.voteAlive
                 .map((p) => RadioListTile<String?>(
@@ -35,27 +35,20 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                       onChanged: (v) => setState(() => targetId = v),
                     ))
                 .toList(),
-            Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => setState(() => targetId = null),
-                  child: const Text('S’abstenir'),
-                ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    targetId == null ? null : () => ctl.voteCast(targetId!),
+                child: const Text('Voter'),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => ctl.voteCast(targetId),
-                  child: const Text('Voter'),
-                ),
-              ),
-            ]),
+            ),
             const SizedBox(height: 12),
             if (s.lastVote != null) ...[
               const Divider(),
               Builder(builder: (_) {
                 if (s.lastVote!.eliminatedId == null) {
-                  return const Text('Aucune élimination (égalité ou abstentions).');
+                  return const Text('Aucune élimination (égalité).');
                 }
                 String name = s.lastVote!.eliminatedId!;
                 final match =
