@@ -52,17 +52,20 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
               })
             ]
           ],
-          const Spacer(),
-          ElevatedButton(
-            onPressed: () {
-              final newAck = !_ack;
-              setState(() => _ack = newAck);
-              if (newAck) ctl.dayAck();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _ack ? Colors.green : null,
+          Expanded(
+            child: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  final newAck = !_ack;
+                  setState(() => _ack = newAck);
+                  if (newAck) ctl.dayAck();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _ack ? Colors.green : null,
+                ),
+                child: const Text('J’ai lu'),
+              ),
             ),
-            child: const Text('J’ai lu'),
           )
         ]),
       ),
