@@ -8,6 +8,7 @@ import 'views/night_witch_screen.dart';
 import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
+import 'views/dead_screen.dart';
 import 'state/models.dart';
 
 void main() {
@@ -36,6 +37,11 @@ class _HomeRouter extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final youRole = s.role;
     final phase = s.phase;
+    final me = s.players.firstWhere(
+        (p) => p.id == s.playerId,
+        orElse: () => const PlayerView(id: '', connected: true, alive: true));
+
+    if (!me.alive) return const DeadScreen();
 
     if (s.gameId == null) return const ConnectScreen();
 

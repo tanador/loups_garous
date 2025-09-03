@@ -52,6 +52,7 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                 Expanded(
                   child: ListView(
                     children: ww.alive
+                        .where((p) => p.id != s.playerId)
                         .map((p) => RadioListTile<String>(
                               title: Text(p.id),
                               value: p.id,
