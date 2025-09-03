@@ -236,6 +236,7 @@ export class Orchestrator {
   private beginMorning(game: Game) {
     if (!canTransition(game, game.state, 'MORNING')) return;
     setState(game, 'MORNING');
+    game.morningAcks.clear();
     this.setDeadline(game, DURATION.MORNING_MS);
     this.broadcastState(game);
 
@@ -252,8 +253,15 @@ export class Orchestrator {
     this.schedule(game.id, DURATION.MORNING_MS, () => this.beginVote(game));
   }
 
-  dayAck(_gameId: string, _playerId: string) {
-    // Acks non bloquants dans cette version: on passe au vote au timeout.
+  dayAck(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'MORNING') throw new Error('bad_state');
+    if (!game.alive.has(playerId)) throw new Error('dead_cannot_ack');
+    game.morningAcks.add(playerId);
+    this.log(game.id, game.state, playerId, 'day.ack');
+    if (game.morningAcks.size >= game.alive.size) {
+      this.beginVote(game);
+    }
   }
 
   private beginVote(game: Game) {

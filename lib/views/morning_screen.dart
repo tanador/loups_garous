@@ -3,11 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import 'widgets/common.dart';
 
-class MorningScreen extends ConsumerWidget {
+class MorningScreen extends ConsumerStatefulWidget {
   const MorningScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MorningScreen> createState() => _MorningScreenState();
+}
+
+class _MorningScreenState extends ConsumerState<MorningScreen> {
+  bool _ack = false;
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final r = s.recap;
@@ -47,7 +54,14 @@ class MorningScreen extends ConsumerWidget {
           ],
           const Spacer(),
           ElevatedButton(
-            onPressed: () => ctl.dayAck(),
+            onPressed: () {
+              final newAck = !_ack;
+              setState(() => _ack = newAck);
+              if (newAck) ctl.dayAck();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _ack ? Colors.green : null,
+            ),
             child: const Text('J’ai lu'),
           )
         ]),
