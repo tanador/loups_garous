@@ -3,11 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 
-class RoleScreen extends ConsumerWidget {
+class RoleScreen extends ConsumerStatefulWidget {
   const RoleScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RoleScreen> createState() => _RoleScreenState();
+}
+
+class _RoleScreenState extends ConsumerState<RoleScreen> {
+  bool _isReady = false;
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final roleLabel = switch (s.role) {
@@ -24,10 +31,18 @@ class RoleScreen extends ConsumerWidget {
           children: [
             Text('Vous êtes :', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            Text(roleLabel, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            Text(roleLabel,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => ctl.sendReady(),
+              onPressed: () {
+                final newReady = !_isReady;
+                setState(() => _isReady = newReady);
+                ctl.toggleReady(newReady);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isReady ? Colors.green : null,
+              ),
               child: const Text('Je suis prêt'),
             ),
           ],

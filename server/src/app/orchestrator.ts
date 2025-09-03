@@ -114,6 +114,14 @@ export class Orchestrator {
     }
   }
 
+  playerUnready(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    const p = game.players.find(x => x.id === playerId);
+    if (!p) throw new Error('player_not_found');
+    p.isReady = false;
+    this.log(gameId, game.state, playerId, 'player.unready');
+  }
+
   // -------------------- Phases --------------------
   private beginNightWolves(game: Game) {
     if (!canTransition(game, game.state, 'NIGHT_WOLVES')) return;
