@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
-import { CreateGameSchema, JoinGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, WitchDecisionSchema, DayAckSchema, VoteCastSchema } from '../app/schemas.js';
+import { CreateGameSchema, JoinGameSchema, CancelGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, WitchDecisionSchema, DayAckSchema, VoteCastSchema } from '../app/schemas.js';
 
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server(httpServer, {
@@ -64,6 +64,20 @@ export function createSocketServer(httpServer: HttpServer) {
       const res = orch.joinGame(data.gameId, data.nickname, socket);
       if (typeof ack === 'function') {
         ack({ ok: true, data: res });
+      }
+    });
+
+    handle(socket, 'lobby:cancel', CancelGameSchema, (_data, ack) => {
+      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
+      orch.cancelGame(gameId, playerId);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
       }
     });
 

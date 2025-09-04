@@ -13,6 +13,8 @@ export const JoinGameSchema = z.object({
   nickname: zNickname
 });
 
+export const CancelGameSchema = z.object({});
+
 export const ResumeSchema = z.object({
   gameId: zGameId,
   playerId: zNickname
