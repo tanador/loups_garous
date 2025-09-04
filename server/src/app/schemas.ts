@@ -5,8 +5,9 @@ export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 
 export const CreateGameSchema = z.object({
   nickname: zNickname,
-  variant: z.enum(['V1','V2','AUTO']).default('AUTO')
-});
+  playerCount: z.number().int().min(3).max(4),
+  wolves: z.number().int().min(1).max(2)
+}).refine(d => d.wolves <= d.playerCount - 1, { message: 'too_many_wolves' });
 
 export const JoinGameSchema = z.object({
   gameId: zGameId,

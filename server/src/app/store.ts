@@ -8,8 +8,14 @@ export class GameStore {
   del(id: string) { this.games.delete(id); }
   listLobby() {
     return Array.from(this.games.values())
-      .filter(g => g.state === 'LOBBY' && g.players.length < 3)
-      .map(g => ({ id: g.id, variant: g.variant, players: g.players.length, slots: 3 - g.players.length }));
+      .filter(g => g.state === 'LOBBY' && g.players.length < g.maxPlayers)
+      .map(g => ({
+        id: g.id,
+        players: g.players.length,
+        slots: g.maxPlayers - g.players.length,
+        maxPlayers: g.maxPlayers,
+        wolves: g.wolves
+      }));
   }
   all() { return Array.from(this.games.values()); }
   cleanupFinished(ttlMs = 5 * 60 * 1000) {

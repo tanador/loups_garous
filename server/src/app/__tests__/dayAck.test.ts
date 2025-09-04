@@ -14,7 +14,7 @@ describe('morning acknowledgements', () => {
   it('advances to vote when all alive players ack', () => {
     vi.useFakeTimers();
     const orch = new Orchestrator(fakeIo());
-    const g = createGame('V1');
+    const g = createGame({ maxPlayers: 3, wolves: 2 });
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createGame, addPlayer } from '../game.js';
 import { assignRoles, computeNightDeaths, applyDeaths, winner } from '../rules.js';
 
-function seedGameV1() {
-  const g = createGame('V1');
+function seedGame() {
+  const g = createGame({ maxPlayers: 3, wolves: 2 });
   const a = addPlayer(g, { id: 'A', socketId: 'sA' });
   const b = addPlayer(g, { id: 'B', socketId: 'sB' });
   const c = addPlayer(g, { id: 'C', socketId: 'sC' });
@@ -13,7 +13,7 @@ function seedGameV1() {
 
 describe('night resolution', () => {
   it('heal cancels wolves attack but poison kills target', () => {
-    const g = seedGameV1();
+    const g = seedGame();
     g.night.attacked = 'A';
     g.night.saved = 'A';
     g.night.poisoned = 'B';
@@ -27,7 +27,7 @@ describe('night resolution', () => {
 
 describe('winner checks', () => {
   it('village wins when no wolves', () => {
-    const g = seedGameV1();
+    const g = seedGame();
     // kill wolves
     for (const [pid, role] of Object.entries(g.roles)) {
       if (role === 'WOLF') g.alive.delete(pid);

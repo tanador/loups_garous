@@ -3,8 +3,8 @@ import { createGame, addPlayer } from '../game.js';
 import { assignRoles, targetsForWitch, canBeSaved } from '../rules.js';
 
 describe('assign roles', () => {
-  it('V1 has 2 wolves + 1 witch', () => {
-    const g = createGame('V1');
+  it('2-wolf game has 2 wolves + 1 witch', () => {
+    const g = createGame({ maxPlayers: 3, wolves: 2 });
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
@@ -14,8 +14,8 @@ describe('assign roles', () => {
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
   });
 
-  it('V2 has 1 wolf + 1 witch + 1 villager', () => {
-    const g = createGame('V2');
+  it('1-wolf game has 1 wolf + 1 witch + 1 villager', () => {
+    const g = createGame({ maxPlayers: 3, wolves: 1 });
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
@@ -29,7 +29,7 @@ describe('assign roles', () => {
 
 describe('witch mechanics', () => {
   it('witch cannot target herself with poison', () => {
-    const g = createGame('V1');
+    const g = createGame({ maxPlayers: 3, wolves: 2 });
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
@@ -40,7 +40,7 @@ describe('witch mechanics', () => {
   });
 
   it('canBeSaved returns true only when heal potion unused and player attacked', () => {
-    const g = createGame('V1');
+    const g = createGame({ maxPlayers: 3, wolves: 2 });
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
