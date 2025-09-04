@@ -296,6 +296,17 @@ class GameController extends StateNotifier<GameModel> {
     return null;
   }
 
+  Future<String?> leaveGame() async {
+    final ack = await _socketSvc.emitAck('lobby:leave', {});
+    log('[ack] lobby:leave $ack');
+    if (ack['ok'] != true) {
+      return ack['error']?.toString() ?? 'unknown_error';
+    }
+    _resetGameState();
+    await _clearSession();
+    return null;
+  }
+
   Future<void> refreshLobby() => _listGames();
 
   Future<void> toggleVibrations(bool on) async {

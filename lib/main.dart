@@ -89,9 +89,11 @@ class SleepingPlaceholder extends StatelessWidget {
 class WaitingLobby extends ConsumerWidget {
   const WaitingLobby({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(gameProvider);
-    return Scaffold(
+    Widget build(BuildContext context, WidgetRef ref) {
+      final s = ref.watch(gameProvider);
+      final ctl = ref.read(gameProvider.notifier);
+      final isOwner = s.players.isNotEmpty && s.players.first.id == s.playerId;
+      return Scaffold(
       appBar: AppBar(title: const Text('Salle d’attente')),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -109,6 +111,18 @@ class WaitingLobby extends ConsumerWidget {
                         ))
                     .toList(),
               ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                final err = isOwner ? await ctl.cancelGame() : await ctl.leaveGame();
+                if (err != null && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(backgroundColor: Colors.red, content: Text(err)),
+                  );
+                }
+              },
+              child: Text(isOwner ? 'Annuler la partie' : 'Quitter la partie'),
             ),
             const SizedBox(height: 12),
             Text('En attente du démarrage automatique à ${s.maxPlayers} joueurs...')
