@@ -53,6 +53,17 @@ export class Orchestrator {
     return { gameId: game.id, playerId: player.id, maxPlayers: game.maxPlayers };
   }
 
+  cancelGame(gameId: string, playerId: string) {
+    const game = this.store.get(gameId);
+    if (!game) throw new Error('game_not_found');
+    if (game.players[0]?.id !== playerId) throw new Error('not_owner');
+    if (game.state !== 'LOBBY') throw new Error('game_already_started');
+    this.store.del(gameId);
+    this.io.to(`room:${gameId}`).emit('game:cancelled', {});
+    this.emitLobbyUpdate();
+    this.log(gameId, 'LOBBY', playerId, 'lobby.cancel');
+  }
+
   resume(gameId: string, playerId: string, socket: Socket) {
     const game = this.store.get(gameId);
     if (!game) throw new Error('game_not_found');

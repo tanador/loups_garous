@@ -81,6 +81,20 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               onPressed: gm.socketConnected ? () => ctl.refreshLobby() : null,
               child: const Text('Actualiser'),
             ),
+            if (gm.gameId != null && gm.phase == GamePhase.LOBBY) ...[
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () async {
+                  final err = await ctl.cancelGame();
+                  if (err != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(backgroundColor: Colors.red, content: Text(err)),
+                    );
+                  }
+                },
+                child: const Text('Annuler ma partie'),
+              ),
+            ],
           ]),
           const SizedBox(height: 16),
           Row(

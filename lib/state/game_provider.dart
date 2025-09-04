@@ -50,6 +50,27 @@ class GameController extends StateNotifier<GameModel> {
     await prefs.remove('playerId');
   }
 
+  void _resetGameState() {
+    state = state.copy(
+      gameId: null,
+      playerId: null,
+      role: null,
+      phase: GamePhase.LOBBY,
+      round: 0,
+      players: [],
+      deadlineMs: null,
+      maxPlayers: 3,
+      wolvesTargets: [],
+      wolvesLockedTargetId: null,
+      confirmationsRemaining: 0,
+      witchWake: null,
+      recap: null,
+      voteAlive: [],
+      lastVote: null,
+      winner: null,
+    );
+  }
+
   // ------------- Socket lifecycle -------------
   Future<void> connect(String url) async {
     final io.Socket s = _socketSvc.connect(url);
@@ -122,6 +143,12 @@ class GameController extends StateNotifier<GameModel> {
       final win = data['winner'] as String?;
       state = state.copy(winner: win, phase: GamePhase.END);
       log('[evt] game:ended winner=$win');
+    });
+
+    s.on('game:cancelled', (_) async {
+      _resetGameState();
+      await _clearSession();
+      log('[evt] game:cancelled');
     });
 
     // --- Night: wolves
@@ -255,6 +282,17 @@ class GameController extends StateNotifier<GameModel> {
     );
     await _setContext();
     await _saveSession();
+    return null;
+  }
+
+  Future<String?> cancelGame() async {
+    final ack = await _socketSvc.emitAck('lobby:cancel', {});
+    log('[ack] lobby:cancel $ack');
+    if (ack['ok'] != true) {
+      return ack['error']?.toString() ?? 'unknown_error';
+    }
+    _resetGameState();
+    await _clearSession();
     return null;
   }
 

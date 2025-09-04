@@ -36,7 +36,7 @@ describe('winner checks', () => {
   });
 
   it('wolves win when no villagers', () => {
-    const g = seedGameV1();
+    const g = seedGame();
     // kill non-wolves
     for (const [pid, role] of Object.entries(g.roles)) {
       if (role !== 'WOLF') g.alive.delete(pid);
