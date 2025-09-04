@@ -42,6 +42,10 @@ class _HomeRouter extends ConsumerWidget {
         (p) => p.id == s.playerId,
         orElse: () => const PlayerView(id: '', connected: true, alive: true));
 
+    // Always display the end screen when the game is over,
+    // even if the local player is dead.
+    if (phase == GamePhase.END) return const EndScreen();
+
     if (!me.alive) return const DeadScreen();
 
     if (s.gameId == null) return const ConnectScreen();
@@ -60,8 +64,6 @@ class _HomeRouter extends ConsumerWidget {
         return const MorningScreen();
       case GamePhase.VOTE:
         return const VoteScreen();
-      case GamePhase.END:
-        return const EndScreen();
       case GamePhase.LOBBY:
       case GamePhase.RESOLVE:
       case GamePhase.CHECK_END:
