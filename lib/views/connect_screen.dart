@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 
@@ -20,6 +21,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   void initState() {
     super.initState();
     _url = TextEditingController(text: Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
+    _loadLastNick();
   }
 
   @override
@@ -27,6 +29,16 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     _url.dispose();
     _nick.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLastNick() async {
+    final prefs = await SharedPreferences.getInstance();
+    _nick.text = prefs.getString('nick') ?? '';
+  }
+
+  Future<void> _saveNick() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('nick', _nick.text.trim());
   }
 
   @override
@@ -42,7 +54,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           TextField(controller: _url, decoration: const InputDecoration(labelText: 'URL serveur (http://IP:3000)')),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: TextField(controller: _nick, decoration: const InputDecoration(labelText: 'Pseudonyme'))),
+            Expanded(
+                child: TextField(
+              controller: _nick,
+              decoration: const InputDecoration(labelText: 'Pseudonyme'),
+              onChanged: (_) => _saveNick(),
+            )),
             const SizedBox(width: 8),
             DropdownButton<String>(
               value: _variant,
@@ -64,6 +81,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ElevatedButton(
               onPressed: gm.socketConnected
                   ? () async {
+                      await _saveNick();
                       final err = await ctl.createGame(_nick.text.trim(), _variant);
                       if (err != null && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +121,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   subtitle: Text('Joueurs ${g.players}/3 • places ${g.slots}'),
                   onTap: gm.socketConnected
                       ? () async {
+                          await _saveNick();
                           final err =
                               await ctl.joinGame(g.id, _nick.text.trim());
                           if (err != null && context.mounted) {
