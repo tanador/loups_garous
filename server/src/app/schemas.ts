@@ -5,7 +5,7 @@ export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 
 export const CreateGameSchema = z.object({
   nickname: zNickname,
-  variant: z.enum(['V1','V2','AUTO']).default('AUTO')
+  maxPlayers: z.union([z.literal(3), z.literal(4)]).default(3)
 });
 
 export const JoinGameSchema = z.object({

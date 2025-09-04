@@ -24,7 +24,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Choisissez une cible (consensus requis en V1).'),
+          const Text('Choisissez une cible (consensus requis s\'il y a plusieurs loups).'),
           const SizedBox(height: 8),
           DeadlineChip(deadlineMs: s.deadlineMs),
           const SizedBox(height: 8),

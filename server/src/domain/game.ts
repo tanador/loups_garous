@@ -1,14 +1,14 @@
 import { id } from './utils.js';
-import { Game, Player, Variant, Role } from './types.js';
+import { Game, Player, Role } from './types.js';
 
-export function createGame(variant: Variant): Game {
+export function createGame(maxPlayers: number): Game {
   return {
     id: id(),
-    variant,
     state: 'LOBBY',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     round: 0,
+    maxPlayers,
     players: [],
     roles: {},
     alive: new Set<string>(),

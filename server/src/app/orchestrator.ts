@@ -1,12 +1,11 @@
 import { Server, Socket } from 'socket.io';
 import { GameStore } from './store.js';
 import { createGame, addPlayer } from '../domain/game.js';
-import { Game, Player, Variant } from '../domain/types.js';
+import { Game, Player } from '../domain/types.js';
 import { assignRoles, wolvesOf, targetsForWolves, targetsForWitch, computeNightDeaths, applyDeaths, computeVoteResult, winner, alivePlayers, witchId, isConsensus } from '../domain/rules.js';
 import { setState, canTransition } from '../domain/fsm.js';
 import { DURATION } from './timers.js';
 import { logger } from '../logger.js';
-import { randomInt } from 'crypto';
 
 type Ack<T = unknown> = (res: { ok: true; data?: T } | { ok: false; error: string; code?: string }) => void;
 
@@ -28,14 +27,13 @@ export class Orchestrator {
     return this.store.listLobby();
   }
 
-  createGame(nickname: string, variant: 'V1'|'V2'|'AUTO', socket: Socket) {
-    const v: Variant = variant === 'AUTO' ? (randomInt(2) === 0 ? 'V1' : 'V2') : variant;
-    const game = createGame(v);
+  createGame(nickname: string, maxPlayers: number, socket: Socket) {
+    const game = createGame(maxPlayers);
     const player: Player = addPlayer(game, { id: nickname, socketId: socket.id });
     this.store.put(game);
     this.bindPlayerToRooms(game, player, socket);
     this.emitLobbyUpdate();
-    this.log(game.id, 'LOBBY', player.id, 'lobby.create', { variant: v });
+    this.log(game.id, 'LOBBY', player.id, 'lobby.create', { maxPlayers });
     this.tryAutostart(game);
     return { gameId: game.id, playerId: player.id };
   }
@@ -44,7 +42,7 @@ export class Orchestrator {
     const game = this.store.get(gameId);
     if (!game) throw new Error('game_not_found');
     if (game.state !== 'LOBBY') throw new Error('game_already_started');
-    if (game.players.length >= 3) throw new Error('game_full');
+    if (game.players.length >= game.maxPlayers) throw new Error('game_full');
 
     const player: Player = addPlayer(game, { id: nickname, socketId: socket.id });
     this.bindPlayerToRooms(game, player, socket);
@@ -85,7 +83,7 @@ export class Orchestrator {
 
   // -------------------- Autostart and Roles --------------------
   private tryAutostart(game: Game) {
-    if (game.players.length === 3 && game.state === 'LOBBY') {
+    if (game.players.length === game.maxPlayers && game.state === 'LOBBY') {
       setState(game, 'ROLES');
       assignRoles(game);
       // attach role rooms
@@ -168,7 +166,7 @@ export class Orchestrator {
   private endNightWolves(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== 'NIGHT_WOLVES') return; // déjà passé
-    // Si pas de consensus V1 ou pas de choix: aucune attaque
+    // Si pas de consensus ou pas de choix: aucune attaque
     const { consensus, target } = isConsensus(game);
     game.night.attacked = consensus ? target : undefined;
 
@@ -361,7 +359,6 @@ export class Orchestrator {
     const publicAlive = Array.from(game.alive.values());
     const sanitized = {
       id: game.id,
-      variant: game.variant,
       state: game.state,
       round: game.round,
       players: game.players.map(p => ({

@@ -181,8 +181,8 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Lobby actions -------------
-  Future<String?> createGame(String nickname, String variant) async {
-    final ack = await _socketSvc.emitAck('lobby:create', {'nickname': nickname, 'variant': variant});
+  Future<String?> createGame(String nickname, int maxPlayers) async {
+    final ack = await _socketSvc.emitAck('lobby:create', {'nickname': nickname, 'maxPlayers': maxPlayers});
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
