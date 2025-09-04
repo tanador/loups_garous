@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import 'game_options_screen.dart';
 
 class ConnectScreen extends ConsumerStatefulWidget {
   const ConnectScreen({super.key});
@@ -15,7 +16,6 @@ class ConnectScreen extends ConsumerStatefulWidget {
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController();
-  int _maxPlayers = 3;
 
   @override
   void initState() {
@@ -53,23 +53,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           TextField(controller: _url, decoration: const InputDecoration(labelText: 'URL serveur (http://IP:3000)')),
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-                child: TextField(
-              controller: _nick,
-              decoration: const InputDecoration(labelText: 'Pseudonyme'),
-              onChanged: (_) => _saveNick(),
-            )),
-            const SizedBox(width: 8),
-            DropdownButton<int>(
-              value: _maxPlayers,
-              items: const [
-                DropdownMenuItem(value: 3, child: Text('3 joueurs')),
-                DropdownMenuItem(value: 4, child: Text('4 joueurs')),
-              ],
-              onChanged: (v) => setState(() => _maxPlayers = v ?? 3),
-            ),
-          ]),
+          TextField(
+            controller: _nick,
+            decoration: const InputDecoration(labelText: 'Pseudonyme'),
+            onChanged: (_) => _saveNick(),
+          ),
           const SizedBox(height: 8),
           Row(children: [
             ElevatedButton(
@@ -81,12 +69,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               onPressed: gm.socketConnected
                   ? () async {
                       await _saveNick();
-                      final err = await ctl.createGame(_nick.text.trim(), _maxPlayers);
-                      if (err != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(backgroundColor: Colors.red, content: Text(err)),
-                        );
-                      }
+                      if (!context.mounted) return;
+                      await Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => GameOptionsScreen(nickname: _nick.text.trim())));
                     }
                   : null,
               child: const Text('Créer partie'),
