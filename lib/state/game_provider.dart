@@ -127,7 +127,13 @@ class GameController extends StateNotifier<GameModel> {
           .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
           .toList();
       final recap = DayRecap(deaths: deaths);
-      state = state.copy(recap: recap);
+      final deadIds = deaths.map((d) => d.$1).toSet();
+      final updatedPlayers = state.players
+          .map((p) => deadIds.contains(p.id)
+              ? PlayerView(id: p.id, connected: p.connected, alive: false)
+              : p)
+          .toList();
+      state = state.copy(recap: recap, players: updatedPlayers);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] day:recap deaths=${deaths.length}');
     });
@@ -150,7 +156,15 @@ class GameController extends StateNotifier<GameModel> {
         role: data['role'] as String?,
         tally: tallyMap,
       );
-      state = state.copy(lastVote: vr);
+      final elimId = vr.eliminatedId;
+      final updatedPlayers = elimId == null
+          ? state.players
+          : state.players
+              .map((p) => p.id == elimId
+                  ? PlayerView(id: p.id, connected: p.connected, alive: false)
+                  : p)
+              .toList();
+      state = state.copy(lastVote: vr, players: updatedPlayers);
       log('[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
   }

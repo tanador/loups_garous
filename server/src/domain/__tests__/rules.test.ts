@@ -34,4 +34,13 @@ describe('winner checks', () => {
     }
     expect(winner(g)).toBe('VILLAGE');
   });
+
+  it('wolves win when no villagers', () => {
+    const g = seedGameV1();
+    // kill non-wolves
+    for (const [pid, role] of Object.entries(g.roles)) {
+      if (role !== 'WOLF') g.alive.delete(pid);
+    }
+    expect(winner(g)).toBe('WOLVES');
+  });
 });
