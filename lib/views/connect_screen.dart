@@ -45,6 +45,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   Widget build(BuildContext context) {
     final gm = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
+    if (_url.text != gm.serverUrl) {
+      _url.text = gm.serverUrl;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Connexion & Lobby')),

@@ -1,6 +1,8 @@
 import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -8,17 +10,85 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 final gameProvider = StateNotifierProvider<GameController, GameModel>((ref) => GameController());
 
 class GameController extends StateNotifier<GameModel> {
-  GameController() : super(GameModel.initial());
+  GameController() : super(GameModel.initial()) {
+    _init();
+  }
 
   final _socketSvc = SocketService();
+  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+
+  Future<void> _init() async {
+    final prefs = await _prefs;
+    final url = prefs.getString('serverUrl');
+    final gid = prefs.getString('gameId');
+    final pid = prefs.getString('playerId');
+    final phaseStr = prefs.getString('phase');
+    final roleStr = prefs.getString('role');
+    final vib = prefs.getBool('vibrations');
+    GamePhase phase = state.phase;
+    if (phaseStr != null) {
+      try {
+        phase = phaseFromStr(phaseStr);
+      } catch (_) {}
+    }
+    Role? role;
+    if (roleStr != null) {
+      try {
+        role = roleFromStr(roleStr);
+      } catch (_) {}
+    }
+    state = state.copy(
+      serverUrl: url ?? state.serverUrl,
+      gameId: gid,
+      playerId: pid,
+      phase: phase,
+      role: role,
+      vibrations: vib ?? state.vibrations,
+    );
+    if (url != null) {
+      await connect(url);
+    }
+  }
+
+  Future<void> _persist() async {
+    final prefs = await _prefs;
+    await prefs.setString('serverUrl', state.serverUrl);
+    await prefs.setBool('vibrations', state.vibrations);
+    if (state.gameId != null) {
+      await prefs.setString('gameId', state.gameId!);
+    } else {
+      await prefs.remove('gameId');
+    }
+    if (state.playerId != null) {
+      await prefs.setString('playerId', state.playerId!);
+    } else {
+      await prefs.remove('playerId');
+    }
+    await prefs.setString('phase', describeEnum(state.phase));
+    if (state.role != null) {
+      await prefs.setString('role', describeEnum(state.role!));
+    } else {
+      await prefs.remove('role');
+    }
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await _prefs;
+    await prefs.remove('gameId');
+    await prefs.remove('playerId');
+    await prefs.remove('phase');
+    await prefs.remove('role');
+  }
 
   // ------------- Socket lifecycle -------------
   Future<void> connect(String url) async {
     final io.Socket s = _socketSvc.connect(url);
     state = state.copy(serverUrl: url, socketConnected: false);
+    await _persist();
 
     s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
+      await _persist();
       log('[event] connect');
       // If we have a session, resume
       if (state.gameId != null && state.playerId != null) {
@@ -51,6 +121,7 @@ class GameController extends StateNotifier<GameModel> {
     s.on('role:assigned', (data) {
       final role = roleFromStr(data['role']);
       state = state.copy(role: role, phase: GamePhase.ROLES);
+      _persist();
       log('[evt] role:assigned $role');
     });
 
@@ -58,6 +129,7 @@ class GameController extends StateNotifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       state = state.copy(phase: phase, deadlineMs: deadline);
+      _persist();
       log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
@@ -75,12 +147,14 @@ class GameController extends StateNotifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline);
+      _persist();
       log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
     s.on('game:ended', (data) {
       final win = data['winner'] as String?;
       state = state.copy(winner: win, phase: GamePhase.END);
+      _persist();
       log('[evt] game:ended winner=$win');
     });
 
@@ -195,6 +269,7 @@ class GameController extends StateNotifier<GameModel> {
       players: [], // filled by snapshot/state changes
     );
     await _setContext();
+    await _persist();
     return null;
   }
 
@@ -211,6 +286,7 @@ class GameController extends StateNotifier<GameModel> {
       playerId: data['playerId'],
     );
     await _setContext();
+    await _persist();
     return null;
   }
 
@@ -218,6 +294,7 @@ class GameController extends StateNotifier<GameModel> {
 
   Future<void> toggleVibrations(bool on) async {
     state = state.copy(vibrations: on);
+    await _persist();
   }
 
   // ------------- Context & ready -------------
@@ -263,6 +340,10 @@ class GameController extends StateNotifier<GameModel> {
   // ------------- Reset -------------
   Future<void> leaveToHome() async {
     _socketSvc.dispose();
-    state = GameModel.initial();
+    final url = state.serverUrl;
+    final vib = state.vibrations;
+    state = GameModel.initial().copy(serverUrl: url, vibrations: vib);
+    await _clearSession();
+    await _persist();
   }
 }
