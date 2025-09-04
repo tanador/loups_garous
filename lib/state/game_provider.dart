@@ -1,21 +1,60 @@
 import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-final gameProvider = StateNotifierProvider<GameController, GameModel>((ref) => GameController());
+final gameProvider =
+    StateNotifierProvider<GameController, GameModel>((ref) => GameController());
 
 class GameController extends StateNotifier<GameModel> {
-  GameController() : super(GameModel.initial());
+  GameController() : super(GameModel.initial()) {
+    _restoreSession();
+  }
 
   final _socketSvc = SocketService();
+
+  Future<void> _restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final url = prefs.getString('serverUrl');
+    final gameId = prefs.getString('gameId');
+    final playerId = prefs.getString('playerId');
+    if (url != null) {
+      state = state.copy(serverUrl: url, gameId: gameId, playerId: playerId);
+      if (gameId != null && playerId != null) {
+        connect(url);
+      }
+    }
+  }
+
+  Future<void> _saveSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('serverUrl', state.serverUrl);
+    if (state.gameId != null) {
+      await prefs.setString('gameId', state.gameId!);
+    } else {
+      await prefs.remove('gameId');
+    }
+    if (state.playerId != null) {
+      await prefs.setString('playerId', state.playerId!);
+    } else {
+      await prefs.remove('playerId');
+    }
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('gameId');
+    await prefs.remove('playerId');
+  }
 
   // ------------- Socket lifecycle -------------
   Future<void> connect(String url) async {
     final io.Socket s = _socketSvc.connect(url);
     state = state.copy(serverUrl: url, socketConnected: false);
+    await _saveSession();
 
     s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
@@ -197,6 +236,7 @@ class GameController extends StateNotifier<GameModel> {
       players: [], // filled by snapshot/state changes
     );
     await _setContext();
+    await _saveSession();
     return null;
   }
 
@@ -214,6 +254,7 @@ class GameController extends StateNotifier<GameModel> {
       maxPlayers: data['maxPlayers'] as int? ?? state.maxPlayers,
     );
     await _setContext();
+    await _saveSession();
     return null;
   }
 
@@ -267,5 +308,6 @@ class GameController extends StateNotifier<GameModel> {
   Future<void> leaveToHome() async {
     _socketSvc.dispose();
     state = GameModel.initial();
+    await _clearSession();
   }
 }
