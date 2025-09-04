@@ -233,10 +233,6 @@ export class Orchestrator {
 
   private beginMorning(game: Game) {
     if (!canTransition(game, game.state, 'MORNING')) return;
-    setState(game, 'MORNING');
-    game.morningAcks.clear();
-    this.setDeadline(game, DURATION.MORNING_MS);
-    this.broadcastState(game);
 
     const deaths = computeNightDeaths(game);
     applyDeaths(game, deaths);
@@ -245,6 +241,20 @@ export class Orchestrator {
     };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
     this.log(game.id, game.state, undefined, 'day.recap', { deaths: deaths.length });
+
+    const win = winner(game);
+    if (win) {
+      setState(game, 'END');
+      this.broadcastState(game);
+      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win });
+      this.log(game.id, 'END', undefined, 'game.end', { winner: win });
+      return;
+    }
+
+    setState(game, 'MORNING');
+    game.morningAcks.clear();
+    this.setDeadline(game, DURATION.MORNING_MS);
+    this.broadcastState(game);
 
     // attente des acks OU timeout
     this.schedule(game.id, DURATION.MORNING_MS, () => this.beginVote(game));

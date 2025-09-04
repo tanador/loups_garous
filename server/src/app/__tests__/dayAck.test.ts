@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator } from '../orchestrator.js';
 import { createGame, addPlayer } from '../../domain/game.js';
+import { assignRoles } from '../../domain/rules.js';
 
 function fakeIo() {
   return {
@@ -18,6 +19,7 @@ describe('morning acknowledgements', () => {
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
+    assignRoles(g);
     (orch as any).store.put(g);
 
     g.state = 'NIGHT_WITCH';
