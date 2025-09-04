@@ -44,3 +44,13 @@ export function addPlayer(game: Game, p: { id: string; socketId: string; role?: 
   game.updatedAt = Date.now();
   return player;
 }
+
+export function removePlayer(game: Game, playerId: string): void {
+  game.players = game.players.filter(p => p.id !== playerId);
+  game.alive.delete(playerId);
+  delete game.roles[playerId];
+  delete game.wolvesChoices[playerId];
+  delete game.votes[playerId];
+  game.morningAcks.delete(playerId);
+  game.updatedAt = Date.now();
+}

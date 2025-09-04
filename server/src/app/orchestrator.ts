@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { GameStore } from './store.js';
-import { createGame, addPlayer } from '../domain/game.js';
+import { createGame, addPlayer, removePlayer } from '../domain/game.js';
 import { Game, Player } from '../domain/types.js';
 import { assignRoles, wolvesOf, targetsForWolves, targetsForWitch, computeNightDeaths, applyDeaths, computeVoteResult, winner, alivePlayers, witchId, isConsensus } from '../domain/rules.js';
 import { setState, canTransition } from '../domain/fsm.js';
@@ -62,6 +62,25 @@ export class Orchestrator {
     this.io.to(`room:${gameId}`).emit('game:cancelled', {});
     this.emitLobbyUpdate();
     this.log(gameId, 'LOBBY', playerId, 'lobby.cancel');
+  }
+
+  leaveGame(gameId: string, playerId: string) {
+    const game = this.store.get(gameId);
+    if (!game) throw new Error('game_not_found');
+    if (game.state !== 'LOBBY') throw new Error('game_already_started');
+    if (game.players[0]?.id === playerId) {
+      this.cancelGame(gameId, playerId);
+      return;
+    }
+    const player = game.players.find(p => p.id === playerId);
+    if (!player) throw new Error('player_not_found');
+    removePlayer(game, playerId);
+    this.store.put(game);
+    this.emitLobbyUpdate();
+    for (const p of game.players) {
+      this.sendSnapshot(game, p.id);
+    }
+    this.log(gameId, 'LOBBY', playerId, 'lobby.leave');
   }
 
   resume(gameId: string, playerId: string, socket: Socket) {
