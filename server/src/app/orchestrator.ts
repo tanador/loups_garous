@@ -35,7 +35,7 @@ export class Orchestrator {
     this.emitLobbyUpdate();
     this.log(game.id, 'LOBBY', player.id, 'lobby.create', { maxPlayers });
     this.tryAutostart(game);
-    return { gameId: game.id, playerId: player.id };
+    return { gameId: game.id, playerId: player.id, maxPlayers: game.maxPlayers };
   }
 
   joinGame(gameId: string, nickname: string, socket: Socket) {
@@ -50,7 +50,7 @@ export class Orchestrator {
     this.emitLobbyUpdate();
     this.log(game.id, 'LOBBY', player.id, 'lobby.join');
     this.tryAutostart(game);
-    return { gameId: game.id, playerId: player.id };
+    return { gameId: game.id, playerId: player.id, maxPlayers: game.maxPlayers };
   }
 
   resume(gameId: string, playerId: string, socket: Socket) {
@@ -364,6 +364,7 @@ export class Orchestrator {
       players: game.players.map(p => ({
         id: p.id, connected: p.connected, alive: game.alive.has(p.id)
       })),
+      maxPlayers: game.maxPlayers,
       you: { id: you.id, role: game.roles[you.id] },
       night: {
         attacked: (game.state === 'NIGHT_WITCH' && game.roles[you.id] === 'WITCH') ? game.night.attacked : undefined,

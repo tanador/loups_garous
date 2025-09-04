@@ -95,7 +95,7 @@ class WaitingLobby extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text('Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/3'),
+            Text('Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/${s.maxPlayers}'),
             const SizedBox(height: 12),
             Expanded(
               child: ListView(
@@ -109,7 +109,7 @@ class WaitingLobby extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text('En attente du démarrage automatique à 3 joueurs...')
+            Text('En attente du démarrage automatique à ${s.maxPlayers} joueurs...')
           ],
         ),
       ),

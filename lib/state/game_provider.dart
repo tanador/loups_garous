@@ -74,7 +74,8 @@ class GameController extends StateNotifier<GameModel> {
       final role = roleFromStr(data['you']['role']);
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
-      state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline);
+      final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
+      state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline, maxPlayers: maxPlayers);
       log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
@@ -189,9 +190,10 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
-      state = state.copy(
+    state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
+      maxPlayers: data['maxPlayers'] as int? ?? maxPlayers,
       players: [], // filled by snapshot/state changes
     );
     await _setContext();
@@ -209,6 +211,7 @@ class GameController extends StateNotifier<GameModel> {
     state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
+      maxPlayers: data['maxPlayers'] as int? ?? state.maxPlayers,
     );
     await _setContext();
     return null;

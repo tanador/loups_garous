@@ -59,6 +59,7 @@ class GameModel {
   final int round;
   final List<PlayerView> players;
   final int? deadlineMs;
+  final int maxPlayers;
 
   // transient payloads
   final List<Lite> wolvesTargets;
@@ -84,6 +85,7 @@ class GameModel {
     required this.round,
     required this.players,
     required this.deadlineMs,
+    required this.maxPlayers,
     required this.wolvesTargets,
     required this.wolvesLockedTargetId,
     required this.confirmationsRemaining,
@@ -106,6 +108,7 @@ class GameModel {
         round: 0,
         players: [],
         deadlineMs: null,
+        maxPlayers: 3,
         wolvesTargets: [],
         wolvesLockedTargetId: null,
         confirmationsRemaining: 0,
@@ -128,6 +131,7 @@ class GameModel {
     int? round,
     List<PlayerView>? players,
     int? deadlineMs,
+    int? maxPlayers,
     List<Lite>? wolvesTargets,
     String? wolvesLockedTargetId,
     int? confirmationsRemaining,
@@ -149,6 +153,7 @@ class GameModel {
       round: round ?? this.round,
       players: players ?? this.players,
       deadlineMs: deadlineMs ?? this.deadlineMs,
+      maxPlayers: maxPlayers ?? this.maxPlayers,
       wolvesTargets: wolvesTargets ?? this.wolvesTargets,
       wolvesLockedTargetId: wolvesLockedTargetId ?? this.wolvesLockedTargetId,
       confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
