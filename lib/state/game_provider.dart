@@ -153,6 +153,9 @@ class GameController extends StateNotifier<GameModel> {
       state = state.copy(lastVote: vr);
       log('[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
+
+    // Initiate connection after all listeners are registered to avoid missing early events
+    s.connect();
   }
 
   Future<void> _listGames() async {
