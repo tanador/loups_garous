@@ -3,7 +3,6 @@ export type GameState =
   | 'MORNING' | 'VOTE' | 'RESOLVE' | 'CHECK_END' | 'END';
 
 export type Role = 'WOLF' | 'WITCH' | 'VILLAGER';
-export type Variant = 'V1' | 'V2';
 
 export interface Player {
   id: string; // player's nickname (unique)
@@ -28,11 +27,11 @@ export interface HistoryEvent {
 
 export interface Game {
   id: string;
-  variant: Variant;
   state: GameState;
   createdAt: number;
   updatedAt: number;
   round: number;
+  maxPlayers: number;
   players: Player[];
   roles: Record<string, Role>; // nickname -> role
   alive: Set<string>; // set of nicknames

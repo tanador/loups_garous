@@ -8,12 +8,12 @@ Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s
 
 class LobbyGameInfo {
   final String id;
-  final String variant;
   final int players;
   final int slots;
-  LobbyGameInfo({required this.id, required this.variant, required this.players, required this.slots});
+  final int maxPlayers;
+  LobbyGameInfo({required this.id, required this.players, required this.slots, required this.maxPlayers});
   factory LobbyGameInfo.fromJson(Map<String, dynamic> j) =>
-      LobbyGameInfo(id: j['id'], variant: j['variant'], players: j['players'], slots: j['slots']);
+      LobbyGameInfo(id: j['id'], players: j['players'], slots: j['slots'], maxPlayers: j['maxPlayers']);
 }
 
 class PlayerView {

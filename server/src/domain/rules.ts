@@ -1,11 +1,16 @@
-import { Game, Role, Variant } from './types.js';
+import { randomInt } from 'crypto';
+import { Game, Role } from './types.js';
 import { secureShuffle } from './utils.js';
 
-export function assignRoles(game: Game): void {
+export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
   const players = secureShuffle(game.players.map(p => p.id));
-  const roles: Role[] = game.variant === 'V1'
-    ? ['WITCH', 'WOLF', 'WOLF']
-    : ['WITCH', 'WOLF', 'VILLAGER'];
+  let roles: Role[] = [];
+  if (game.maxPlayers === 3) {
+    roles = ['WITCH', 'WOLF', 'VILLAGER'];
+  } else if (game.maxPlayers === 4) {
+    const wolves = rng(2) + 1; // 1 or 2 wolves
+    roles = ['WITCH', ...Array(wolves).fill('WOLF'), ...Array(4 - wolves - 1).fill('VILLAGER')];
+  }
 
   const assigned: Record<string, Role> = {};
   players.forEach((pid, idx) => (assigned[pid] = roles[idx]));

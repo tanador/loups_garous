@@ -54,7 +54,7 @@ export function createSocketServer(httpServer: HttpServer) {
     });
 
     handle(socket, 'lobby:create', CreateGameSchema, (data, ack) => {
-      const res = orch.createGame(data.nickname, data.variant, socket);
+      const res = orch.createGame(data.nickname, data.maxPlayers, socket);
       if (typeof ack === 'function') {
         ack({ ok: true, data: res });
       }

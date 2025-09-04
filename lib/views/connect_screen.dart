@@ -15,7 +15,7 @@ class ConnectScreen extends ConsumerStatefulWidget {
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController();
-  String _variant = 'AUTO';
+  int _maxPlayers = 3;
 
   @override
   void initState() {
@@ -61,14 +61,13 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               onChanged: (_) => _saveNick(),
             )),
             const SizedBox(width: 8),
-            DropdownButton<String>(
-              value: _variant,
+            DropdownButton<int>(
+              value: _maxPlayers,
               items: const [
-                DropdownMenuItem(value: 'AUTO', child: Text('AUTO')),
-                DropdownMenuItem(value: 'V1', child: Text('V1: 2 Loups + 1 Sorcière')),
-                DropdownMenuItem(value: 'V2', child: Text('V2: Loup + Sorcière + Villageois')),
+                DropdownMenuItem(value: 3, child: Text('3 joueurs')),
+                DropdownMenuItem(value: 4, child: Text('4 joueurs')),
               ],
-              onChanged: (v) => setState(() => _variant = v ?? 'AUTO'),
+              onChanged: (v) => setState(() => _maxPlayers = v ?? 3),
             ),
           ]),
           const SizedBox(height: 8),
@@ -82,7 +81,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               onPressed: gm.socketConnected
                   ? () async {
                       await _saveNick();
-                      final err = await ctl.createGame(_nick.text.trim(), _variant);
+                      final err = await ctl.createGame(_nick.text.trim(), _maxPlayers);
                       if (err != null && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(backgroundColor: Colors.red, content: Text(err)),
@@ -117,8 +116,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
               itemBuilder: (context, i) {
                 final g = gm.lobby[i];
                 return ListTile(
-                  title: Text('${g.id} • ${g.variant}'),
-                  subtitle: Text('Joueurs ${g.players}/3 • places ${g.slots}'),
+                  title: Text(g.id),
+                  subtitle: Text('Joueurs ${g.players}/${g.maxPlayers} • places ${g.slots}'),
                   onTap: gm.socketConnected
                       ? () async {
                           await _saveNick();

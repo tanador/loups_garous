@@ -4,7 +4,7 @@ import { assignRoles, computeVoteResult } from '../rules.js';
 
 describe('vote ties', () => {
   it('no elimination on tie', () => {
-    const g = createGame('V2');
+    const g = createGame(3);
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
