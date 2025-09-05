@@ -25,6 +25,7 @@ describe('assign roles', () => {
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(2);
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
+    expect(roles.filter(r => r === 'HUNTER').length).toBe(1);
   });
 
   it('4-player game can have 1 wolf', () => {
@@ -37,7 +38,8 @@ describe('assign roles', () => {
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(1);
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
-    expect(roles.filter(r => r === 'VILLAGER').length).toBe(2);
+    expect(roles.filter(r => r === 'HUNTER').length).toBe(1);
+    expect(roles.filter(r => r === 'VILLAGER').length).toBe(1);
   });
 });
 

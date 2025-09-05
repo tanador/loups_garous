@@ -9,7 +9,7 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
     roles = ['WITCH', 'WOLF', 'VILLAGER'];
   } else if (game.maxPlayers === 4) {
     const wolves = rng(2) + 1; // 1 or 2 wolves
-    roles = ['WITCH', ...Array(wolves).fill('WOLF'), ...Array(4 - wolves - 1).fill('VILLAGER')];
+    roles = ['WITCH', 'HUNTER', ...Array(wolves).fill('WOLF'), ...Array(4 - wolves - 2).fill('VILLAGER')];
   }
 
   const assigned: Record<string, Role> = {};
@@ -46,8 +46,25 @@ export function computeNightDeaths(game: Game): string[] {
   return Array.from(deaths);
 }
 
-export function applyDeaths(game: Game, deaths: string[]): void {
-  deaths.forEach(pid => game.alive.delete(pid));
+export function applyDeaths(
+  game: Game,
+  initialDeaths: string[],
+  askHunter?: (hunterId: string, alive: string[]) => string | undefined
+): string[] {
+  const queue = [...initialDeaths];
+  const resolved: string[] = [];
+  while (queue.length > 0) {
+    const victim = queue.shift()!;
+    if (!game.alive.has(victim)) continue;
+    resolved.push(victim);
+    game.alive.delete(victim);
+    if (game.roles[victim] === 'HUNTER' && askHunter) {
+      const alive = alivePlayers(game).filter(pid => pid !== victim);
+      const target = askHunter(victim, alive);
+      if (target && game.alive.has(target)) queue.push(target);
+    }
+  }
+  return resolved;
 }
 
 export function computeVoteResult(game: Game): { eliminated: string | null; tally: Record<string, number> } {

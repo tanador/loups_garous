@@ -264,8 +264,8 @@ export class Orchestrator {
   private beginMorning(game: Game) {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
-    const deaths = computeNightDeaths(game);
-    applyDeaths(game, deaths);
+    const initial = computeNightDeaths(game);
+    const deaths = applyDeaths(game, initial, (hid, alive) => this.askHunterTarget(game, hid, alive));
     // always push a fresh snapshot so clients learn about deaths immediately
     for (const p of game.players) {
       this.sendSnapshot(game, p.id);
@@ -335,7 +335,9 @@ export class Orchestrator {
     if (game.state !== 'VOTE') return;
     const { eliminated, tally } = computeVoteResult(game);
     setState(game, 'RESOLVE');
-    if (eliminated) game.alive.delete(eliminated);
+    if (eliminated) {
+      applyDeaths(game, [eliminated], (hid, alive) => this.askHunterTarget(game, hid, alive));
+    }
 
     this.io.to(`room:${game.id}`).emit('vote:results', {
       eliminatedId: eliminated ?? null,
@@ -387,6 +389,10 @@ export class Orchestrator {
   private playerLite(game: Game, pid: string) {
     const p = game.players.find(x => x.id === pid)!;
     return { id: p.id };
+  }
+
+  private askHunterTarget(_game: Game, _hunterId: string, alive: string[]): string | undefined {
+    return alive[0];
   }
 
   private broadcastState(game: Game) {
