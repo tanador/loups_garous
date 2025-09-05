@@ -316,12 +316,14 @@ class GameController extends StateNotifier<GameModel> {
       'playerId': state.playerId,
     });
     log('[ack] lobby:cancel $ack');
+    String? err;
     if (ack['ok'] != true) {
-      return ack['error']?.toString() ?? 'unknown_error';
+      err = ack['error']?.toString() ?? 'unknown_error';
+      log('cancelGame error: ' + err);
     }
     _resetGameState();
     await _clearSession();
-    return null;
+    return err;
   }
 
   Future<String?> leaveGame() async {
@@ -330,12 +332,14 @@ class GameController extends StateNotifier<GameModel> {
       'playerId': state.playerId,
     });
     log('[ack] lobby:leave $ack');
+    String? err;
     if (ack['ok'] != true) {
-      return ack['error']?.toString() ?? 'unknown_error';
+      err = ack['error']?.toString() ?? 'unknown_error';
+      log('leaveGame error: ' + err);
     }
     _resetGameState();
     await _clearSession();
-    return null;
+    return err;
   }
 
   Future<void> refreshLobby() => _listGames();
