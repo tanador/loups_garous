@@ -207,23 +207,28 @@ export class Orchestrator {
   private beginNightWitch(game: Game) {
     if (!canTransition(game, game.state, 'NIGHT_WITCH')) return;
     setState(game, 'NIGHT_WITCH');
+
+    const wid = witchId(game);
+    // S'il n'y a pas de sorcière vivante, on saute directement à la phase suivante
+    if (!wid) {
+      this.broadcastState(game);
+      return this.beginMorning(game);
+    }
+
     this.setDeadline(game, DURATION.WITCH_MS);
     this.broadcastState(game);
 
-    const wid = witchId(game);
-    if (wid) {
-      const attacked = game.night.attacked;
-      const s = this.io.sockets.sockets.get(this.playerSocket(game, wid));
-      if (s) {
-        s.emit('witch:wake', {
-          attacked,
-          healAvailable: !game.inventory.witch.healUsed && !!attacked,
-          poisonAvailable: !game.inventory.witch.poisonUsed,
-          alive: targetsForWitch(game).map(pid => this.playerLite(game, pid))
-        });
-      }
-      this.log(game.id, game.state, wid, 'witch.wake', { attacked: attacked ?? null });
+    const attacked = game.night.attacked;
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, wid));
+    if (s) {
+      s.emit('witch:wake', {
+        attacked,
+        healAvailable: !game.inventory.witch.healUsed && !!attacked,
+        poisonAvailable: !game.inventory.witch.poisonUsed,
+        alive: targetsForWitch(game).map(pid => this.playerLite(game, pid))
+      });
     }
+    this.log(game.id, game.state, wid, 'witch.wake', { attacked: attacked ?? null });
 
     this.schedule(game.id, DURATION.WITCH_MS, () => this.endNightWitch(game.id));
   }
