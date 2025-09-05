@@ -19,35 +19,38 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
 
   const roleNames = Object.keys(cfg) as Role[];
   roleNames.sort();
-  const counts: Record<Role, number> = {};
-  let remaining = game.maxPlayers;
-  for (const r of roleNames) {
-    counts[r] = cfg[r].min;
-    remaining -= cfg[r].min;
-  }
-  const flexRoles = roleNames.filter(r => cfg[r].max > cfg[r].min);
-  const capacities = flexRoles.map(r => cfg[r].max - cfg[r].min);
 
-  while (remaining > 0 && flexRoles.length > 0) {
-    const idx = rng(flexRoles.length);
-    const role = flexRoles[idx];
-    counts[role]++;
-    capacities[idx]--;
-    remaining--;
-    if (capacities[idx] === 0) {
-      flexRoles.splice(idx, 1);
-      capacities.splice(idx, 1);
+  // enumerate all valid role distributions
+  const distributions: Record<Role, number>[] = [];
+  const total = game.maxPlayers;
+
+  function backtrack(idx: number, remaining: number, current: Record<Role, number>) {
+    if (idx === roleNames.length) {
+      if (remaining === 0) distributions.push({ ...current });
+      return;
+    }
+    const role = roleNames[idx];
+    const { min, max } = cfg[role];
+    for (let c = min; c <= max; c++) {
+      if (c > remaining) break;
+      current[role] = c;
+      backtrack(idx + 1, remaining - c, current);
     }
   }
-  if (remaining !== 0) throw new Error('invalid_role_config');
+
+  backtrack(0, total, {});
+  if (distributions.length === 0) throw new Error('invalid_role_config');
+
+  const counts = distributions[rng(distributions.length)];
 
   const roles: Role[] = [];
   for (const r of roleNames) {
     roles.push(...Array(counts[r]).fill(r));
   }
 
+  const shuffledRoles = secureShuffle(roles);
   const assigned: Record<string, Role> = {};
-  players.forEach((pid, idx) => (assigned[pid] = roles[idx]));
+  players.forEach((pid, idx) => (assigned[pid] = shuffledRoles[idx]));
   game.roles = assigned;
   game.players.forEach(p => (p.role = assigned[p.id]));
 }
