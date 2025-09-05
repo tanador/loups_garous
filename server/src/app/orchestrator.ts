@@ -282,39 +282,53 @@ export class Orchestrator {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
     const initial = computeNightDeaths(game);
-    const { deaths, hunterShots } = await applyDeaths(
-      game,
-      initial,
-      (hid, alive) => this.askHunterTarget(game, hid, alive)
-    );
-    // always push a fresh snapshot so clients learn about deaths immediately
+    const { deaths } = await applyDeaths(game, initial);
+
+    // informer immédiatement les clients des morts de la nuit
     for (const p of game.players) {
       this.sendSnapshot(game, p.id);
     }
     const recap = {
       deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
-      hunterKills: hunterShots.map(s => ({ hunterId: s.hunterId, targetId: s.targetId })),
+      hunterKills: [] as { hunterId: string; targetId: string }[],
     };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
     this.log(game.id, game.state, undefined, 'day.recap', {
       deaths: deaths.length,
-      hunterKills: hunterShots.length,
+      hunterKills: 0,
     });
+
+    setState(game, 'MORNING');
+    this.broadcastState(game);
+
+    // si un chasseur est mort, il agit maintenant
+    const deadHunters = deaths.filter(pid => game.roles[pid] === 'HUNTER');
+    for (const hid of deadHunters) {
+      const target = await this.askHunterTarget(game, hid, alivePlayers(game));
+      if (target && game.alive.has(target)) {
+        const res = await applyDeaths(game, [target], (h, alive) => this.askHunterTarget(game, h, alive));
+        // mise à jour des clients sur les nouveaux morts
+        for (const p of game.players) {
+          this.sendSnapshot(game, p.id);
+        }
+        for (const s of res.hunterShots) {
+          recap.hunterKills.push({ hunterId: s.hunterId, targetId: s.targetId });
+          this.io.to(`room:${game.id}`).emit('day:hunterKill', { targetId: s.targetId });
+          this.log(game.id, 'HUNTER', s.hunterId, 'hunter.kill', { targetId: s.targetId });
+        }
+      }
+    }
 
     const win = winner(game);
     if (win) {
       setState(game, 'END');
       this.broadcastState(game);
-      const roles = game.players.map(p => ({
-        playerId: p.id,
-        role: game.roles[p.id]
-      }));
+      const roles = game.players.map(p => ({ playerId: p.id, role: game.roles[p.id] }));
       this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
       this.log(game.id, 'END', undefined, 'game.end', { winner: win });
       return;
     }
 
-    setState(game, 'MORNING');
     game.morningAcks.clear();
     this.setDeadline(game, DURATION.MORNING_MS);
     this.broadcastState(game);
