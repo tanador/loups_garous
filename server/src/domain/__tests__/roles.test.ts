@@ -3,16 +3,27 @@ import { createGame, addPlayer } from '../game.js';
 import { assignRoles, targetsForWitch, canBeSaved } from '../rules.js';
 
 describe('assign roles', () => {
-  it('3-player game has 1 wolf, 1 witch and 1 villager', () => {
+  it('3-player game can have 2 wolves', () => {
     const g = createGame(3);
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
-    assignRoles(g);
+    assignRoles(g, () => 0); // distribution: 2 wolves + 1 witch
+    const roles = Object.values(g.roles);
+    expect(roles.filter(r => r === 'WOLF').length).toBe(2);
+    expect(roles.filter(r => r === 'WITCH').length).toBe(1);
+  });
+
+  it('3-player game can have 1 wolf', () => {
+    const g = createGame(3);
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
+    assignRoles(g, () => 4); // distribution: wolf + witch + hunter
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(1);
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
-    expect(roles.filter(r => r === 'VILLAGER').length).toBe(1);
+    expect(roles.filter(r => r === 'HUNTER').length).toBe(1);
   });
 
   it('4-player game can have 2 wolves', () => {
@@ -21,7 +32,7 @@ describe('assign roles', () => {
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
     addPlayer(g, { id: 'D', socketId: 'sD' });
-    assignRoles(g, () => 1); // force 2 wolves
+    assignRoles(g, () => 0); // distribution: 2 wolves
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(2);
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
@@ -34,7 +45,7 @@ describe('assign roles', () => {
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
     addPlayer(g, { id: 'D', socketId: 'sD' });
-    assignRoles(g, () => 0); // force 1 wolf
+    assignRoles(g, () => 1); // distribution: 1 wolf + 1 villager
     const roles = Object.values(g.roles);
     expect(roles.filter(r => r === 'WOLF').length).toBe(1);
     expect(roles.filter(r => r === 'WITCH').length).toBe(1);
@@ -49,7 +60,7 @@ describe('witch mechanics', () => {
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
-    assignRoles(g);
+    assignRoles(g, () => 4); // ensure a witch is present
     const wid = g.players.find(p => g.roles[p.id] === 'WITCH')!.id;
     const targets = targetsForWitch(g);
     expect(targets).not.toContain(wid);
@@ -60,7 +71,7 @@ describe('witch mechanics', () => {
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
-    assignRoles(g);
+    assignRoles(g, () => 4); // ensure a witch is present
     g.night.attacked = 'A';
     expect(canBeSaved(g, 'A')).toBe(true);
     g.inventory.witch.healUsed = true;
