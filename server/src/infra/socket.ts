@@ -67,28 +67,16 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     });
 
-    handle(socket, 'lobby:cancel', CancelGameSchema, (_data, ack) => {
-      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) {
-        if (typeof ack === 'function') {
-          ack({ ok: false, error: 'missing_context' });
-        }
-        return;
-      }
+    handle(socket, 'lobby:cancel', CancelGameSchema, (data, ack) => {
+      const { gameId, playerId } = data;
       orch.cancelGame(gameId, playerId);
       if (typeof ack === 'function') {
         ack({ ok: true });
       }
     });
 
-    handle(socket, 'lobby:leave', LeaveGameSchema, (_data, ack) => {
-      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
-      if (!gameId || !playerId) {
-        if (typeof ack === 'function') {
-          ack({ ok: false, error: 'missing_context' });
-        }
-        return;
-      }
+    handle(socket, 'lobby:leave', LeaveGameSchema, (data, ack) => {
+      const { gameId, playerId } = data;
       orch.leaveGame(gameId, playerId);
       socket.leave(`room:${gameId}`);
       delete socket.data.gameId;
