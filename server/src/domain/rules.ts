@@ -89,13 +89,16 @@ export function computeNightDeaths(game: Game): string[] {
   return Array.from(deaths);
 }
 
+export interface HunterShot { hunterId: string; targetId: string }
+
 export async function applyDeaths(
   game: Game,
   initialDeaths: string[],
   askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined
-): Promise<string[]> {
+): Promise<{ deaths: string[]; hunterShots: HunterShot[] }> {
   const queue = [...initialDeaths];
   const resolved: string[] = [];
+  const hunterShots: HunterShot[] = [];
   while (queue.length > 0) {
     const victim = queue.shift()!;
     if (!game.alive.has(victim)) continue;
@@ -110,11 +113,14 @@ export async function applyDeaths(
       // le tir du chasseur ne peut pas changer l'issue de la partie
       if (!(nonWolves === 0 && wolves.length > 1)) {
         const target = await Promise.resolve(askHunter(victim, alive));
-        if (target && game.alive.has(target)) queue.push(target);
+        if (target && game.alive.has(target)) {
+          queue.push(target);
+          hunterShots.push({ hunterId: victim, targetId: target });
+        }
       }
     }
   }
-  return resolved;
+  return { deaths: resolved, hunterShots };
 }
 
 export function computeVoteResult(game: Game): { eliminated: string | null; tally: Record<string, number> } {

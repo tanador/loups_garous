@@ -45,7 +45,8 @@ class WitchWake {
 /// Récapitulatif des morts de la nuit précédente.
 class DayRecap {
   final List<(String playerId, String role)> deaths;
-  const DayRecap({required this.deaths});
+  final List<String> hunterKills;
+  const DayRecap({required this.deaths, required this.hunterKills});
 }
 
 /// Résultat d'un vote du village.

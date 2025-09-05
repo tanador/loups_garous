@@ -28,7 +28,8 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
           const SizedBox(height: 8),
           if (r == null) const Text('Réveil du village...')
           else ...[
-            if (r.deaths.isEmpty) const Text('Personne n’est mort cette nuit.')
+            if (r.deaths.isEmpty)
+              const Text('Personne n’est mort cette nuit.')
             else ...[
               const Text('Morts cette nuit :'),
               const SizedBox(height: 8),
@@ -41,7 +42,21 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
                   title: Text(name),
                   subtitle: Text('Rôle: ${d.$2}'),
                 );
-              })
+              }),
+              if (r.hunterKills.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Le chasseur a tué :'),
+                const SizedBox(height: 8),
+                ...r.hunterKills.map((pid) {
+                  String name = pid;
+                  final match = s.players.where((p) => p.id == pid).toList();
+                  if (match.isNotEmpty) name = match.first.id;
+                  return ListTile(
+                    leading: const Icon(Icons.bolt),
+                    title: Text(name),
+                  );
+                })
+              ]
             ],
           ],
           Expanded(

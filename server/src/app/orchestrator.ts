@@ -282,16 +282,24 @@ export class Orchestrator {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
     const initial = computeNightDeaths(game);
-    const deaths = await applyDeaths(game, initial, (hid, alive) => this.askHunterTarget(game, hid, alive));
+    const { deaths, hunterShots } = await applyDeaths(
+      game,
+      initial,
+      (hid, alive) => this.askHunterTarget(game, hid, alive)
+    );
     // always push a fresh snapshot so clients learn about deaths immediately
     for (const p of game.players) {
       this.sendSnapshot(game, p.id);
     }
     const recap = {
       deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
+      hunterKills: hunterShots.map(s => ({ hunterId: s.hunterId, targetId: s.targetId })),
     };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
-    this.log(game.id, game.state, undefined, 'day.recap', { deaths: deaths.length });
+    this.log(game.id, game.state, undefined, 'day.recap', {
+      deaths: deaths.length,
+      hunterKills: hunterShots.length,
+    });
 
     const win = winner(game);
     if (win) {

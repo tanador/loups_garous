@@ -16,9 +16,10 @@ function setup() {
 describe('hunter ability', () => {
   it('night kill triggers a shot', async () => {
     const g = setup();
-    await applyDeaths(g, ['Hunter'], () => 'Wolf');
+    const res = await applyDeaths(g, ['Hunter'], () => 'Wolf');
     expect(g.alive.has('Hunter')).toBe(false);
     expect(g.alive.has('Wolf')).toBe(false);
+    expect(res.hunterShots).toEqual([{ hunterId: 'Hunter', targetId: 'Wolf' }]);
   });
 
   it('vote execution triggers a shot', async () => {
