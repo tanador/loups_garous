@@ -137,12 +137,18 @@ class WaitingLobby extends ConsumerWidget {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {
+                String? err;
                 try {
-                  await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
+                  err = await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
                 } catch (e, st) {
-                  log('leave/cancel exception: $e', stackTrace: st);
+                  err = e.toString();
+                  log('leave/cancel exception: $err', stackTrace: st);
                 } finally {
                   if (context.mounted) {
+                    if (err != null) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text(err!)));
+                    }
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
                 }
