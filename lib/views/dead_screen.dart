@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
@@ -28,7 +29,18 @@ class DeadScreen extends ConsumerWidget {
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () => ctl.leaveToHome(),
+                      onPressed: () async {
+                        try {
+                          await ctl.leaveToHome();
+                        } catch (e, st) {
+                          log('leaveToHome exception: $e', stackTrace: st);
+                        } finally {
+                          if (context.mounted) {
+                            Navigator.of(context)
+                                .popUntil((route) => route.isFirst);
+                          }
+                        }
+                      },
                       child: const Text('Quitter'),
                     )
                   ],

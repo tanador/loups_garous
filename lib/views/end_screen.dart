@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
@@ -16,7 +17,20 @@ class EndScreen extends ConsumerWidget {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(text, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: () => ctl.leaveToHome(), child: const Text('Retour à l’accueil'))
+          ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ctl.leaveToHome();
+                } catch (e, st) {
+                  log('leaveToHome exception: $e', stackTrace: st);
+                } finally {
+                  if (context.mounted) {
+                    Navigator.of(context)
+                        .popUntil((route) => route.isFirst);
+                  }
+                }
+              },
+              child: const Text('Retour à l’accueil'))
         ]),
       ),
     );
