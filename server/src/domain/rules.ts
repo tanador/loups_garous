@@ -103,8 +103,15 @@ export async function applyDeaths(
     game.alive.delete(victim);
     if (game.roles[victim] === 'HUNTER' && askHunter) {
       const alive = alivePlayers(game).filter(pid => pid !== victim);
-      const target = await Promise.resolve(askHunter(victim, alive));
-      if (target && game.alive.has(target)) queue.push(target);
+      const wolves = alive.filter(pid => game.roles[pid] === 'WOLF');
+      const nonWolves = alive.length - wolves.length;
+
+      // si seuls des loups restent en vie et qu'il y en a plus d'un,
+      // le tir du chasseur ne peut pas changer l'issue de la partie
+      if (!(nonWolves === 0 && wolves.length > 1)) {
+        const target = await Promise.resolve(askHunter(victim, alive));
+        if (target && game.alive.has(target)) queue.push(target);
+      }
     }
   }
   return resolved;
