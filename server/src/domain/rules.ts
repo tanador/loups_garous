@@ -1,23 +1,14 @@
 import { randomInt } from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { Game, Role } from './types.js';
+import { ROLE_SETUPS } from './roles/index.js';
 import { secureShuffle } from './utils.js';
-
-type RoleConfig = Record<Role, { min: number; max: number }>;
-type RolesConfig = Record<number, RoleConfig>;
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const configPath = path.resolve(__dirname, '../../roles.config.json');
-const CONFIG: RolesConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
 /// Attribue aléatoirement les rôles aux joueurs selon la configuration.
 /// La fonction génère toutes les distributions possibles respectant les
 /// contraintes min/max puis en choisit une au hasard.
 export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
   const players = secureShuffle(game.players.map(p => p.id));
-  const cfg = CONFIG[game.maxPlayers];
+  const cfg = ROLE_SETUPS[game.maxPlayers];
   if (!cfg) throw new Error('no_config_for_player_count');
 
   const roleNames = Object.keys(cfg) as Role[];
