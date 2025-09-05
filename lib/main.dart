@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/game_provider.dart';
@@ -133,9 +134,14 @@ class WaitingLobby extends ConsumerWidget {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {
-                await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
+                try {
+                  await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
+                } catch (e, st) {
+                  log('leave/cancel exception: $e', stackTrace: st);
+                } finally {
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
                 }
               },
               child: Text(isOwner ? 'Annuler la partie' : 'Quitter la partie'),
