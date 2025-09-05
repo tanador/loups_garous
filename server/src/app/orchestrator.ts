@@ -266,6 +266,10 @@ export class Orchestrator {
 
     const deaths = computeNightDeaths(game);
     applyDeaths(game, deaths);
+    // always push a fresh snapshot so clients learn about deaths immediately
+    for (const p of game.players) {
+      this.sendSnapshot(game, p.id);
+    }
     const recap = {
       deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
     };
