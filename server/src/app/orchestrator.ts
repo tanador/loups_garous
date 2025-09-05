@@ -334,6 +334,24 @@ export class Orchestrator {
     const game = this.mustGet(gameId);
     if (game.state !== 'VOTE') return;
     const { eliminated, tally } = computeVoteResult(game);
+    const tie = !eliminated && Object.keys(tally).length > 0;
+    if (tie) {
+      this.io.to(`room:${game.id}`).emit('vote:results', {
+        eliminatedId: null,
+        role: null,
+        tally
+      });
+      this.log(game.id, 'VOTE', undefined, 'vote.results', { eliminated: null, tie: true });
+      setTimeout(() => {
+        game.votes = {};
+        game.deadlines = {};
+        const alive = alivePlayers(game).map(pid => this.playerLite(game, pid));
+        this.io.to(`room:${game.id}`).emit('vote:options', { alive });
+        this.log(game.id, 'VOTE', undefined, 'vote.revote', { alive: alive.length });
+      }, 1_000);
+      return;
+    }
+
     setState(game, 'RESOLVE');
     if (eliminated) {
       applyDeaths(game, [eliminated], (hid, alive) => this.askHunterTarget(game, hid, alive));
