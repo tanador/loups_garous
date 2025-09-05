@@ -299,7 +299,10 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   Future<String?> cancelGame() async {
-    final ack = await _socketSvc.emitAck('lobby:cancel', {});
+    final ack = await _socketSvc.emitAck('lobby:cancel', {
+      'gameId': state.gameId,
+      'playerId': state.playerId,
+    });
     log('[ack] lobby:cancel $ack');
     if (ack['ok'] != true) {
       return ack['error']?.toString() ?? 'unknown_error';
@@ -310,7 +313,10 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   Future<String?> leaveGame() async {
-    final ack = await _socketSvc.emitAck('lobby:leave', {});
+    final ack = await _socketSvc.emitAck('lobby:leave', {
+      'gameId': state.gameId,
+      'playerId': state.playerId,
+    });
     log('[ack] lobby:leave $ack');
     if (ack['ok'] != true) {
       return ack['error']?.toString() ?? 'unknown_error';
