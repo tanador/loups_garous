@@ -240,6 +240,23 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] day:recap deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
 
+    s.on('day:hunterKill', (data) async {
+      final pid = data['targetId'] as String;
+      final r = state.recap;
+      if (r != null) {
+        final newKills = [...r.hunterKills, pid];
+        final recap = DayRecap(deaths: r.deaths, hunterKills: newKills);
+        final updatedPlayers = state.players
+            .map((p) => p.id == pid
+                ? PlayerView(id: p.id, connected: p.connected, alive: false)
+                : p)
+            .toList();
+        state = state.copy(recap: recap, players: updatedPlayers);
+      }
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] day:hunterKill target=$pid');
+    });
+
     // --- Vote
     s.on('vote:options', (data) {
       final alive = ((data['alive'] as List?) ?? [])
