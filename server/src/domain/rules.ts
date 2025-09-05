@@ -24,9 +24,14 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
   const distributions: Record<Role, number>[] = [];
   const total = game.maxPlayers;
 
-  function backtrack(idx: number, remaining: number, current: Record<Role, number>) {
+  function backtrack(
+    idx: number,
+    remaining: number,
+    current: Partial<Record<Role, number>>
+  ) {
     if (idx === roleNames.length) {
-      if (remaining === 0) distributions.push({ ...current });
+      if (remaining === 0)
+        distributions.push({ ...current } as Record<Role, number>);
       return;
     }
     const role = roleNames[idx];
@@ -35,6 +40,7 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
       if (c > remaining) break;
       current[role] = c;
       backtrack(idx + 1, remaining - c, current);
+      delete current[role];
     }
   }
 
