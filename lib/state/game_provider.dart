@@ -72,6 +72,7 @@ class GameController extends StateNotifier<GameModel> {
       wolvesLockedTargetId: null,
       confirmationsRemaining: 0,
       witchWake: null,
+      hunterTargets: [],
       recap: null,
       voteAlive: [],
       lastVote: null,
@@ -198,6 +199,17 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
     });
 
+    // --- Hunter ability
+    s.on('hunter:wake', (data) async {
+      final alive = ((data['alive'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => Lite(id: j['id']))
+          .toList();
+      state = state.copy(hunterTargets: alive);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] hunter:wake targets=${alive.length}');
+    });
+
     // --- Morning
     s.on('day:recap', (data) async {
       final deaths = ((data['deaths'] as List?) ?? [])
@@ -211,7 +223,7 @@ class GameController extends StateNotifier<GameModel> {
               ? PlayerView(id: p.id, connected: p.connected, alive: false)
               : p)
           .toList();
-      state = state.copy(recap: recap, players: updatedPlayers);
+      state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] day:recap deaths=${deaths.length}');
     });
@@ -358,6 +370,13 @@ class GameController extends StateNotifier<GameModel> {
     final payload = {'save': save, if (poisonTargetId != null) 'poisonTargetId': poisonTargetId};
     final ack = await _socketSvc.emitAck('witch:decision', payload);
     log('[ack] witch:decision $ack');
+  }
+
+  // ------------- Hunter -------------
+  Future<void> hunterShoot(String targetId) async {
+    final ack = await _socketSvc.emitAck('hunter:shoot', {'targetId': targetId});
+    log('[ack] hunter:shoot $ack');
+    state = state.copy(hunterTargets: []);
   }
 
   // ------------- Morning ack -------------

@@ -16,6 +16,7 @@ export class Orchestrator {
   private store = new GameStore();
   private timers = new Map<string, NodeJS.Timeout>();
   private rateCounters = new Map<string, { n: number; resetAt: number }>(); // per-socket simple limiter
+  private hunterAwaiting = new Map<string, { resolve: (target?: string) => void; alive: string[]; timer: NodeJS.Timeout }>();
 
   constructor(io: Server) {
     this.io = io;
@@ -255,17 +256,28 @@ export class Orchestrator {
     this.endNightWitch(game.id);
   }
 
-  private endNightWitch(gameId: string) {
-    const game = this.mustGet(gameId);
-    if (game.state !== 'NIGHT_WITCH') return;
-    this.beginMorning(game);
+  hunterShoot(gameId: string, playerId: string, targetId: string) {
+    const key = `${gameId}:${playerId}`;
+    const pending = this.hunterAwaiting.get(key);
+    if (!pending) throw new Error('no_pending_shot');
+    if (!pending.alive.includes(targetId)) throw new Error('invalid_target');
+    clearTimeout(pending.timer);
+    this.hunterAwaiting.delete(key);
+    pending.resolve(targetId);
+    this.log(gameId, 'HUNTER', playerId, 'hunter.shoot', { targetId });
   }
 
-  private beginMorning(game: Game) {
+  private async endNightWitch(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'NIGHT_WITCH') return;
+    await this.beginMorning(game);
+  }
+
+  private async beginMorning(game: Game) {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
     const initial = computeNightDeaths(game);
-    const deaths = applyDeaths(game, initial, (hid, alive) => this.askHunterTarget(game, hid, alive));
+    const deaths = await applyDeaths(game, initial, (hid, alive) => this.askHunterTarget(game, hid, alive));
     // always push a fresh snapshot so clients learn about deaths immediately
     for (const p of game.players) {
       this.sendSnapshot(game, p.id);
@@ -330,7 +342,7 @@ export class Orchestrator {
     if (allVoted) this.endVote(game.id);
   }
 
-  private endVote(gameId: string) {
+  private async endVote(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== 'VOTE') return;
     const { eliminated, tally } = computeVoteResult(game);
@@ -354,7 +366,7 @@ export class Orchestrator {
 
     setState(game, 'RESOLVE');
     if (eliminated) {
-      applyDeaths(game, [eliminated], (hid, alive) => this.askHunterTarget(game, hid, alive));
+      await applyDeaths(game, [eliminated], (hid, alive) => this.askHunterTarget(game, hid, alive));
     }
 
     this.io.to(`room:${game.id}`).emit('vote:results', {
@@ -409,8 +421,25 @@ export class Orchestrator {
     return { id: p.id };
   }
 
-  private askHunterTarget(_game: Game, _hunterId: string, alive: string[]): string | undefined {
-    return alive[0];
+  private askHunterTarget(game: Game, hunterId: string, alive: string[]): Promise<string | undefined> {
+    return new Promise(resolve => {
+      const socketId = this.playerSocket(game, hunterId);
+      const s = this.io.sockets.sockets.get(socketId);
+      if (!s) {
+        resolve(undefined);
+        return;
+      }
+      const key = `${game.id}:${hunterId}`;
+      const timer = setTimeout(() => {
+        this.hunterAwaiting.delete(key);
+        resolve(undefined);
+      }, DURATION.HUNTER_MS);
+      this.hunterAwaiting.set(key, { resolve, alive, timer });
+      this.setDeadline(game, DURATION.HUNTER_MS);
+      this.broadcastState(game);
+      s.emit('hunter:wake', { alive: alive.map(pid => this.playerLite(game, pid)) });
+      this.log(game.id, game.state, hunterId, 'hunter.wake', { options: alive.length });
+    });
   }
 
   private broadcastState(game: Game) {

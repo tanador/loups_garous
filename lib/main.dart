@@ -10,6 +10,7 @@ import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
+import 'views/hunter_screen.dart';
 import 'state/models.dart';
 
 // Point d'entrée de l'application Flutter.
@@ -52,8 +53,13 @@ class _HomeRouter extends ConsumerWidget {
     // même si le joueur local est mort.
     if (phase == GamePhase.END) return const EndScreen();
 
-    // Si nous sommes morts nous ne participons plus au jeu.
-    if (!me.alive) return const DeadScreen();
+    // Si le chasseur vient de mourir, il peut encore tirer.
+    if (!me.alive) {
+      if (s.role == Role.HUNTER && s.hunterTargets.isNotEmpty) {
+        return const HunterScreen();
+      }
+      return const DeadScreen();
+    }
 
     // Aucune partie jointe: afficher l'écran de connexion.
     if (s.gameId == null) return const ConnectScreen();
