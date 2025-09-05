@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 
+/// États successifs possibles de la partie.
 enum GamePhase { LOBBY, ROLES, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
+/// Rôles attribués aux joueurs.
 enum Role { WOLF, WITCH, VILLAGER }
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
 
+/// Informations minimales sur une partie disponible dans le lobby.
 class LobbyGameInfo {
   final String id;
   final int players;
@@ -16,6 +19,7 @@ class LobbyGameInfo {
       LobbyGameInfo(id: j['id'], players: j['players'], slots: j['slots'], maxPlayers: j['maxPlayers']);
 }
 
+/// Représente un joueur tel que visible par les autres.
 class PlayerView {
   final String id;
   final bool connected;
@@ -23,11 +27,13 @@ class PlayerView {
   const PlayerView({required this.id, required this.connected, required this.alive});
 }
 
+/// Version "allégée" d'un joueur utilisée dans certaines listes.
 class Lite {
   final String id;
   const Lite({required this.id});
 }
 
+/// Informations envoyées à la sorcière lorsqu'elle se réveille.
 class WitchWake {
   final String? attacked;
   final bool healAvailable;
@@ -36,11 +42,13 @@ class WitchWake {
   const WitchWake({this.attacked, required this.healAvailable, required this.poisonAvailable, required this.alive});
 }
 
+/// Récapitulatif des morts de la nuit précédente.
 class DayRecap {
   final List<(String playerId, String role)> deaths;
   const DayRecap({required this.deaths});
 }
 
+/// Résultat d'un vote du village.
 class VoteResult {
   final String? eliminatedId;
   final String? role;
@@ -48,6 +56,9 @@ class VoteResult {
   const VoteResult({required this.eliminatedId, required this.role, required this.tally});
 }
 
+/// État complet de l'application côté client.
+/// Il est exposé via Riverpod et contient toutes les informations
+/// nécessaires pour construire l'interface.
 class GameModel {
   final String serverUrl;
   final bool socketConnected;

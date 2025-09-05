@@ -12,11 +12,17 @@ import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'state/models.dart';
 
+// Point d'entrée de l'application Flutter.
+// Initialise les widgets puis démarre l'application
+// sous un `ProviderScope` pour activer Riverpod.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: App()));
 }
 
+/// Widget racine de l'application.
+/// Il configure le thème et prépare la navigation
+/// en fonction de l'état global du jeu exposé par Riverpod.
 class App extends ConsumerWidget {
   const App({super.key});
 
@@ -42,15 +48,17 @@ class _HomeRouter extends ConsumerWidget {
         (p) => p.id == s.playerId,
         orElse: () => const PlayerView(id: '', connected: true, alive: true));
 
-    // Always display the end screen when the game is over,
-    // even if the local player is dead.
+    // Toujours afficher l'écran de fin lorsque la partie est terminée,
+    // même si le joueur local est mort.
     if (phase == GamePhase.END) return const EndScreen();
 
+    // Si nous sommes morts nous ne participons plus au jeu.
     if (!me.alive) return const DeadScreen();
 
+    // Aucune partie jointe: afficher l'écran de connexion.
     if (s.gameId == null) return const ConnectScreen();
 
-    // Phase-based routing
+    // Route vers l'écran approprié selon la phase de jeu courante.
     switch (phase) {
       case GamePhase.ROLES:
         return const CountdownScreen();
@@ -73,6 +81,8 @@ class _HomeRouter extends ConsumerWidget {
   }
 }
 
+/// Affiche un écran simpliste pendant que le joueur "dort"
+/// lors des phases de nuit auxquelles il ne participe pas.
 class SleepingPlaceholder extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -86,14 +96,16 @@ class SleepingPlaceholder extends StatelessWidget {
   }
 }
 
+/// Salle d'attente affichée avant le début de la partie.
+/// Les joueurs connectés y sont listés et l'hôte peut annuler la partie.
 class WaitingLobby extends ConsumerWidget {
   const WaitingLobby({super.key});
   @override
-    Widget build(BuildContext context, WidgetRef ref) {
-      final s = ref.watch(gameProvider);
-      final ctl = ref.read(gameProvider.notifier);
-      final isOwner = s.players.isNotEmpty && s.players.first.id == s.playerId;
-      return Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(gameProvider);
+    final ctl = ref.read(gameProvider.notifier);
+    final isOwner = s.players.isNotEmpty && s.players.first.id == s.playerId;
+    return Scaffold(
       appBar: AppBar(title: const Text('Salle d’attente')),
       body: Padding(
         padding: const EdgeInsets.all(16),
