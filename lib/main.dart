@@ -133,15 +133,9 @@ class WaitingLobby extends ConsumerWidget {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {
-                final err = isOwner ? await ctl.cancelGame() : await ctl.leaveGame();
+                await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
                 if (context.mounted) {
-                  if (err != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(backgroundColor: Colors.red, content: Text(err)),
-                    );
-                  } else {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 }
               },
               child: Text(isOwner ? 'Annuler la partie' : 'Quitter la partie'),
