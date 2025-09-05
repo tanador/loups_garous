@@ -1,8 +1,10 @@
+import type { Role } from './roles/index.js';
+
 export type GameState =
   | 'LOBBY' | 'ROLES' | 'NIGHT_WOLVES' | 'NIGHT_WITCH'
   | 'MORNING' | 'VOTE' | 'RESOLVE' | 'CHECK_END' | 'END';
 
-export type Role = 'WOLF' | 'WITCH' | 'HUNTER' | 'VILLAGER';
+export type { Role };
 
 export interface Player {
   id: string; // player's nickname (unique)
