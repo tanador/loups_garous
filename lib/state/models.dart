@@ -5,7 +5,7 @@ enum GamePhase { LOBBY, ROLES, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
 /// Rôles attribués aux joueurs.
-enum Role { WOLF, WITCH, VILLAGER }
+enum Role { WOLF, WITCH, HUNTER, VILLAGER }
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
 
 /// Informations minimales sur une partie disponible dans le lobby.

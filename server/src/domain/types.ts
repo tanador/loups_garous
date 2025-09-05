@@ -2,7 +2,7 @@ export type GameState =
   | 'LOBBY' | 'ROLES' | 'NIGHT_WOLVES' | 'NIGHT_WITCH'
   | 'MORNING' | 'VOTE' | 'RESOLVE' | 'CHECK_END' | 'END';
 
-export type Role = 'WOLF' | 'WITCH' | 'VILLAGER';
+export type Role = 'WOLF' | 'WITCH' | 'HUNTER' | 'VILLAGER';
 
 export interface Player {
   id: string; // player's nickname (unique)

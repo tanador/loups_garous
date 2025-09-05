@@ -20,6 +20,7 @@ class _RoleScreenState extends ConsumerState<RoleScreen> {
     final roleLabel = switch (s.role) {
       Role.WOLF => 'Loup-garou',
       Role.WITCH => 'Sorcière',
+      Role.HUNTER => 'Chasseur',
       Role.VILLAGER => 'Villageois',
       null => 'Inconnu'
     };
