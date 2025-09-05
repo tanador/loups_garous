@@ -48,7 +48,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
               const Divider(),
               Builder(builder: (_) {
                 if (s.lastVote!.eliminatedId == null) {
-                  return const Text('Aucune élimination (égalité).');
+                  return const Text('Égalité, veuillez revoter.');
                 }
                 String name = s.lastVote!.eliminatedId!;
                 final match =
