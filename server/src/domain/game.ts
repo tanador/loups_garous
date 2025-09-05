@@ -1,6 +1,8 @@
 import { id } from './utils.js';
 import { Game, Player, Role } from './types.js';
 
+/// Crée une nouvelle partie avec les valeurs par défaut.
+/// Un identifiant unique est généré pour pouvoir rejoindre la partie.
 export function createGame(maxPlayers: number): Game {
   return {
     id: id(),
@@ -26,6 +28,7 @@ function normalize(n: string) {
   return n.trim().toLowerCase();
 }
 
+/// Ajoute un joueur dans la partie en s'assurant que son pseudonyme est unique.
 export function addPlayer(game: Game, p: { id: string; socketId: string; role?: Role }): Player {
   const id = p.id.trim();
   if (game.players.some(existing => normalize(existing.id) === normalize(id))) {
@@ -45,6 +48,7 @@ export function addPlayer(game: Game, p: { id: string; socketId: string; role?: 
   return player;
 }
 
+/// Retire totalement un joueur de la partie et nettoie toutes ses références.
 export function removePlayer(game: Game, playerId: string): void {
   game.players = game.players.filter(p => p.id !== playerId);
   game.alive.delete(playerId);

@@ -9,6 +9,9 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 final gameProvider =
     StateNotifierProvider<GameController, GameModel>((ref) => GameController());
 
+/// Contrôleur principal de l'application.
+/// Il maintient l'état du jeu dans [GameModel] et gère
+/// la communication avec le serveur via Socket.IO.
 class GameController extends StateNotifier<GameModel> {
   GameController() : super(GameModel.initial()) {
     _restoreSession();
@@ -16,6 +19,8 @@ class GameController extends StateNotifier<GameModel> {
 
   final _socketSvc = SocketService();
 
+  /// Tente de restaurer une session précédente depuis le stockage local.
+  /// Si une partie était en cours, on reconnecte automatiquement au serveur.
   Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString('serverUrl');
@@ -29,6 +34,7 @@ class GameController extends StateNotifier<GameModel> {
     }
   }
 
+  /// Sauvegarde la session courante afin de pouvoir la restaurer au prochain démarrage.
   Future<void> _saveSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverUrl', state.serverUrl);
@@ -44,12 +50,14 @@ class GameController extends StateNotifier<GameModel> {
     }
   }
 
+  /// Efface toute information liée à la session persistée.
   Future<void> _clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('gameId');
     await prefs.remove('playerId');
   }
 
+  /// Réinitialise complètement l'état du jeu côté client.
   void _resetGameState() {
     state = state.copy(
       gameId: null,
@@ -71,7 +79,9 @@ class GameController extends StateNotifier<GameModel> {
     );
   }
 
-  // ------------- Socket lifecycle -------------
+  // ------------- Cycle de vie du socket -------------
+  /// Ouvre une connexion Socket.IO et enregistre tous les listeners nécessaires.
+  /// Cette méthode prépare également la reprise d'une session existante si possible.
   Future<void> connect(String url) async {
     final io.Socket s = _socketSvc.connect(url);
     state = state.copy(serverUrl: url, socketConnected: false);
@@ -80,7 +90,7 @@ class GameController extends StateNotifier<GameModel> {
     s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
       log('[event] connect');
-      // If we have a session, resume
+      // Si nous avions déjà rejoint une partie, tentons de reprendre la session.
       if (state.gameId != null && state.playerId != null) {
         final ack = await _socketSvc.emitAck('session:resume', {
           'gameId': state.gameId,
@@ -89,6 +99,7 @@ class GameController extends StateNotifier<GameModel> {
         log('[ack] session:resume $ack');
         await _setContext();
       }
+      // Récupère la liste des parties disponibles dans le lobby.
       _listGames();
     });
 
@@ -239,6 +250,8 @@ class GameController extends StateNotifier<GameModel> {
     s.connect();
   }
 
+  /// Demande au serveur la liste des parties dans le lobby
+  /// et met à jour l'état local avec le résultat.
   Future<void> _listGames() async {
     final ack = await _socketSvc.emitAck('lobby:listGames', {});
     final games = ((ack['data']?['games'] as List?) ?? [])

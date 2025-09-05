@@ -2,9 +2,16 @@ import 'dart:developer';
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+/// Service léger encapsulant la logique de connexion à Socket.IO.
+/// Il centralise l'ouverture, l'envoi d'évènements et la fermeture du socket.
 class SocketService {
   io.Socket? _socket;
 
+  /// Crée une connexion Socket.IO vers l'[url].
+  ///
+  /// Toute connexion précédente est d'abord fermée pour éviter les fuites.
+  /// La connexion est configurée en WebSocket uniquement et n'est pas
+  /// automatiquement ouverte: le contrôleur choisit quand appeler `connect()`.
   io.Socket connect(String url) {
     // Dispose previous connection if any before creating a new one
     _socket?.dispose();
@@ -28,6 +35,7 @@ class SocketService {
     return socket;
   }
 
+  /// Récupère le socket courant ou lève une erreur si `connect` n'a pas été appelé.
   io.Socket get socket {
     final s = _socket;
     if (s == null) {
@@ -36,6 +44,8 @@ class SocketService {
     return s;
   }
 
+  /// Émet un évènement et attend un accusé de réception sous forme de Map.
+  /// Un timeout est appliqué pour éviter de bloquer indéfiniment.
   Future<Map<String, dynamic>> emitAck(
      String event,
      Map<String, Object?> payload, {
@@ -52,6 +62,7 @@ class SocketService {
     }
   }
 
+  /// Ferme proprement la connexion courante.
   void dispose() {
     _socket?.dispose();
     _socket = null;
