@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../state/models.dart';
 
 class EndScreen extends ConsumerWidget {
   const EndScreen({super.key});
@@ -10,12 +11,26 @@ class EndScreen extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final win = s.winner ?? 'Inconnu';
-    final text = win == 'WOLVES' ? 'Victoire des Loups' : (win == 'VILLAGE' ? 'Victoire du Village' : 'Partie terminée');
+    final text = win == 'WOLVES'
+        ? 'Victoire des Loups'
+        : (win == 'VILLAGE' ? 'Victoire du Village' : 'Partie terminée');
+    String roleLabel(Role r) => switch (r) {
+          Role.WOLF => 'Loup-garou',
+          Role.WITCH => 'Sorcière',
+          Role.HUNTER => 'Chasseur',
+          Role.VILLAGER => 'Villageois',
+        };
+    final roles = s.finalRoles;
     return Scaffold(
       appBar: AppBar(title: const Text('Fin de partie')),
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(text, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          for (final r in roles)
+            Text('${r.playerId} : ${roleLabel(r.role)}'),
           const SizedBox(height: 16),
           ElevatedButton(
               onPressed: () async {

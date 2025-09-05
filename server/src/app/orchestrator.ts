@@ -297,7 +297,11 @@ export class Orchestrator {
     if (win) {
       setState(game, 'END');
       this.broadcastState(game);
-      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win });
+      const roles = game.players.map(p => ({
+        playerId: p.id,
+        role: game.roles[p.id]
+      }));
+      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
       this.log(game.id, 'END', undefined, 'game.end', { winner: win });
       return;
     }
@@ -390,7 +394,11 @@ export class Orchestrator {
     if (win) {
       setState(game, 'END');
       this.broadcastState(game);
-      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win });
+      const roles = game.players.map(p => ({
+        playerId: p.id,
+        role: game.roles[p.id]
+      }));
+      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
       this.log(game.id, 'END', undefined, 'game.end', { winner: win });
     } else {
       this.beginNightWolves(game);
