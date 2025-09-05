@@ -12,6 +12,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.resolve(__dirname, '../../roles.config.json');
 const CONFIG: RolesConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
+/// Attribue aléatoirement les rôles aux joueurs selon la configuration.
+/// La fonction génère toutes les distributions possibles respectant les
+/// contraintes min/max puis en choisit une au hasard.
 export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
   const players = secureShuffle(game.players.map(p => p.id));
   const cfg = CONFIG[game.maxPlayers];
@@ -20,7 +23,7 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
   const roleNames = Object.keys(cfg) as Role[];
   roleNames.sort();
 
-  // enumerate all valid role distributions
+  // Énumère toutes les répartitions de rôles possibles respectant la configuration
   const distributions: Record<Role, number>[] = [];
   const total = game.maxPlayers;
 
@@ -54,29 +57,34 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
     roles.push(...Array(counts[r]).fill(r));
   }
 
+  // Mélange la liste pour ne pas attribuer toujours les mêmes rôles aux mêmes joueurs
   const shuffledRoles = secureShuffle(roles);
   const assigned: Record<string, Role> = {};
   players.forEach((pid, idx) => (assigned[pid] = shuffledRoles[idx]));
   game.roles = assigned;
   game.players.forEach(p => (p.role = assigned[p.id]));
 }
-
+/// Retourne la liste des loups encore en jeu.
 export function wolvesOf(game: Game): string[] {
   return game.players.filter(p => game.roles[p.id] === 'WOLF').map(p => p.id);
 }
 
+/// Identifiant de la sorcière, s'il y en a une.
 export function witchId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'WITCH')?.id;
 }
 
+/// Liste les joueurs toujours en vie.
 export function alivePlayers(game: Game): string[] {
   return game.players.filter(p => game.alive.has(p.id)).map(p => p.id);
 }
 
+/// Retourne les joueurs non loups encore en vie.
 export function nonWolvesAlive(game: Game): string[] {
   return alivePlayers(game).filter(pid => game.roles[pid] !== 'WOLF');
 }
 
+/// Calcule les décès résultant des actions nocturnes (loups, sorcière).
 export function computeNightDeaths(game: Game): string[] {
   const { attacked, saved, poisoned } = game.night;
   const deaths = new Set<string>();
@@ -84,13 +92,16 @@ export function computeNightDeaths(game: Game): string[] {
   if (attacked && attacked !== saved) deaths.add(attacked);
   if (poisoned) deaths.add(poisoned);
 
-  // si attaqué et empoisonné le même joueur et sauvé, la potion de mort l'emporte
+  // Si attaqué et empoisonné le même joueur et sauvé, la potion de mort l'emporte
   // (sauvetage n'annule pas une autre cause de mort)
   return Array.from(deaths);
 }
 
 export interface HunterShot { hunterId: string; targetId: string }
 
+/// Résout les morts en chaîne (chasseur qui tire, etc.).
+/// La fonction itère sur une file de victimes et peut demander au chasseur
+/// de choisir une cible supplémentaire.
 export async function applyDeaths(
   game: Game,
   initialDeaths: string[],
@@ -123,6 +134,7 @@ export async function applyDeaths(
   return { deaths: resolved, hunterShots };
 }
 
+/// Calcule le résultat du vote du village et les voix pour chaque cible.
 export function computeVoteResult(game: Game): { eliminated: string | null; tally: Record<string, number> } {
   const tally: Record<string, number> = {};
   for (const pid of alivePlayers(game)) {
@@ -141,6 +153,7 @@ export function computeVoteResult(game: Game): { eliminated: string | null; tall
   return { eliminated: topId, tally };
 }
 
+/// Détermine le vainqueur si toutes les conditions sont réunies.
 export function winner(game: Game): 'WOLVES' | 'VILLAGE' | null {
   const alive = alivePlayers(game);
   const wolves = alive.filter(pid => game.roles[pid] === 'WOLF').length;
@@ -150,19 +163,19 @@ export function winner(game: Game): 'WOLVES' | 'VILLAGE' | null {
   return null;
 }
 
+/// Cibles possibles pour l'attaque des loups (uniquement les villageois vivants).
 export function targetsForWolves(game: Game): string[] {
-  // les loups voient uniquement les non-loups vivants
   return nonWolvesAlive(game);
 }
 
+/// Cibles possibles de la sorcière pour la potion de mort (tous sauf elle).
 export function targetsForWitch(game: Game): string[] {
-  // peut empoisonner n'importe qui encore en vie sauf elle-même
   const wid = witchId(game);
   return alivePlayers(game).filter(pid => pid !== wid);
 }
 
+/// Indique si un joueur peut être sauvé par la potion de vie.
 export function canBeSaved(game: Game, pid: string): boolean {
-  // un joueur peut être sauvé s'il est attaqué et que la potion de vie est encore disponible
   return (
     game.night.attacked === pid &&
     game.night.saved !== pid &&
@@ -170,6 +183,7 @@ export function canBeSaved(game: Game, pid: string): boolean {
   );
 }
 
+/// Vérifie si tous les loups ont choisi la même cible pour l'attaque nocturne.
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
   const wolves = wolvesOf(game);
   if (wolves.length <= 1) {

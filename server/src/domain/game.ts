@@ -24,13 +24,16 @@ export function createGame(maxPlayers: number): Game {
   };
 }
 
+/// Normalise un pseudonyme pour les comparaisons (trim + lowercase).
 function normalize(n: string) {
   return n.trim().toLowerCase();
 }
 
 /// Ajoute un joueur dans la partie en s'assurant que son pseudonyme est unique.
+/// Retourne l'objet joueur créé.
 export function addPlayer(game: Game, p: { id: string; socketId: string; role?: Role }): Player {
   const id = p.id.trim();
+  // Vérifie qu'aucun autre joueur n'a déjà ce pseudo (insensible à la casse)
   if (game.players.some(existing => normalize(existing.id) === normalize(id))) {
     throw new Error('nickname_taken');
   }
@@ -48,7 +51,8 @@ export function addPlayer(game: Game, p: { id: string; socketId: string; role?: 
   return player;
 }
 
-/// Retire totalement un joueur de la partie et nettoie toutes ses références.
+/// Retire totalement un joueur de la partie et nettoie toutes ses références
+/// (rôles, votes, acknowledgements...).
 export function removePlayer(game: Game, playerId: string): void {
   game.players = game.players.filter(p => p.id !== playerId);
   game.alive.delete(playerId);
