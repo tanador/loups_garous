@@ -54,11 +54,14 @@ class _HomeRouter extends ConsumerWidget {
     // même si le joueur local est mort.
     if (phase == GamePhase.END) return const EndScreen();
 
-    // Si le chasseur vient de mourir, il peut encore tirer.
+    // Si le chasseur est appelé à tirer, afficher l'écran dédié
+    // même si la mort n'a pas encore été synchronisée côté client.
+    if (s.role == Role.HUNTER && s.hunterTargets.isNotEmpty) {
+      return const HunterScreen();
+    }
+
+    // Les joueurs morts voient l'écran des défunts.
     if (!me.alive) {
-      if (s.role == Role.HUNTER && s.hunterTargets.isNotEmpty) {
-        return const HunterScreen();
-      }
       return const DeadScreen();
     }
 
