@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createGame, addPlayer } from '../game.js';
 import { applyDeaths } from '../rules.js';
 
@@ -40,5 +40,20 @@ describe('hunter ability', () => {
     expect(g.alive.has('H1')).toBe(false);
     expect(g.alive.has('H2')).toBe(false);
     expect(g.alive.has('W')).toBe(true);
+  });
+
+  it('does not ask for a shot when only wolves remain alive', async () => {
+    const g = createGame(3);
+    addPlayer(g, { id: 'W1', socketId: 's1' });
+    addPlayer(g, { id: 'W2', socketId: 's2' });
+    addPlayer(g, { id: 'H', socketId: 's3' });
+    g.roles = { W1: 'WOLF', W2: 'WOLF', H: 'HUNTER' };
+    g.players.forEach(p => (p.role = g.roles[p.id]));
+    const ask = vi.fn();
+    await applyDeaths(g, ['H'], ask);
+    expect(ask).not.toHaveBeenCalled();
+    expect(g.alive.has('H')).toBe(false);
+    expect(g.alive.has('W1')).toBe(true);
+    expect(g.alive.has('W2')).toBe(true);
   });
 });
