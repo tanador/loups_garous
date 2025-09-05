@@ -156,9 +156,9 @@ class GameController extends StateNotifier<GameModel> {
       final win = data['winner'] as String?;
       final roles = ((data['roles'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .map((j) => (
-                playerId: j['playerId'] as String,
-                role: roleFromStr(j['role'] as String)
+          .map<(String, Role)>((j) => (
+                j['playerId'] as String,
+                roleFromStr(j['role'] as String),
               ))
           .toList();
       state = state.copy(winner: win, phase: GamePhase.END, finalRoles: roles);

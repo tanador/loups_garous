@@ -29,8 +29,8 @@ class EndScreen extends ConsumerWidget {
               style:
                   const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          for (final r in roles)
-            Text('${r.playerId} : ${roleLabel(r.role)}'),
+          for (final (playerId, role) in roles)
+            Text('$playerId : ${roleLabel(role)}'),
           const SizedBox(height: 16),
           ElevatedButton(
               onPressed: () async {
