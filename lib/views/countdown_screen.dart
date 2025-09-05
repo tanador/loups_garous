@@ -47,7 +47,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
-                'Prenez votre téléphone et cachez votre écran !',
+                'Révélation des rôles: Prenez votre téléphone et cachez votre écran !',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
