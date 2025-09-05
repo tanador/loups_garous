@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/game_provider.dart';
 import 'views/connect_screen.dart';
-import 'views/role_screen.dart';
 import 'views/countdown_screen.dart';
 import 'views/night_wolves_screen.dart';
 import 'views/night_witch_screen.dart';
@@ -30,7 +29,7 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final gm = ref.watch(gameProvider);
+    ref.watch(gameProvider);
     return MaterialApp(
       title: 'Loup-Garou',
       theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
@@ -147,7 +146,7 @@ class WaitingLobby extends ConsumerWidget {
                   if (context.mounted) {
                     if (err != null) {
                       ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text(err!)));
+                          .showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text(err)));
                     }
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }

@@ -27,14 +27,14 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             const SizedBox(height: 8),
             const Text('Choisissez quelqu’un à éliminer.'),
             const SizedBox(height: 8),
-            ...s.voteAlive
-                .map((p) => RadioListTile<String?>(
-                      title: Text(p.id),
-                      value: p.id,
-                      groupValue: targetId,
-                      onChanged: (v) => setState(() => targetId = v),
-                    ))
-                .toList(),
+            ...s.voteAlive.map(
+              (p) => RadioListTile<String?>(
+                title: Text(p.id),
+                value: p.id,
+                groupValue: targetId,
+                onChanged: (v) => setState(() => targetId = v),
+              ),
+            ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

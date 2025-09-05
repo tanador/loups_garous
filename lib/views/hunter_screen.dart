@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
-import '../state/models.dart';
 import 'widgets/common.dart';
 
 class HunterScreen extends ConsumerStatefulWidget {
