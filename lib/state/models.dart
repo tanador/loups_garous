@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 
 /// États successifs possibles de la partie.
 enum GamePhase { LOBBY, ROLES, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
+/// Convertit une représentation texte en valeur [GamePhase].
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
 /// Rôles attribués aux joueurs.
 enum Role { WOLF, WITCH, HUNTER, VILLAGER }
+/// Convertit une chaîne en valeur [Role].
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
 
 /// Informations minimales sur une partie disponible dans le lobby.
@@ -113,6 +115,7 @@ class GameModel {
     required this.vibrations,
   });
 
+  /// État initial utilisé au démarrage de l'application.
   factory GameModel.initial() => const GameModel(
         serverUrl: 'http://localhost:3000',
         socketConnected: false,
@@ -140,6 +143,8 @@ class GameModel {
 
   static const _unset = Object();
 
+  /// Crée une copie de ce modèle en remplaçant uniquement les champs fournis.
+  /// Les paramètres utilisent une valeur sentinelle pour permettre de passer `null`.
   GameModel copy({
     String? serverUrl,
     bool? socketConnected,
