@@ -224,7 +224,11 @@ class GameController extends StateNotifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
           .toList();
-      final recap = DayRecap(deaths: deaths);
+      final hunterKills = ((data['hunterKills'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map<String>((j) => j['targetId'] as String)
+          .toList();
+      final recap = DayRecap(deaths: deaths, hunterKills: hunterKills);
       final deadIds = deaths.map((d) => d.$1).toSet();
       final updatedPlayers = state.players
           .map((p) => deadIds.contains(p.id)
@@ -233,7 +237,7 @@ class GameController extends StateNotifier<GameModel> {
           .toList();
       state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
       if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] day:recap deaths=${deaths.length}');
+      log('[evt] day:recap deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
 
     // --- Vote
