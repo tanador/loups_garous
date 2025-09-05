@@ -11,7 +11,7 @@ function fakeIo() {
 }
 
 describe('night death resolution', () => {
-  it('sends snapshots and removes killed players in morning', () => {
+  it('sends snapshots and removes killed players in morning', async () => {
     const orch = new Orchestrator(fakeIo());
     const g = createGame(3);
     addPlayer(g, { id: 'Wolf', socketId: 'sW' });
@@ -25,7 +25,7 @@ describe('night death resolution', () => {
     g.night.attacked = 'Villager';
 
     const spy = vi.spyOn(orch as any, 'sendSnapshot');
-    (orch as any).beginMorning(g);
+    await (orch as any).beginMorning(g);
 
     expect(g.alive.has('Villager')).toBe(false);
     expect(spy).toHaveBeenCalledTimes(3);

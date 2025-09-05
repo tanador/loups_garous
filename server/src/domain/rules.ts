@@ -89,11 +89,11 @@ export function computeNightDeaths(game: Game): string[] {
   return Array.from(deaths);
 }
 
-export function applyDeaths(
+export async function applyDeaths(
   game: Game,
   initialDeaths: string[],
-  askHunter?: (hunterId: string, alive: string[]) => string | undefined
-): string[] {
+  askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined
+): Promise<string[]> {
   const queue = [...initialDeaths];
   const resolved: string[] = [];
   while (queue.length > 0) {
@@ -103,7 +103,7 @@ export function applyDeaths(
     game.alive.delete(victim);
     if (game.roles[victim] === 'HUNTER' && askHunter) {
       const alive = alivePlayers(game).filter(pid => pid !== victim);
-      const target = askHunter(victim, alive);
+      const target = await Promise.resolve(askHunter(victim, alive));
       if (target && game.alive.has(target)) queue.push(target);
     }
   }

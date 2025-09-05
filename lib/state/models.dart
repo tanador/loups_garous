@@ -78,6 +78,7 @@ class GameModel {
   final int confirmationsRemaining;
 
   final WitchWake? witchWake;
+  final List<Lite> hunterTargets;
   final DayRecap? recap;
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
@@ -101,6 +102,7 @@ class GameModel {
     required this.wolvesLockedTargetId,
     required this.confirmationsRemaining,
     required this.witchWake,
+    required this.hunterTargets,
     required this.recap,
     required this.voteAlive,
     required this.lastVote,
@@ -124,6 +126,7 @@ class GameModel {
         wolvesLockedTargetId: null,
         confirmationsRemaining: 0,
         witchWake: null,
+        hunterTargets: [],
         recap: null,
         voteAlive: [],
         lastVote: null,
@@ -147,6 +150,7 @@ class GameModel {
     String? wolvesLockedTargetId,
     int? confirmationsRemaining,
     WitchWake? witchWake,
+    List<Lite>? hunterTargets,
     DayRecap? recap,
     List<Lite>? voteAlive,
     VoteResult? lastVote,
@@ -169,6 +173,7 @@ class GameModel {
       wolvesLockedTargetId: wolvesLockedTargetId ?? this.wolvesLockedTargetId,
       confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
       witchWake: witchWake ?? this.witchWake,
+      hunterTargets: hunterTargets ?? this.hunterTargets,
       recap: recap ?? this.recap,
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote: lastVote ?? this.lastVote,

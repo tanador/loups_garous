@@ -12,7 +12,7 @@ function fakeIo() {
 }
 
 describe('morning acknowledgements', () => {
-  it('advances to vote when all alive players ack', () => {
+  it('advances to vote when all alive players ack', async () => {
     vi.useFakeTimers();
     const orch = new Orchestrator(fakeIo());
     const g = createGame(3);
@@ -23,7 +23,7 @@ describe('morning acknowledgements', () => {
     (orch as any).store.put(g);
 
     g.state = 'NIGHT_WITCH';
-    (orch as any).beginMorning(g);
+    await (orch as any).beginMorning(g);
     expect(g.state).toBe('MORNING');
 
     orch.dayAck(g.id, 'A');

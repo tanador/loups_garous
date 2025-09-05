@@ -39,6 +39,10 @@ export const WitchDecisionSchema = z.object({
   poisonTargetId: zNickname.optional()
 });
 
+export const HunterShootSchema = z.object({
+  targetId: zNickname
+});
+
 export const DayAckSchema = z.object({});
 
 export const VoteCastSchema = z.object({
