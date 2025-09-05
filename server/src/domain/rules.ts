@@ -1,15 +1,49 @@
 import { randomInt } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Game, Role } from './types.js';
 import { secureShuffle } from './utils.js';
 
+type RoleConfig = Record<Role, { min: number; max: number }>;
+type RolesConfig = Record<number, RoleConfig>;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const configPath = path.resolve(__dirname, '../../roles.config.json');
+const CONFIG: RolesConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
 export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
   const players = secureShuffle(game.players.map(p => p.id));
-  let roles: Role[] = [];
-  if (game.maxPlayers === 3) {
-    roles = ['WITCH', 'WOLF', 'VILLAGER'];
-  } else if (game.maxPlayers === 4) {
-    const wolves = rng(2) + 1; // 1 or 2 wolves
-    roles = ['WITCH', 'HUNTER', ...Array(wolves).fill('WOLF'), ...Array(4 - wolves - 2).fill('VILLAGER')];
+  const cfg = CONFIG[game.maxPlayers];
+  if (!cfg) throw new Error('no_config_for_player_count');
+
+  const roleNames = Object.keys(cfg) as Role[];
+  roleNames.sort();
+  const counts: Record<Role, number> = {};
+  let remaining = game.maxPlayers;
+  for (const r of roleNames) {
+    counts[r] = cfg[r].min;
+    remaining -= cfg[r].min;
+  }
+  const flexRoles = roleNames.filter(r => cfg[r].max > cfg[r].min);
+  const capacities = flexRoles.map(r => cfg[r].max - cfg[r].min);
+
+  while (remaining > 0 && flexRoles.length > 0) {
+    const idx = rng(flexRoles.length);
+    const role = flexRoles[idx];
+    counts[role]++;
+    capacities[idx]--;
+    remaining--;
+    if (capacities[idx] === 0) {
+      flexRoles.splice(idx, 1);
+      capacities.splice(idx, 1);
+    }
+  }
+  if (remaining !== 0) throw new Error('invalid_role_config');
+
+  const roles: Role[] = [];
+  for (const r of roleNames) {
+    roles.push(...Array(counts[r]).fill(r));
   }
 
   const assigned: Record<string, Role> = {};
