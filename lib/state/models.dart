@@ -83,6 +83,7 @@ class GameModel {
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
   final String? winner; // 'WOLVES' | 'VILLAGE'
+  final List<(String playerId, Role role)> finalRoles;
 
   final bool vibrations;
 
@@ -107,6 +108,7 @@ class GameModel {
     required this.voteAlive,
     required this.lastVote,
     required this.winner,
+    required this.finalRoles,
     required this.vibrations,
   });
 
@@ -131,6 +133,7 @@ class GameModel {
         voteAlive: [],
         lastVote: null,
         winner: null,
+        finalRoles: const [],
         vibrations: true,
       );
 
@@ -155,6 +158,7 @@ class GameModel {
     List<Lite>? voteAlive,
     VoteResult? lastVote,
     String? winner,
+    List<(String playerId, Role role)>? finalRoles,
     bool? vibrations,
   }) {
     return GameModel(
@@ -178,6 +182,7 @@ class GameModel {
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote: lastVote ?? this.lastVote,
       winner: winner ?? this.winner,
+      finalRoles: finalRoles ?? this.finalRoles,
       vibrations: vibrations ?? this.vibrations,
     );
   }

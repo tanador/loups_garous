@@ -77,6 +77,7 @@ class GameController extends StateNotifier<GameModel> {
       voteAlive: [],
       lastVote: null,
       winner: null,
+      finalRoles: [],
     );
   }
 
@@ -153,8 +154,15 @@ class GameController extends StateNotifier<GameModel> {
 
     s.on('game:ended', (data) {
       final win = data['winner'] as String?;
-      state = state.copy(winner: win, phase: GamePhase.END);
-      log('[evt] game:ended winner=$win');
+      final roles = ((data['roles'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => (
+                playerId: j['playerId'] as String,
+                role: roleFromStr(j['role'] as String)
+              ))
+          .toList();
+      state = state.copy(winner: win, phase: GamePhase.END, finalRoles: roles);
+      log('[evt] game:ended winner=$win roles=${roles.length}');
     });
 
     s.on('game:cancelled', (_) async {
