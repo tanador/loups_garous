@@ -48,3 +48,5 @@ export const DayAckSchema = z.object({});
 export const VoteCastSchema = z.object({
   targetId: zNickname
 });
+
+export const VoteCancelSchema = z.object({});

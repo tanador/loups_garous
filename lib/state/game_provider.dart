@@ -416,6 +416,11 @@ class GameController extends StateNotifier<GameModel> {
     log('[ack] vote:cast $ack');
   }
 
+  Future<void> voteCancel() async {
+    final ack = await _socketSvc.emitAck('vote:cancel', {});
+    log('[ack] vote:cancel $ack');
+  }
+
   // ------------- Reset -------------
   Future<void> leaveToHome() async {
     _socketSvc.dispose();
