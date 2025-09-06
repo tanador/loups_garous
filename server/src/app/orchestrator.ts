@@ -436,7 +436,9 @@ export class Orchestrator {
           recap.deaths.push(
             ...deaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
           );
-          recap.hunterKills.push(...hunterShots.map((s) => s.targetId));
+          // Include the hunter's chosen target in the recap along with any
+          // additional kills caused by chained hunter shots.
+          recap.hunterKills.push(target, ...hunterShots.map((s) => s.targetId));
         }
       }
       for (const p of game.players) {
