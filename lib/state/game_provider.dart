@@ -225,8 +225,7 @@ class GameController extends StateNotifier<GameModel> {
           .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
           .toList();
       final hunterKills = ((data['hunterKills'] as List?) ?? [])
-          .map((e) => Map<String, dynamic>.from(e))
-          .map<String>((j) => j['targetId'] as String)
+          .map((e) => e.toString())
           .toList();
       final recap = DayRecap(deaths: deaths, hunterKills: hunterKills);
       final deadIds = deaths.map((d) => d.$1).toSet();
@@ -238,23 +237,6 @@ class GameController extends StateNotifier<GameModel> {
       state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] day:recap deaths=${deaths.length} hunterKills=${hunterKills.length}');
-    });
-
-    s.on('day:hunterKill', (data) async {
-      final pid = data['targetId'] as String;
-      final r = state.recap;
-      if (r != null) {
-        final newKills = [...r.hunterKills, pid];
-        final recap = DayRecap(deaths: r.deaths, hunterKills: newKills);
-        final updatedPlayers = state.players
-            .map((p) => p.id == pid
-                ? PlayerView(id: p.id, connected: p.connected, alive: false)
-                : p)
-            .toList();
-        state = state.copy(recap: recap, players: updatedPlayers);
-      }
-      if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] day:hunterKill target=$pid');
     });
 
     // --- Vote

@@ -11,40 +11,33 @@ function fakeIo() {
 }
 
 describe('hunter death handling', () => {
-  it('asks dead hunter to shoot after acknowledgements', async () => {
+  it('asks dead hunter to shoot before morning recap', async () => {
     const orch = new Orchestrator(fakeIo());
-    const g = createGame(3);
+    const g = createGame(4);
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
+    addPlayer(g, { id: 'D', socketId: 'sD' });
     g.roles['A'] = 'HUNTER';
     g.roles['B'] = 'VILLAGER';
     g.roles['C'] = 'WOLF';
+    g.roles['D'] = 'VILLAGER';
     (orch as any).store.put(g);
     g.state = 'NIGHT_WITCH';
     g.night.attacked = 'A';
 
-    // stub hunter target selection to avoid socket interactions
-    const spy = vi.spyOn(orch as any, 'askHunterTarget').mockResolvedValue(undefined);
+    const spy = vi.spyOn(orch as any, 'askHunterTarget').mockResolvedValue('B');
 
     await (orch as any).beginMorning(g);
-    expect(g.state).toBe('MORNING');
-    expect(g.huntersToShoot).toEqual(['A']);
-
-    // only one alive villager acks: hunter should not be asked yet
-    orch.dayAck(g.id, 'B');
-    expect(spy).not.toHaveBeenCalled();
-    expect(g.state).toBe('MORNING');
-
-    // second alive player acks: still waiting for hunter
-    orch.dayAck(g.id, 'C');
-    expect(spy).not.toHaveBeenCalled();
-    expect(g.state).toBe('MORNING');
-
-    // hunter acks
-    orch.dayAck(g.id, 'A');
-    await new Promise(res => setTimeout(res, 0));
     expect(spy).toHaveBeenCalled();
+    expect(g.alive.has('A')).toBe(false);
+    expect(g.alive.has('B')).toBe(false);
+    expect(g.state).toBe('MORNING');
+
+    orch.dayAck(g.id, 'C');
+    expect(g.state).toBe('MORNING');
+    orch.dayAck(g.id, 'D');
+    await new Promise(res => setTimeout(res, 0));
     expect(g.state).toBe('VOTE');
   });
 });
