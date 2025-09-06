@@ -56,4 +56,5 @@ export interface Game {
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
   morningAcks: Set<string>;
+  huntersToShoot: string[]; // hunters killed during the night waiting to shoot
 }

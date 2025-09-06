@@ -20,7 +20,8 @@ export function createGame(maxPlayers: number): Game {
     history: [],
     deadlines: {},
     wolvesChoices: {},
-    morningAcks: new Set<string>()
+    morningAcks: new Set<string>(),
+    huntersToShoot: []
   };
 }
 
@@ -60,5 +61,6 @@ export function removePlayer(game: Game, playerId: string): void {
   delete game.wolvesChoices[playerId];
   delete game.votes[playerId];
   game.morningAcks.delete(playerId);
+  game.huntersToShoot = game.huntersToShoot.filter(h => h !== playerId);
   game.updatedAt = Date.now();
 }
