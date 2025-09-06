@@ -1,8 +1,20 @@
 import type { Role } from './roles/index.js';
 
-export type GameState =
-  | 'LOBBY' | 'ROLES' | 'NIGHT_WOLVES' | 'NIGHT_WITCH'
-  | 'MORNING' | 'VOTE' | 'RESOLVE' | 'CHECK_END' | 'END';
+export type CoreGameState =
+  | 'LOBBY'
+  | 'ROLES'
+  | 'NIGHT_WOLVES'
+  | 'NIGHT_WITCH'
+  | 'MORNING'
+  | 'VOTE'
+  | 'RESOLVE'
+  | 'CHECK_END'
+  | 'END';
+
+// Allow external modules to declare additional game phases dynamically.
+// The type keeps known states for editor autocompletion but accepts any
+// string so that new phases can be registered at runtime.
+export type GameState = CoreGameState | (string & {});
 
 export type { Role };
 
