@@ -15,8 +15,8 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
   bool _voted = false;
 
   @override
-  void initState() {
-    super.initState();
+  Widget build(BuildContext context) {
+    // Reset the local vote when the list of alive players changes.
     ref.listen<GameModel>(gameProvider, (prev, next) {
       if (prev?.voteAlive != next.voteAlive) {
         setState(() {
@@ -25,10 +25,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
         });
       }
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
 
