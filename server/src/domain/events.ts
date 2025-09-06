@@ -19,16 +19,17 @@ type EventName = keyof EventPayloads;
 type Handler<K extends EventName> = (payload: EventPayloads[K]) => any;
 
 export class EventBus {
-  private handlers: { [K in EventName]?: Handler<K>[] } = {};
+  private handlers: Partial<Record<EventName, Handler<EventName>[]>> = {};
 
   on<K extends EventName>(event: K, handler: Handler<K>): void {
-    (this.handlers[event] ??= []).push(handler as any);
+    const list = (this.handlers[event] ??= []);
+    (list as Handler<K>[]).push(handler);
   }
 
   async emit<K extends EventName>(event: K, payload: EventPayloads[K]): Promise<void> {
-    const hs = this.handlers[event];
+    const hs = this.handlers[event] as Handler<K>[] | undefined;
     if (!hs) return;
-    for (const h of hs) await h(payload as any);
+    for (const h of hs) await h(payload);
   }
 }
 
