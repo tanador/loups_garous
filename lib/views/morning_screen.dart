@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../state/models.dart';
 import 'widgets/common.dart';
 
 class MorningScreen extends ConsumerStatefulWidget {
@@ -15,6 +16,12 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<DayRecap?>(gameProvider.select((s) => s.recap), (prev, next) {
+      if (prev != next) {
+        setState(() => _ack = false);
+      }
+    });
+
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final r = s.recap;

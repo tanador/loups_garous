@@ -436,7 +436,9 @@ export class Orchestrator {
           recap.deaths.push(
             ...deaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
           );
-          recap.hunterKills.push(...hunterShots.map((s) => s.targetId));
+          // Include the hunter's chosen target in the recap along with any
+          // additional kills caused by chained hunter shots.
+          recap.hunterKills.push(target, ...hunterShots.map((s) => s.targetId));
         }
       }
       for (const p of game.players) {
@@ -449,6 +451,17 @@ export class Orchestrator {
       });
       this.pendingHunters.delete(game.id);
       this.morningRecaps.set(game.id, recap);
+
+      // After the hunter shot, survivors must acknowledge the new recap
+      // before the game can proceed. Reset acknowledgments and deadline
+      // just like the initial morning recap.
+      game.morningAcks.clear();
+      this.setDeadline(game, DURATION.MORNING_MS);
+      this.broadcastState(game);
+      this.schedule(game.id, DURATION.MORNING_MS, () =>
+        this.handleMorningEnd(game),
+      );
+      return;
     }
 
     const win = winner(game);
