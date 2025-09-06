@@ -1,8 +1,9 @@
-import type { RoleBehavior } from './index.js';
+import { bus } from '../events.js';
 
-const wolf: RoleBehavior = {
-  onNight() {},
-  onVote() {}
-};
+// Les loups ajoutent leur cible aux morts de la nuit
+bus.on('NightAction', ({ game, deaths }) => {
+  const { attacked, saved } = game.night;
+  if (attacked && attacked !== saved) deaths.add(attacked);
+});
 
-export default wolf;
+export default {};

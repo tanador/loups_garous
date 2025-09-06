@@ -1,8 +1,2 @@
-import type { RoleBehavior } from './index.js';
-
-const villager: RoleBehavior = {
-  onNight() {},
-  onVote() {}
-};
-
-export default villager;
+// Les villageois n'ont pas de comportement spécifique
+export default {};
