@@ -28,5 +28,27 @@ describe('witch phase', () => {
 
     expect(g.state).toBe('END');
   });
+
+  it('skips directly to morning when witch is disconnected', async () => {
+    const orch = new Orchestrator(fakeIo());
+    const g = createGame(3);
+    addPlayer(g, { id: 'Wolf', socketId: 'sW' });
+    addPlayer(g, { id: 'Witch', socketId: 'sWi' });
+    addPlayer(g, { id: 'Villager', socketId: 'sV' });
+    g.roles = { Wolf: 'WOLF', Witch: 'WITCH', Villager: 'VILLAGER' } as any;
+    g.players.forEach(p => (p.role = g.roles[p.id]));
+    (orch as any).store.put(g);
+
+    // disconnect the witch
+    const w = g.players.find(p => p.id === 'Witch')!;
+    w.connected = false;
+
+    g.state = 'NIGHT_WOLVES';
+    g.night.attacked = 'Villager';
+
+    await (orch as any).beginNightWitch(g);
+
+    expect(g.state).toBe('MORNING');
+  });
 });
 

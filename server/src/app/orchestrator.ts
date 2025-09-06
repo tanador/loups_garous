@@ -160,6 +160,17 @@ export class Orchestrator {
     game.night = {};
     game.wolvesChoices = {};
     setState(game, 'NIGHT_WOLVES');
+
+    // si aucun loup vivant et connecté n'est présent, on passe directement à la sorcière
+    const activeWolves = wolvesOf(game).filter(pid => {
+      const p = game.players.find(pl => pl.id === pid);
+      return !!p && p.connected && game.alive.has(pid);
+    });
+    if (activeWolves.length === 0) {
+      this.broadcastState(game);
+      return this.beginNightWitch(game);
+    }
+
     this.setDeadline(game, DURATION.WOLVES_MS);
     this.broadcastState(game);
 
@@ -211,8 +222,9 @@ export class Orchestrator {
     setState(game, 'NIGHT_WITCH');
 
     const wid = witchId(game);
-    // S'il n'y a pas de sorcière vivante, on saute directement à la phase suivante
-    if (!wid) {
+    const witch = wid ? game.players.find(p => p.id === wid) : undefined;
+    // S'il n'y a pas de sorcière vivante et connectée, on saute directement à la phase suivante
+    if (!wid || !witch || !witch.connected || !game.alive.has(wid)) {
       this.broadcastState(game);
       return this.beginMorning(game);
     }
