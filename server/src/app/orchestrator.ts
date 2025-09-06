@@ -494,6 +494,13 @@ export class Orchestrator {
     if (allVoted) this.endVote(game.id);
   }
 
+  voteCancel(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "VOTE") throw new Error("bad_state");
+    delete game.votes[playerId];
+    this.log(game.id, game.state, playerId, "vote.cancel");
+  }
+
   private async endVote(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "VOTE") return;
