@@ -11,6 +11,7 @@ class VoteScreen extends ConsumerStatefulWidget {
 
 class _VoteScreenState extends ConsumerState<VoteScreen> {
   String? targetId;
+  bool _voted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +33,28 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                 title: Text(p.id),
                 value: p.id,
                 groupValue: targetId,
-                onChanged: (v) => setState(() => targetId = v),
+                onChanged: _voted ? null : (v) => setState(() => targetId = v),
               ),
             ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    targetId == null ? null : () => ctl.voteCast(targetId!),
+                onPressed: !_voted && targetId == null
+                    ? null
+                    : () {
+                        if (_voted) {
+                          setState(() {
+                            _voted = false;
+                            targetId = null;
+                          });
+                        } else {
+                          ctl.voteCast(targetId!);
+                          setState(() => _voted = true);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _voted ? Colors.green : null,
+                ),
                 child: const Text('Voter'),
               ),
             ),
