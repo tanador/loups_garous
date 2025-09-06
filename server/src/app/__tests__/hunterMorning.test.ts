@@ -11,7 +11,7 @@ function fakeIo() {
 }
 
 describe('hunter death handling', () => {
-  it('asks dead hunter to shoot before morning recap', async () => {
+  it('asks dead hunter to shoot after recap acknowledgments', async () => {
     const orch = new Orchestrator(fakeIo());
     const g = createGame(4);
     addPlayer(g, { id: 'A', socketId: 'sA' });
@@ -29,15 +29,17 @@ describe('hunter death handling', () => {
     const spy = vi.spyOn(orch as any, 'askHunterTarget').mockResolvedValue('B');
 
     await (orch as any).beginMorning(g);
-    expect(spy).toHaveBeenCalled();
+    expect(spy).not.toHaveBeenCalled();
     expect(g.alive.has('A')).toBe(false);
-    expect(g.alive.has('B')).toBe(false);
+    expect(g.alive.has('B')).toBe(true);
     expect(g.state).toBe('MORNING');
 
+    orch.dayAck(g.id, 'B');
     orch.dayAck(g.id, 'C');
-    expect(g.state).toBe('MORNING');
     orch.dayAck(g.id, 'D');
     await new Promise(res => setTimeout(res, 0));
+    expect(spy).toHaveBeenCalled();
+    expect(g.alive.has('B')).toBe(false);
     expect(g.state).toBe('VOTE');
   });
 });

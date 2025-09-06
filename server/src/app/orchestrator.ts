@@ -17,6 +17,8 @@ export class Orchestrator {
   private timers = new Map<string, NodeJS.Timeout>();
   private rateCounters = new Map<string, { n: number; resetAt: number }>(); // per-socket simple limiter
   private hunterAwaiting = new Map<string, { resolve: (target?: string) => void; alive: string[]; timer: NodeJS.Timeout }>();
+  private pendingHunters = new Map<string, string[]>();
+  private morningRecaps = new Map<string, { deaths: { playerId: string; role: string }[]; hunterKills: string[] }>();
 
   constructor(io: Server) {
     this.io = io;
@@ -282,24 +284,25 @@ export class Orchestrator {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
     const initial = await computeNightDeaths(game);
-    const { deaths, hunterShots } = await applyDeaths(
-      game,
-      initial,
-      (hid, alive) => this.askHunterTarget(game, hid, alive)
-    );
+    const { deaths } = await applyDeaths(game, initial);
+
+    const hunters = deaths.filter(pid => game.roles[pid] === 'HUNTER');
+    if (hunters.length > 0) this.pendingHunters.set(game.id, hunters);
+
+    const recap = {
+      deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
+      hunterKills: [] as string[],
+    };
+    this.morningRecaps.set(game.id, recap);
 
     // informer immédiatement les clients des morts de la nuit
     for (const p of game.players) {
       this.sendSnapshot(game, p.id);
     }
-    const recap = {
-      deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
-      hunterKills: hunterShots.map(s => s.targetId),
-    };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
     this.log(game.id, game.state, undefined, 'day.recap', {
       deaths: deaths.length,
-      hunterKills: hunterShots.length,
+      hunterKills: 0,
     });
 
     setState(game, 'MORNING');
@@ -336,6 +339,33 @@ export class Orchestrator {
 
   private async handleMorningEnd(game: Game) {
     if (game.state !== 'MORNING') return;
+    const pending = this.pendingHunters.get(game.id) ?? [];
+    const recap = this.morningRecaps.get(game.id);
+    if (pending.length > 0 && recap) {
+      for (const hid of pending) {
+        const alive = alivePlayers(game);
+        const target = await this.askHunterTarget(game, hid, alive);
+        if (target && game.alive.has(target)) {
+          const { deaths, hunterShots } = await applyDeaths(
+            game,
+            [target],
+            (h, a) => this.askHunterTarget(game, h, a)
+          );
+          recap.deaths.push(...deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })));
+          recap.hunterKills.push(...hunterShots.map(s => s.targetId));
+        }
+      }
+      for (const p of game.players) {
+        this.sendSnapshot(game, p.id);
+      }
+      this.io.to(`room:${game.id}`).emit('day:recap', recap);
+      this.log(game.id, 'MORNING', undefined, 'day.recap', {
+        deaths: recap.deaths.length,
+        hunterKills: recap.hunterKills.length,
+      });
+      this.pendingHunters.delete(game.id);
+      this.morningRecaps.set(game.id, recap);
+    }
 
     const win = winner(game);
     if (win) {
