@@ -204,6 +204,16 @@ export class Orchestrator {
     game.night = {};
     game.wolvesChoices = {};
     setState(game, "NIGHT_WOLVES");
+    const wolves = wolvesOf(game).filter(
+      (pid) =>
+        game.alive.has(pid) &&
+        game.players.find((p) => p.id === pid)?.connected,
+    );
+    if (wolves.length === 0) {
+      this.broadcastState(game);
+      return this.beginNightWitch(game);
+    }
+
     this.setDeadline(game, DURATION.WOLVES_MS);
     this.broadcastState(game);
 
@@ -265,8 +275,9 @@ export class Orchestrator {
     setState(game, "NIGHT_WITCH");
 
     const wid = witchId(game);
-    // S'il n'y a pas de sorcière vivante, on saute directement à la phase suivante
-    if (!wid) {
+    const wp = wid ? game.players.find((p) => p.id === wid) : undefined;
+    // S'il n'y a pas de sorcière vivante ou connectée, on passe directement à la phase suivante
+    if (!wid || !game.alive.has(wid) || !wp?.connected) {
       this.broadcastState(game);
       return this.beginMorning(game);
     }
