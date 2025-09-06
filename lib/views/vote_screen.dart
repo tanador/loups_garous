@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../state/models.dart';
 import 'widgets/common.dart';
 
 class VoteScreen extends ConsumerStatefulWidget {
@@ -12,6 +13,21 @@ class VoteScreen extends ConsumerStatefulWidget {
 class _VoteScreenState extends ConsumerState<VoteScreen> {
   String? targetId;
   bool _voted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listen<GameModel>(gameProvider, (prev, next) {
+      if (prev?.lastVote != next.lastVote &&
+          next.lastVote != null &&
+          next.lastVote!.eliminatedId == null) {
+        setState(() {
+          _voted = false;
+          targetId = null;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
