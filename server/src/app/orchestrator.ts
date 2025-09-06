@@ -449,6 +449,17 @@ export class Orchestrator {
       });
       this.pendingHunters.delete(game.id);
       this.morningRecaps.set(game.id, recap);
+
+      // After the hunter shot, survivors must acknowledge the new recap
+      // before the game can proceed. Reset acknowledgments and deadline
+      // just like the initial morning recap.
+      game.morningAcks.clear();
+      this.setDeadline(game, DURATION.MORNING_MS);
+      this.broadcastState(game);
+      this.schedule(game.id, DURATION.MORNING_MS, () =>
+        this.handleMorningEnd(game),
+      );
+      return;
     }
 
     const win = winner(game);
