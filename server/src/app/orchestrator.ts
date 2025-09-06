@@ -301,9 +301,47 @@ export class Orchestrator {
     setState(game, 'MORNING');
     this.broadcastState(game);
 
-    // si un chasseur est mort, il agit maintenant
-    const deadHunters = deaths.filter(pid => game.roles[pid] === 'HUNTER');
-    for (const hid of deadHunters) {
+    // les chasseurs morts agiront après les acknowledgements
+    game.huntersToShoot = deaths.filter(pid => game.roles[pid] === 'HUNTER');
+
+    // si aucun chasseur n'est concerné, vérifier immédiatement la fin de partie
+    if (game.huntersToShoot.length === 0) {
+      const win = winner(game);
+      if (win) {
+        setState(game, 'END');
+        this.broadcastState(game);
+        const roles = game.players.map(p => ({ playerId: p.id, role: game.roles[p.id] }));
+        this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
+        this.log(game.id, 'END', undefined, 'game.end', { winner: win });
+        return;
+      }
+    }
+
+    game.morningAcks.clear();
+    this.setDeadline(game, DURATION.MORNING_MS);
+    this.broadcastState(game);
+
+    // attente des acks OU timeout
+    this.schedule(game.id, DURATION.MORNING_MS, () => this.handleMorningEnd(game));
+  }
+
+  dayAck(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'MORNING') throw new Error('bad_state');
+    game.morningAcks.add(playerId);
+    this.log(game.id, game.state, playerId, 'day.ack');
+    const needed = game.alive.size + (game.huntersToShoot?.length ?? 0);
+    if (game.morningAcks.size >= needed) {
+      this.handleMorningEnd(game);
+    }
+  }
+
+  private async handleMorningEnd(game: Game) {
+    if (game.state !== 'MORNING') return;
+    // si des chasseurs doivent encore tirer, on les réveille maintenant
+    const pending = [...(game.huntersToShoot ?? [])];
+    game.huntersToShoot = [];
+    for (const hid of pending) {
       const target = await this.askHunterTarget(game, hid, alivePlayers(game));
       if (target && game.alive.has(target)) {
         const res = await applyDeaths(game, [target], (h, alive) => this.askHunterTarget(game, h, alive));
@@ -312,7 +350,6 @@ export class Orchestrator {
           this.sendSnapshot(game, p.id);
         }
         for (const s of res.hunterShots) {
-          recap.hunterKills.push({ hunterId: s.hunterId, targetId: s.targetId });
           this.io.to(`room:${game.id}`).emit('day:hunterKill', { targetId: s.targetId });
           this.log(game.id, 'HUNTER', s.hunterId, 'hunter.kill', { targetId: s.targetId });
         }
@@ -329,23 +366,7 @@ export class Orchestrator {
       return;
     }
 
-    game.morningAcks.clear();
-    this.setDeadline(game, DURATION.MORNING_MS);
-    this.broadcastState(game);
-
-    // attente des acks OU timeout
-    this.schedule(game.id, DURATION.MORNING_MS, () => this.beginVote(game));
-  }
-
-  dayAck(gameId: string, playerId: string) {
-    const game = this.mustGet(gameId);
-    if (game.state !== 'MORNING') throw new Error('bad_state');
-    if (!game.alive.has(playerId)) throw new Error('dead_cannot_ack');
-    game.morningAcks.add(playerId);
-    this.log(game.id, game.state, playerId, 'day.ack');
-    if (game.morningAcks.size >= game.alive.size) {
-      this.beginVote(game);
-    }
+    this.beginVote(game);
   }
 
   private beginVote(game: Game) {
