@@ -9,6 +9,8 @@ import {
   targetsForWitch,
   computeNightDeaths,
   applyDeaths,
+  onPlayerDeath,
+  resolveDeaths,
   computeVoteResult,
   winner,
   alivePlayers,
@@ -174,6 +176,11 @@ export class Orchestrator {
       this.log(game.id, "ROLES", undefined, "roles.assigned", {
         roles: "hidden",
       });
+      // If Cupid is present, start Night 0 immediately to prompt lover pairing
+      const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
+      if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+        this.beginNightCupid(game);
+      }
     }
   }
 
@@ -185,7 +192,13 @@ export class Orchestrator {
     this.log(gameId, game.state, playerId, "player.ready");
     const allReady = game.players.every((x) => x.isReady);
     if (allReady && game.state === "ROLES") {
-      this.beginNightWolves(game);
+      // Nuit 0: Cupidon d'abord s'il est présent
+      const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
+      if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+        this.beginNightCupid(game);
+      } else {
+        this.beginNightWolves(game);
+      }
     }
   }
 
@@ -198,6 +211,61 @@ export class Orchestrator {
   }
 
   // -------------------- Phases --------------------
+  private beginNightCupid(game: Game) {
+    if (!canTransition(game, game.state, "NIGHT_CUPID")) return;
+    setState(game, "NIGHT_CUPID");
+    // réveiller Cupidon uniquement s'il est vivant et connecté
+    const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
+    const cid = cupid?.id;
+    if (!cid || !game.alive.has(cid) || !cupid?.connected) {
+      this.broadcastState(game);
+      return this.beginNightWolves(game);
+    }
+    this.setDeadline(game, DURATION.CUPID_MS);
+    this.broadcastState(game);
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, cid));
+    if (s) {
+      s.emit("cupid:wake", {
+        alive: game.players
+          .filter((p) => game.alive.has(p.id))
+          .map((p) => this.playerLite(game, p.id)),
+      });
+    }
+    this.log(game.id, game.state, cid, "cupid.wake");
+    this.schedule(game.id, DURATION.CUPID_MS, () => this.endNightCupid(game.id));
+  }
+
+  cupidChoose(gameId: string, playerId: string, targetA: string, targetB: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_CUPID") throw new Error("bad_state");
+    if (game.roles[playerId] !== "CUPID") throw new Error("forbidden");
+    if (targetA === targetB) throw new Error("invalid_targets");
+    const a = game.players.find((p) => p.id === targetA);
+    const b = game.players.find((p) => p.id === targetB);
+    if (!a || !b) throw new Error("player_not_found");
+    if (!game.alive.has(a.id) || !game.alive.has(b.id)) throw new Error("invalid_target");
+
+    a.loverId = b.id;
+    b.loverId = a.id;
+    // loversMode: SAME_CAMP si même alignement initial, sinon MIXED_CAMPS
+    const isWolf = (pid: string) => game.roles[pid] === "WOLF";
+    game.loversMode = isWolf(a.id) === isWolf(b.id) ? "SAME_CAMP" : "MIXED_CAMPS";
+
+    // informer chacun des amoureux de l'identité de l'autre (sans rôle)
+    const sa = this.io.sockets.sockets.get(this.playerSocket(game, a.id));
+    const sb = this.io.sockets.sockets.get(this.playerSocket(game, b.id));
+    if (sa) sa.emit("lovers:paired", { partnerId: b.id });
+    if (sb) sb.emit("lovers:paired", { partnerId: a.id });
+    this.log(game.id, game.state, playerId, "cupid.pair", { a: a.id, b: b.id, mode: game.loversMode });
+
+    this.endNightCupid(game.id);
+  }
+
+  private endNightCupid(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_CUPID") return;
+    this.beginNightWolves(game);
+  }
   private beginNightWolves(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_WOLVES")) return;
     game.round += 1;
@@ -361,7 +429,8 @@ export class Orchestrator {
     if (!canTransition(game, game.state, "MORNING")) return;
 
     const initial = await computeNightDeaths(game);
-    const { deaths } = await applyDeaths(game, initial);
+    for (const v of initial) onPlayerDeath(game, v, 'NIGHT');
+    const { deaths } = await resolveDeaths(game, undefined, { deferGrief: true });
 
     const hunters = deaths.filter((pid) => game.roles[pid] === "HUNTER");
     if (hunters.length > 0) this.pendingHunters.set(game.id, hunters);
@@ -428,9 +497,15 @@ export class Orchestrator {
         const alive = alivePlayers(game);
         const target = await this.askHunterTarget(game, hid, alive);
         if (target && game.alive.has(target)) {
-          const { deaths, hunterShots } = await applyDeaths(
+          onPlayerDeath(game, target, 'HUNTER');
+          // Après avoir planifié le tir du chasseur, traiter les chagrins d'amour différés
+          for (const vid of game.deferredGrief ?? []) {
+            const lover = game.players.find((p) => p.id === vid)?.loverId;
+            if (lover && game.alive.has(lover)) onPlayerDeath(game, lover, 'GRIEF');
+          }
+          game.deferredGrief = [];
+          const { deaths, hunterShots } = await resolveDeaths(
             game,
-            [target],
             (h, a) => this.askHunterTarget(game, h, a),
           );
           recap.deaths.push(
@@ -546,7 +621,14 @@ export class Orchestrator {
 
     setState(game, "RESOLVE");
     if (eliminated) {
-      await applyDeaths(game, [eliminated], (hid, alive) =>
+      onPlayerDeath(game, eliminated, 'VOTE');
+      // Traiter également d'éventuels chagrins d'amour différés avant résolution
+      for (const vid of game.deferredGrief ?? []) {
+        const lover = game.players.find((p) => p.id === vid)?.loverId;
+        if (lover && game.alive.has(lover)) onPlayerDeath(game, lover, 'GRIEF');
+      }
+      game.deferredGrief = [];
+      await resolveDeaths(game, (hid, alive) =>
         this.askHunterTarget(game, hid, alive),
       );
     }

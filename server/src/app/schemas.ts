@@ -34,6 +34,11 @@ export const WolvesChooseSchema = z.object({
   targetId: zNickname
 });
 
+export const CupidChooseSchema = z.object({
+  targetA: zNickname,
+  targetB: zNickname,
+});
+
 export const WitchDecisionSchema = z.object({
   save: z.boolean(),
   poisonTargetId: zNickname.optional()

@@ -1,5 +1,6 @@
 {
   "registry": {
+    "CUPID": "./src/domain/roles/cupid.ts",
     "WOLF": "./src/domain/roles/wolf.ts",
     "WITCH": "./src/domain/roles/witch.ts",
     "HUNTER": "./src/domain/roles/hunter.ts",
@@ -7,15 +8,17 @@
   },
   "setups": {
     "3": {
+      "CUPID": { "min": 0, "max": 1 },
       "HUNTER": { "min": 0, "max": 1 },
       "VILLAGER": { "min": 0, "max": 1 },
       "WITCH": { "min": 0, "max": 1 },
       "WOLF": { "min": 1, "max": 2 }
     },
     "4": {
+      "CUPID": { "min": 1, "max": 1 },
       "WITCH": { "min": 1, "max": 1 },
       "HUNTER": { "min": 1, "max": 1 },
-      "WOLF": { "min": 1, "max": 2 },
+      "WOLF": { "min": 1, "max": 1 },
       "VILLAGER": { "min": 0, "max": 2 }
     }
   }

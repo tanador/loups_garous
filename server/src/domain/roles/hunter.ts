@@ -12,7 +12,7 @@ bus.on('ResolvePhase', async ({ game, victim, queue, hunterShots, askHunter }) =
   if (nonWolves === 0 && wolves.length > 1) return;
   const target = await Promise.resolve(askHunter(victim, alive));
   if (target && game.alive.has(target)) {
-    queue.push(target);
+    queue.push({ victimId: target, cause: 'HUNTER' });
     hunterShots.push({ hunterId: victim, targetId: target });
   }
 });

@@ -7,7 +7,8 @@ import { Game, GameState } from './types.js';
  */
 const transitions: Record<string, GameState[]> = {
   LOBBY: ['ROLES', 'END'],
-  ROLES: ['NIGHT_WOLVES', 'END'],
+  ROLES: ['NIGHT_CUPID', 'NIGHT_WOLVES', 'END'],
+  NIGHT_CUPID: ['NIGHT_WOLVES', 'END'],
   NIGHT_WOLVES: ['NIGHT_WITCH', 'END'],
   NIGHT_WITCH: ['MORNING', 'END'],
   MORNING: ['VOTE', 'END'],

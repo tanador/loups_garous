@@ -7,6 +7,7 @@ export function createGame(maxPlayers: number): Game {
   return {
     id: id(),
     state: 'LOBBY',
+    phase: 'SETUP',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     round: 0,
@@ -21,6 +22,9 @@ export function createGame(maxPlayers: number): Game {
     deadlines: {},
     wolvesChoices: {},
     morningAcks: new Set<string>(),
+    loversMode: null,
+    pendingDeaths: [],
+    deferredGrief: [],
   };
 }
 

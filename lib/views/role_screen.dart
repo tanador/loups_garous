@@ -22,6 +22,7 @@ class _RoleScreenState extends ConsumerState<RoleScreen> {
       Role.WITCH => 'Sorcière',
       Role.HUNTER => 'Chasseur',
       Role.VILLAGER => 'Villageois',
+      Role.CUPID => 'Cupidon',
       null => 'Inconnu'
     };
     return Scaffold(

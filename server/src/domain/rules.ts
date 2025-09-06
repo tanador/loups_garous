@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import { Game, Role } from './types.js';
+import { Game, Role, PendingDeath } from './types.js';
 import { ROLE_SETUPS } from './roles/index.js';
 import { secureShuffle } from './utils.js';
 import { bus, HunterShot } from './events.js';
@@ -66,6 +66,11 @@ export function witchId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'WITCH')?.id;
 }
 
+/// Identifiant de Cupidon, s'il y en a un.
+export function cupidId(game: Game): string | undefined {
+  return game.players.find(p => game.roles[p.id] === 'CUPID')?.id;
+}
+
 /// Liste les joueurs toujours en vie.
 export function alivePlayers(game: Game): string[] {
   return game.players.filter(p => game.alive.has(p.id)).map(p => p.id);
@@ -91,17 +96,56 @@ export async function computeNightDeaths(game: Game): Promise<string[]> {
 export async function applyDeaths(
   game: Game,
   initialDeaths: string[],
-  askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined
+  askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined,
+  opts?: { deferGrief?: boolean }
 ): Promise<{ deaths: string[]; hunterShots: HunterShot[] }> {
-  const queue = [...initialDeaths];
+  const queue: PendingDeath[] = initialDeaths.map((v) => ({ victimId: v, cause: 'CHAIN' }));
+  return await processDeathQueue(game, queue, askHunter, opts);
+}
+
+// Centralized enqueue API to branch on every validated death.
+export function onPlayerDeath(game: Game, victimId: string, cause: string): void {
+  if (!game.pendingDeaths) game.pendingDeaths = [];
+  game.pendingDeaths.push({ victimId, cause });
+}
+
+// Resolve all pending deaths enqueued via onPlayerDeath
+export async function resolveDeaths(
+  game: Game,
+  askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined,
+  opts?: { deferGrief?: boolean }
+): Promise<{ deaths: string[]; hunterShots: HunterShot[] }> {
+  const queue = game.pendingDeaths ?? [];
+  game.pendingDeaths = [];
+  return await processDeathQueue(game, queue, askHunter, opts);
+}
+
+async function processDeathQueue(
+  game: Game,
+  queue: PendingDeath[],
+  askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined,
+  opts?: { deferGrief?: boolean }
+): Promise<{ deaths: string[]; hunterShots: HunterShot[] }> {
   const resolved: string[] = [];
   const hunterShots: HunterShot[] = [];
   while (queue.length > 0) {
-    const victim = queue.shift()!;
+    const ev = queue.shift()!;
+    const victim = ev.victimId;
     if (!game.alive.has(victim)) continue;
     resolved.push(victim);
     game.alive.delete(victim);
     await bus.emit('ResolvePhase', { game, victim, queue, hunterShots, askHunter });
+    // After death-specific effects, schedule lover grief at the end
+    const p = game.players.find((x) => x.id === victim);
+    const loverId = p?.loverId;
+    if (loverId && game.alive.has(loverId)) {
+      if (opts?.deferGrief) {
+        if (!game.deferredGrief) game.deferredGrief = [];
+        if (!game.deferredGrief.includes(victim)) game.deferredGrief.push(victim);
+      } else {
+        queue.push({ victimId: loverId, cause: 'GRIEF' });
+      }
+    }
   }
   return { deaths: resolved, hunterShots };
 }
@@ -126,12 +170,19 @@ export function computeVoteResult(game: Game): { eliminated: string | null; tall
 }
 
 /// Détermine le vainqueur si toutes les conditions sont réunies.
-export function winner(game: Game): 'WOLVES' | 'VILLAGE' | null {
+export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
   const alive = alivePlayers(game);
+  // Lovers mixed-camps victory: exactly the two lovers survive
+  if (game.loversMode === 'MIXED_CAMPS' && alive.length === 2) {
+    const [a, b] = alive;
+    const pa = game.players.find((p) => p.id === a);
+    const pb = game.players.find((p) => p.id === b);
+    if (pa?.loverId === b && pb?.loverId === a) return 'LOVERS';
+  }
   const wolves = alive.filter(pid => game.roles[pid] === 'WOLF').length;
   const nonWolves = alive.length - wolves;
   if (wolves === 0) return 'VILLAGE';
-  if (nonWolves === 0) return 'WOLVES';
+  if (wolves >= nonWolves) return 'WOLVES';
   return null;
 }
 

@@ -1,4 +1,4 @@
-import type { Game } from './types.js';
+import type { Game, PendingDeath } from './types.js';
 
 export interface HunterShot { hunterId: string; targetId: string }
 
@@ -8,7 +8,7 @@ export interface EventPayloads {
   ResolvePhase: {
     game: Game;
     victim: string;
-    queue: string[];
+    queue: PendingDeath[];
     hunterShots: HunterShot[];
     askHunter?: (hunterId: string, alive: string[]) => Promise<string | undefined> | string | undefined;
   };

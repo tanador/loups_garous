@@ -3,6 +3,7 @@ import type { Role } from './roles/index.js';
 export type CoreGameState =
   | 'LOBBY'
   | 'ROLES'
+  | 'NIGHT_CUPID'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'
   | 'MORNING'
@@ -25,6 +26,8 @@ export interface Player {
   isReady: boolean;
   connected: boolean;
   lastSeen: number;
+  // Lover link (Cupidon). If set, must be symmetric with the partner's loverId
+  loverId?: string;
 }
 
 export interface NightState {
@@ -39,9 +42,21 @@ export interface HistoryEvent {
   day?: { eliminated?: string | null; tally: Record<string, number> };
 }
 
+// Coarse game phase (independent from fine-grained GameState)
+export type CoarsePhase = 'SETUP' | 'NIGHT' | 'DAY' | 'VOTE' | 'RESOLUTION';
+
+// Lovers pairing mode
+export type LoversMode = 'SAME_CAMP' | 'MIXED_CAMPS' | null;
+
+export interface PendingDeath {
+  cause: string; // e.g. 'WOLVES' | 'WITCH' | 'HUNTER' | 'VOTE' | 'LOVERS'
+  victimId: string;
+}
+
 export interface Game {
   id: string;
   state: GameState;
+  phase?: CoarsePhase; // optional: derived from state, initialized in createGame
   createdAt: number;
   updatedAt: number;
   round: number;
@@ -56,4 +71,7 @@ export interface Game {
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
   morningAcks: Set<string>;
+  loversMode?: LoversMode;
+  pendingDeaths?: PendingDeath[]; // FIFO queue for resolution helpers
+  deferredGrief?: string[]; // victims whose lovers should later die of grief
 }

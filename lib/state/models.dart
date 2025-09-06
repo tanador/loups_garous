@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 /// États successifs possibles de la partie.
-enum GamePhase { LOBBY, ROLES, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
+enum GamePhase { LOBBY, ROLES, NIGHT_CUPID, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
 /// Convertit une représentation texte en valeur [GamePhase].
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
 /// Rôles attribués aux joueurs.
-enum Role { WOLF, WITCH, HUNTER, VILLAGER }
+enum Role { WOLF, WITCH, HUNTER, VILLAGER, CUPID }
 /// Convertit une chaîne en valeur [Role].
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
 
@@ -82,6 +82,8 @@ class GameModel {
 
   final WitchWake? witchWake;
   final List<Lite> hunterTargets;
+  final List<Lite> cupidTargets;
+  final String? loverPartnerId;
   final DayRecap? recap;
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
@@ -107,6 +109,8 @@ class GameModel {
     required this.confirmationsRemaining,
     required this.witchWake,
     required this.hunterTargets,
+    required this.cupidTargets,
+    required this.loverPartnerId,
     required this.recap,
     required this.voteAlive,
     required this.lastVote,
@@ -133,6 +137,8 @@ class GameModel {
         confirmationsRemaining: 0,
         witchWake: null,
         hunterTargets: [],
+        cupidTargets: [],
+        loverPartnerId: null,
         recap: null,
         voteAlive: [],
         lastVote: null,
@@ -162,6 +168,8 @@ class GameModel {
     int? confirmationsRemaining,
     Object? witchWake = _unset,
     List<Lite>? hunterTargets,
+    List<Lite>? cupidTargets,
+    Object? loverPartnerId = _unset,
     Object? recap = _unset,
     List<Lite>? voteAlive,
     Object? lastVote = _unset,
@@ -188,6 +196,8 @@ class GameModel {
       confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
       witchWake: identical(witchWake, _unset) ? this.witchWake : witchWake as WitchWake?,
       hunterTargets: hunterTargets ?? this.hunterTargets,
+      cupidTargets: cupidTargets ?? this.cupidTargets,
+      loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote: identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,

@@ -11,14 +11,18 @@ class EndScreen extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final win = s.winner ?? 'Inconnu';
-    final text = win == 'WOLVES'
-        ? 'Victoire des Loups'
-        : (win == 'VILLAGE' ? 'Victoire du Village' : 'Partie terminée');
+    final text = switch (win) {
+      'WOLVES' => 'Victoire des Loups',
+      'VILLAGE' => 'Victoire du Village',
+      'LOVERS' => 'Victoire du Couple',
+      _ => 'Partie terminée',
+    };
     String roleLabel(Role r) => switch (r) {
           Role.WOLF => 'Loup-garou',
           Role.WITCH => 'Sorcière',
           Role.HUNTER => 'Chasseur',
           Role.VILLAGER => 'Villageois',
+          Role.CUPID => 'Cupidon',
         };
     final roles = s.finalRoles;
     return Scaffold(

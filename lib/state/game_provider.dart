@@ -207,6 +207,25 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
     });
 
+    // --- Night: cupid
+    s.on('cupid:wake', (data) async {
+      final list = ((data['alive'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => Lite(id: j['id']))
+          .toList();
+      state = state.copy(cupidTargets: list);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] cupid:wake targets=${list.length}');
+    });
+
+    s.on('lovers:paired', (data) async {
+      final partnerId = data['partnerId'] as String?;
+      // secret info: only for you if you're lover
+      state = state.copy(loverPartnerId: partnerId);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] lovers:paired partner=$partnerId');
+    });
+
     // --- Hunter ability
     s.on('hunter:wake', (data) async {
       final alive = ((data['alive'] as List?) ?? [])
@@ -395,6 +414,16 @@ class GameController extends StateNotifier<GameModel> {
     final payload = {'save': save, if (poisonTargetId != null) 'poisonTargetId': poisonTargetId};
     final ack = await _socketSvc.emitAck('witch:decision', payload);
     log('[ack] witch:decision $ack');
+  }
+
+  // ------------- Cupid -------------
+  Future<void> cupidChoose(String targetAId, String targetBId) async {
+    final ack = await _socketSvc.emitAck('cupid:choose', {
+      'targetA': targetAId,
+      'targetB': targetBId,
+    });
+    log('[ack] cupid:choose $ack');
+    state = state.copy(cupidTargets: []);
   }
 
   // ------------- Hunter -------------
