@@ -281,7 +281,7 @@ export class Orchestrator {
   private async beginMorning(game: Game) {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
-    const initial = computeNightDeaths(game);
+    const initial = await computeNightDeaths(game);
     const { deaths } = await applyDeaths(game, initial);
 
     // informer immédiatement les clients des morts de la nuit

@@ -2,6 +2,7 @@ import { randomInt } from 'crypto';
 import { Game, Role } from './types.js';
 import { ROLE_SETUPS } from './roles/index.js';
 import { secureShuffle } from './utils.js';
+import { bus, HunterShot } from './events.js';
 
 /// Attribue aléatoirement les rôles aux joueurs selon la configuration.
 /// La fonction génère toutes les distributions possibles respectant les
@@ -76,19 +77,13 @@ export function nonWolvesAlive(game: Game): string[] {
 }
 
 /// Calcule les décès résultant des actions nocturnes (loups, sorcière).
-export function computeNightDeaths(game: Game): string[] {
-  const { attacked, saved, poisoned } = game.night;
+export async function computeNightDeaths(game: Game): Promise<string[]> {
   const deaths = new Set<string>();
-
-  if (attacked && attacked !== saved) deaths.add(attacked);
-  if (poisoned) deaths.add(poisoned);
-
-  // Si attaqué et empoisonné le même joueur et sauvé, la potion de mort l'emporte
-  // (sauvetage n'annule pas une autre cause de mort)
+  // Délègue aux rôles via le bus d'événements
+  // pour déterminer les victimes de la nuit
+  await bus.emit('NightAction', { game, deaths });
   return Array.from(deaths);
 }
-
-export interface HunterShot { hunterId: string; targetId: string }
 
 /// Résout les morts en chaîne (chasseur qui tire, etc.).
 /// La fonction itère sur une file de victimes et peut demander au chasseur
@@ -106,21 +101,7 @@ export async function applyDeaths(
     if (!game.alive.has(victim)) continue;
     resolved.push(victim);
     game.alive.delete(victim);
-    if (game.roles[victim] === 'HUNTER' && askHunter) {
-      const alive = alivePlayers(game).filter(pid => pid !== victim);
-      const wolves = alive.filter(pid => game.roles[pid] === 'WOLF');
-      const nonWolves = alive.length - wolves.length;
-
-      // si seuls des loups restent en vie et qu'il y en a plus d'un,
-      // le tir du chasseur ne peut pas changer l'issue de la partie
-      if (!(nonWolves === 0 && wolves.length > 1)) {
-        const target = await Promise.resolve(askHunter(victim, alive));
-        if (target && game.alive.has(target)) {
-          queue.push(target);
-          hunterShots.push({ hunterId: victim, targetId: target });
-        }
-      }
-    }
+    await bus.emit('ResolvePhase', { game, victim, queue, hunterShots, askHunter });
   }
   return { deaths: resolved, hunterShots };
 }

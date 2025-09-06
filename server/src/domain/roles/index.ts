@@ -2,12 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-import type { Game } from '../types.js';
-
-export interface RoleBehavior {
-  onNight?(game: Game): void;
-  onVote?(game: Game): void;
-}
+export interface RoleBehavior {}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.resolve(__dirname, '../../../roles.config.json');

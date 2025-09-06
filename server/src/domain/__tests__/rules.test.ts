@@ -12,14 +12,14 @@ function seedGame() {
 }
 
 describe('night resolution', () => {
-  it('heal cancels wolves attack but poison kills target', () => {
-  const g = seedGame();
+  it('heal cancels wolves attack but poison kills target', async () => {
+    const g = seedGame();
     g.night.attacked = 'A';
     g.night.saved = 'A';
     g.night.poisoned = 'B';
-    const deaths = computeNightDeaths(g);
+    const deaths = await computeNightDeaths(g);
     expect(deaths.sort()).toEqual(['B']);
-    applyDeaths(g, deaths);
+    await applyDeaths(g, deaths);
     expect(g.alive.has('A')).toBe(true);
     expect(g.alive.has('B')).toBe(false);
   });
