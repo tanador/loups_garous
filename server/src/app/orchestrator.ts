@@ -282,7 +282,11 @@ export class Orchestrator {
     if (!canTransition(game, game.state, 'MORNING')) return;
 
     const initial = await computeNightDeaths(game);
-    const { deaths } = await applyDeaths(game, initial);
+    const { deaths, hunterShots } = await applyDeaths(
+      game,
+      initial,
+      (hid, alive) => this.askHunterTarget(game, hid, alive)
+    );
 
     // informer immédiatement les clients des morts de la nuit
     for (const p of game.players) {
@@ -290,31 +294,25 @@ export class Orchestrator {
     }
     const recap = {
       deaths: deaths.map(pid => ({ playerId: pid, role: game.roles[pid] })),
-      hunterKills: [] as { hunterId: string; targetId: string }[],
+      hunterKills: hunterShots.map(s => s.targetId),
     };
     this.io.to(`room:${game.id}`).emit('day:recap', recap);
     this.log(game.id, game.state, undefined, 'day.recap', {
       deaths: deaths.length,
-      hunterKills: 0,
+      hunterKills: hunterShots.length,
     });
 
     setState(game, 'MORNING');
     this.broadcastState(game);
 
-    // les chasseurs morts agiront après les acknowledgements
-    game.huntersToShoot = deaths.filter(pid => game.roles[pid] === 'HUNTER');
-
-    // si aucun chasseur n'est concerné, vérifier immédiatement la fin de partie
-    if (game.huntersToShoot.length === 0) {
-      const win = winner(game);
-      if (win) {
-        setState(game, 'END');
-        this.broadcastState(game);
-        const roles = game.players.map(p => ({ playerId: p.id, role: game.roles[p.id] }));
-        this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
-        this.log(game.id, 'END', undefined, 'game.end', { winner: win });
-        return;
-      }
+    const win = winner(game);
+    if (win) {
+      setState(game, 'END');
+      this.broadcastState(game);
+      const roles = game.players.map(p => ({ playerId: p.id, role: game.roles[p.id] }));
+      this.io.to(`room:${game.id}`).emit('game:ended', { winner: win, roles });
+      this.log(game.id, 'END', undefined, 'game.end', { winner: win });
+      return;
     }
 
     game.morningAcks.clear();
@@ -330,7 +328,7 @@ export class Orchestrator {
     if (game.state !== 'MORNING') throw new Error('bad_state');
     game.morningAcks.add(playerId);
     this.log(game.id, game.state, playerId, 'day.ack');
-    const needed = game.alive.size + (game.huntersToShoot?.length ?? 0);
+    const needed = game.alive.size;
     if (game.morningAcks.size >= needed) {
       this.handleMorningEnd(game);
     }
@@ -338,23 +336,6 @@ export class Orchestrator {
 
   private async handleMorningEnd(game: Game) {
     if (game.state !== 'MORNING') return;
-    // si des chasseurs doivent encore tirer, on les réveille maintenant
-    const pending = [...(game.huntersToShoot ?? [])];
-    game.huntersToShoot = [];
-    for (const hid of pending) {
-      const target = await this.askHunterTarget(game, hid, alivePlayers(game));
-      if (target && game.alive.has(target)) {
-        const res = await applyDeaths(game, [target], (h, alive) => this.askHunterTarget(game, h, alive));
-        // mise à jour des clients sur les nouveaux morts
-        for (const p of game.players) {
-          this.sendSnapshot(game, p.id);
-        }
-        for (const s of res.hunterShots) {
-          this.io.to(`room:${game.id}`).emit('day:hunterKill', { targetId: s.targetId });
-          this.log(game.id, 'HUNTER', s.hunterId, 'hunter.kill', { targetId: s.targetId });
-        }
-      }
-    }
 
     const win = winner(game);
     if (win) {

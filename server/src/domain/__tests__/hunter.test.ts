@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createGame, addPlayer } from '../game.js';
 import { applyDeaths } from '../rules.js';
+import '../roles/hunter.js';
 
 function setup() {
   const g = createGame(4);
