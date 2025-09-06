@@ -15,12 +15,13 @@ function setup() {
 }
 
 describe('hunter ability', () => {
-  it('night kill triggers a shot', async () => {
+  it('night kill does not trigger an immediate shot', async () => {
     const g = setup();
-    const res = await applyDeaths(g, ['Hunter'], () => 'Wolf');
+    const res = await applyDeaths(g, ['Hunter']);
     expect(g.alive.has('Hunter')).toBe(false);
-    expect(g.alive.has('Wolf')).toBe(false);
-    expect(res.hunterShots).toEqual([{ hunterId: 'Hunter', targetId: 'Wolf' }]);
+    // The wolf remains alive until the hunter acts during the morning.
+    expect(g.alive.has('Wolf')).toBe(true);
+    expect(res.hunterShots).toEqual([]);
   });
 
   it('vote execution triggers a shot', async () => {
