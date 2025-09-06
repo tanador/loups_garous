@@ -13,18 +13,22 @@ const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
 
 const isTs = fileURLToPath(import.meta.url).endsWith('.ts');
 
-const entries = await Promise.all(
-  Object.entries(raw.registry).map(async ([name, relTs]) => {
-    const rel = isTs
-      ? relTs
-      : relTs.replace(/^\.\/src\//, './dist/').replace(/\.ts$/, '.js');
-    const abs = path.resolve(path.dirname(configPath), rel);
-    const spec = './' + path.relative(__dirname, abs).replace(/\\/g, '/');
-    const mod = await import(spec);
-    return [name, (mod.default ?? mod) as RoleBehavior] as const;
-  })
-);
+export type Role = keyof typeof raw.registry;
 
-export const ROLE_REGISTRY = Object.fromEntries(entries);
-export type Role = keyof typeof ROLE_REGISTRY;
+export let ROLE_REGISTRY: Record<Role, RoleBehavior>;
+export const ROLE_REGISTRY_READY: Promise<void> = (async () => {
+  const entries = await Promise.all(
+    Object.entries(raw.registry).map(async ([name, relTs]) => {
+      const rel = isTs
+        ? relTs
+        : relTs.replace(/^\.\/src\//, './dist/').replace(/\.ts$/, '.js');
+      const abs = path.resolve(path.dirname(configPath), rel);
+      const spec = './' + path.relative(__dirname, abs).replace(/\\/g, '/');
+      const mod = await import(spec);
+      return [name, (mod.default ?? mod) as RoleBehavior] as const;
+    })
+  );
+  ROLE_REGISTRY = Object.fromEntries(entries) as Record<Role, RoleBehavior>;
+})();
+
 export const ROLE_SETUPS = raw.setups as Record<number, Record<Role, { min: number; max: number }>>;
