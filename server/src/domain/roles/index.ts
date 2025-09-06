@@ -16,8 +16,13 @@ const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
   setups: Record<number, Record<string, { min: number; max: number }>>;
 };
 
+const isTs = fileURLToPath(import.meta.url).endsWith('.ts');
+
 const registry: Record<string, RoleBehavior> = {};
-for (const [name, rel] of Object.entries(raw.registry)) {
+for (const [name, relTs] of Object.entries(raw.registry)) {
+  const rel = isTs
+    ? relTs
+    : relTs.replace(/^\.\/src\//, './dist/').replace(/\.ts$/, '.js');
   const abs = path.resolve(path.dirname(configPath), rel);
   const spec = './' + path.relative(__dirname, abs).replace(/\\/g, '/');
   const mod = await import(spec);
