@@ -15,17 +15,13 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
   bool _ack = false;
 
   @override
-  void initState() {
-    super.initState();
+  Widget build(BuildContext context) {
     ref.listen<DayRecap?>(gameProvider.select((s) => s.recap), (prev, next) {
       if (prev != next) {
         setState(() => _ack = false);
       }
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final r = s.recap;
