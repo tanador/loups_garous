@@ -1,5 +1,6 @@
 export const DURATION = {
   CUPID_MS: 80_000,
+  LOVERS_MS: 80_000,
   WOLVES_MS: 80_000,
   WITCH_MS: 80_000,
   HUNTER_MS: 80_000,

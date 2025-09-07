@@ -7,6 +7,7 @@ import 'views/countdown_screen.dart';
 import 'views/night_wolves_screen.dart';
 import 'views/night_witch_screen.dart';
 import 'views/night_cupid_screen.dart';
+import 'views/night_lovers_screen.dart';
 import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
@@ -72,11 +73,14 @@ class _HomeRouter extends ConsumerWidget {
     switch (phase) {
       case GamePhase.ROLES:
         return const CountdownScreen();
-      case GamePhase.NIGHT_WOLVES:
-        if (youRole == Role.WOLF) return const NightWolvesScreen();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_CUPID:
         if (youRole == Role.CUPID) return const NightCupidScreen();
+        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+      case GamePhase.NIGHT_LOVERS:
+        if (s.loverPartnerId != null) return const NightLoversScreen();
+        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+      case GamePhase.NIGHT_WOLVES:
+        if (youRole == Role.WOLF) return const NightWolvesScreen();
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_WITCH:
         if (youRole == Role.WITCH) return const NightWitchScreen();

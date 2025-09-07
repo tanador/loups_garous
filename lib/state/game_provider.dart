@@ -218,12 +218,12 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] cupid:wake targets=${list.length}');
     });
 
-    s.on('lovers:paired', (data) async {
+    s.on('lovers:wake', (data) async {
       final partnerId = data['partnerId'] as String?;
       // secret info: only for you if you're lover
       state = state.copy(loverPartnerId: partnerId);
       if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] lovers:paired partner=$partnerId');
+      log('[evt] lovers:wake partner=$partnerId');
     });
 
     // --- Hunter ability
