@@ -3,60 +3,55 @@
 import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/socket_service.dart';
+import '../services/socket_controller.dart';
+import '../services/session_controller.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-final gameProvider =
-    StateNotifierProvider<GameController, GameModel>((ref) => GameController());
+final gameProvider = StateNotifierProvider<GameController, GameModel>((ref) {
+  final socket = ref.watch(socketControllerProvider);
+  final session = ref.watch(sessionControllerProvider);
+  return GameController(socket, session);
+});
 
 /// Contrôleur principal de l'application.
 /// Il maintient l'état du jeu dans [GameModel] et gère
 /// la communication avec le serveur via Socket.IO.
 class GameController extends StateNotifier<GameModel> {
-  GameController() : super(GameModel.initial()) {
+  GameController(this._socket, this._session) : super(GameModel.initial()) {
     _restoreSession();
   }
 
-  final _socketSvc = SocketService();
+  final SocketController _socket;
+  final SessionController _session;
 
   /// Tente de restaurer une session précédente depuis le stockage local.
   /// Si une partie était en cours, on reconnecte automatiquement au serveur.
   Future<void> _restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final url = prefs.getString('serverUrl');
-    final gameId = prefs.getString('gameId');
-    final playerId = prefs.getString('playerId');
+    final data = await _session.load();
+    final url = data['serverUrl'];
+    final gameId = data['gameId'];
+    final playerId = data['playerId'];
     if (url != null) {
       state = state.copy(serverUrl: url, gameId: gameId, playerId: playerId);
       if (gameId != null && playerId != null) {
-        connect(url);
+        final s = _socket.connect(url);
+        await attachSocket(s, url);
       }
     }
   }
 
   /// Sauvegarde la session courante afin de pouvoir la restaurer au prochain démarrage.
   Future<void> _saveSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('serverUrl', state.serverUrl);
-    if (state.gameId != null) {
-      await prefs.setString('gameId', state.gameId!);
-    } else {
-      await prefs.remove('gameId');
-    }
-    if (state.playerId != null) {
-      await prefs.setString('playerId', state.playerId!);
-    } else {
-      await prefs.remove('playerId');
-    }
+    await _session.save(
+        serverUrl: state.serverUrl,
+        gameId: state.gameId,
+        playerId: state.playerId);
   }
 
   /// Efface toute information liée à la session persistée.
   Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('gameId');
-    await prefs.remove('playerId');
+    await _session.clearGame();
   }
 
   /// Réinitialise complètement l'état du jeu côté client.
@@ -84,26 +79,25 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Cycle de vie du socket -------------
-  /// Ouvre une connexion Socket.IO et enregistre tous les listeners nécessaires.
-  /// Cette méthode prépare également la reprise d'une session existante si possible.
-  Future<void> connect(String url) async {
-    final io.Socket s = _socketSvc.connect(url);
+  /// Associe le [socket] au contrôleur et enregistre les listeners nécessaires.
+  Future<void> attachSocket(io.Socket s, String url) async {
     state = state.copy(serverUrl: url, socketConnected: false);
     await _saveSession();
+    _registerSocket(s);
+  }
 
+  void _registerSocket(io.Socket s) {
     s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
       log('[event] connect');
-      // Si nous avions déjà rejoint une partie, tentons de reprendre la session.
       if (state.gameId != null && state.playerId != null) {
-        final ack = await _socketSvc.emitAck('session:resume', {
+        final ack = await _socket.emitAck('session:resume', {
           'gameId': state.gameId,
           'playerId': state.playerId,
         });
         log('[ack] session:resume $ack');
         await _setContext();
       }
-      // Récupère la liste des parties disponibles dans le lobby.
       _listGames();
     });
 
@@ -137,7 +131,6 @@ class GameController extends StateNotifier<GameModel> {
     });
 
     s.on('game:snapshot', (data) {
-      // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => PlayerView(
@@ -222,7 +215,6 @@ class GameController extends StateNotifier<GameModel> {
 
     s.on('lovers:wake', (data) async {
       final partnerId = data['partnerId'] as String?;
-      // secret info: only for you if you're lover
       state = state.copy(loverPartnerId: partnerId);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] lovers:wake partner=$partnerId');
@@ -297,7 +289,7 @@ class GameController extends StateNotifier<GameModel> {
   /// Demande au serveur la liste des parties dans le lobby
   /// et met à jour l'état local avec le résultat.
   Future<void> _listGames() async {
-    final ack = await _socketSvc.emitAck('lobby:listGames', {});
+    final ack = await _socket.emitAck('lobby:listGames', {});
     final games = ((ack['data']?['games'] as List?) ?? [])
         .map((e) => LobbyGameInfo.fromJson(Map<String, dynamic>.from(e)))
         .toList();
@@ -306,7 +298,7 @@ class GameController extends StateNotifier<GameModel> {
 
   // ------------- Lobby actions -------------
   Future<String?> createGame(String nickname, int maxPlayers) async {
-    final ack = await _socketSvc.emitAck('lobby:create', {'nickname': nickname, 'maxPlayers': maxPlayers});
+    final ack = await _socket.emitAck('lobby:create', {'nickname': nickname, 'maxPlayers': maxPlayers});
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
@@ -325,7 +317,7 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   Future<String?> joinGame(String gameId, String nickname) async {
-    final ack = await _socketSvc.emitAck('lobby:join', {'gameId': gameId, 'nickname': nickname});
+    final ack = await _socket.emitAck('lobby:join', {'gameId': gameId, 'nickname': nickname});
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
@@ -345,7 +337,7 @@ class GameController extends StateNotifier<GameModel> {
   Future<String?> cancelGame() async {
     String? err;
     try {
-      final ack = await _socketSvc.emitAck('lobby:cancel', {
+      final ack = await _socket.emitAck('lobby:cancel', {
         'gameId': state.gameId,
         'playerId': state.playerId,
       });
@@ -366,7 +358,7 @@ class GameController extends StateNotifier<GameModel> {
   Future<String?> leaveGame() async {
     String? err;
     try {
-      final ack = await _socketSvc.emitAck('lobby:leave', {
+      final ack = await _socket.emitAck('lobby:leave', {
         'gameId': state.gameId,
         'playerId': state.playerId,
       });
@@ -392,7 +384,7 @@ class GameController extends StateNotifier<GameModel> {
 
   // ------------- Context & ready -------------
   Future<void> _setContext() async {
-    final ack = await _socketSvc.emitAck('context:set', {
+    final ack = await _socket.emitAck('context:set', {
       'gameId': state.gameId,
       'playerId': state.playerId,
     });
@@ -401,26 +393,26 @@ class GameController extends StateNotifier<GameModel> {
 
   Future<void> toggleReady(bool ready) async {
     final event = ready ? 'player:ready' : 'player:unready';
-    final ack = await _socketSvc.emitAck(event, {});
+    final ack = await _socket.emitAck(event, {});
     log('[ack] $event $ack');
   }
 
   // ------------- Wolves -------------
   Future<void> wolvesChoose(String targetId) async {
-    final ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
+    final ack = await _socket.emitAck('wolves:chooseTarget', {'targetId': targetId});
     log('[ack] wolves:chooseTarget $ack');
   }
 
   // ------------- Witch -------------
   Future<void> witchDecision({required bool save, String? poisonTargetId}) async {
     final payload = {'save': save, if (poisonTargetId != null) 'poisonTargetId': poisonTargetId};
-    final ack = await _socketSvc.emitAck('witch:decision', payload);
+    final ack = await _socket.emitAck('witch:decision', payload);
     log('[ack] witch:decision $ack');
   }
 
   // ------------- Cupid -------------
   Future<void> cupidChoose(String targetAId, String targetBId) async {
-    final ack = await _socketSvc.emitAck('cupid:choose', {
+    final ack = await _socket.emitAck('cupid:choose', {
       'targetA': targetAId,
       'targetB': targetBId,
     });
@@ -430,31 +422,31 @@ class GameController extends StateNotifier<GameModel> {
 
   // ------------- Hunter -------------
   Future<void> hunterShoot(String targetId) async {
-    final ack = await _socketSvc.emitAck('hunter:shoot', {'targetId': targetId});
+    final ack = await _socket.emitAck('hunter:shoot', {'targetId': targetId});
     log('[ack] hunter:shoot $ack');
     state = state.copy(hunterTargets: []);
   }
 
   // ------------- Morning ack -------------
   Future<void> dayAck() async {
-    final ack = await _socketSvc.emitAck('day:ack', {});
+    final ack = await _socket.emitAck('day:ack', {});
     log('[ack] day:ack $ack');
   }
 
   // ------------- Vote -------------
   Future<void> voteCast(String targetId) async {
-    final ack = await _socketSvc.emitAck('vote:cast', {'targetId': targetId});
+    final ack = await _socket.emitAck('vote:cast', {'targetId': targetId});
     log('[ack] vote:cast $ack');
   }
 
   Future<void> voteCancel() async {
-    final ack = await _socketSvc.emitAck('vote:cancel', {});
+    final ack = await _socket.emitAck('vote:cancel', {});
     log('[ack] vote:cancel $ack');
   }
 
   // ------------- Reset -------------
   Future<void> leaveToHome() async {
-    _socketSvc.dispose();
+    _socket.dispose();
     state = GameModel.initial();
     await _clearSession();
   }

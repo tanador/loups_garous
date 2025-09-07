@@ -1,12 +1,13 @@
 import 'dart:developer';
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Couche "services": classes auxiliaires indépendantes de l'UI.
-// Ici, gestion d'une connexion Socket.IO réutilisable par le contrôleur de jeu.
-/// Service léger encapsulant la logique de connexion à Socket.IO.
+// Ici, gestion d'une connexion Socket.IO réutilisable par les contrôleurs.
+/// Contrôleur léger encapsulant la logique de connexion à Socket.IO.
 /// Il centralise l'ouverture, l'envoi d'évènements et la fermeture du socket.
-class SocketService {
+class SocketController {
   io.Socket? _socket;
 
   /// Crée une connexion Socket.IO vers l'[url].
@@ -70,3 +71,10 @@ class SocketService {
     _socket = null;
   }
 }
+
+/// Provider Riverpod exposant un [SocketController] unique pour l'application.
+final socketControllerProvider = Provider<SocketController>((ref) {
+  final ctl = SocketController();
+  ref.onDispose(ctl.dispose);
+  return ctl;
+});

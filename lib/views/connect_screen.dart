@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../state/game_provider.dart';
+import '../services/socket_controller.dart';
 import '../state/models.dart';
 import 'game_options_screen.dart';
 
@@ -55,7 +56,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     final gm = ref.read(gameProvider);
     if (_nick.text.trim().isEmpty) return;
     if (!gm.socketConnected) {
-      await ctl.connect(_url.text);
+      final socket = ref.read(socketControllerProvider).connect(_url.text);
+      await ctl.attachSocket(socket, _url.text);
     }
     await _saveNick();
     await ctl.createGame(_nick.text.trim(), 4);
@@ -85,10 +87,13 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           ),
           const SizedBox(height: 8),
           Row(children: [
-            ElevatedButton(
-              onPressed: () => ctl.connect(_url.text),
-              child: Text(gm.socketConnected ? 'Reconnecté' : 'Se connecter'),
-            ),
+          ElevatedButton(
+            onPressed: () {
+              final socket = ref.read(socketControllerProvider).connect(_url.text);
+              ctl.attachSocket(socket, _url.text);
+            },
+            child: Text(gm.socketConnected ? 'Reconnecté' : 'Se connecter'),
+          ),
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: gm.socketConnected
