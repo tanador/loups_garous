@@ -51,3 +51,5 @@ server/dist/
 /server/coverage
 /server/dist
 dist
+/windows
+/web
