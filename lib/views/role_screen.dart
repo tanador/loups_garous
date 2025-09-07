@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 
+// Écran révélant au joueur son rôle tiré au sort.
+
 class RoleScreen extends ConsumerStatefulWidget {
   const RoleScreen({super.key});
 

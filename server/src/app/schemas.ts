@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+// Définition des schémas d'entrée pour valider les données reçues.
 export const zNickname = z.string().min(1).max(20);
 export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 

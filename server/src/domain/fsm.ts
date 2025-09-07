@@ -1,5 +1,6 @@
 import { Game, GameState } from './types.js';
 
+// Machine à états finie décrivant les transitions autorisées du jeu.
 /**
  * Table de transitions autorisées entre les états du jeu.
  * Les clés correspondent à l'état courant et la liste des valeurs contient

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import 'widgets/common.dart';
 
+// Écran de la phase nocturne où les loups désignent une cible commune.
+
 class NightWolvesScreen extends ConsumerStatefulWidget {
   const NightWolvesScreen({super.key});
   @override

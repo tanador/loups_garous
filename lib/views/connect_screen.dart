@@ -7,6 +7,8 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'game_options_screen.dart';
 
+// Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
+
 class ConnectScreen extends ConsumerStatefulWidget {
   const ConnectScreen({super.key});
   @override

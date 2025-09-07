@@ -4,6 +4,7 @@ import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
 import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema } from '../app/schemas.js';
 
+// Couche "infra": instancie le serveur Socket.IO et enregistre les handlers.
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server(httpServer, {
     cors: { origin: '*', methods: ['GET', 'POST'] },

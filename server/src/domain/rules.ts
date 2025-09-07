@@ -4,6 +4,7 @@ import { ROLE_SETUPS } from './roles/index.js';
 import { secureShuffle } from './utils.js';
 import { bus, HunterShot } from './events.js';
 
+// Ensemble des règles métier: attribution des rôles, résolutions des votes, etc.
 /// Attribue aléatoirement les rôles aux joueurs selon la configuration.
 /// La fonction génère toutes les distributions possibles respectant les
 /// contraintes min/max puis en choisit une au hasard.

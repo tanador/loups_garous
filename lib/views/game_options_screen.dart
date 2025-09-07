@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 
+// Écran de configuration d'une partie avant de rejoindre le lobby.
+
 class GameOptionsScreen extends ConsumerStatefulWidget {
   final String nickname;
   const GameOptionsScreen({super.key, required this.nickname});

@@ -2,6 +2,8 @@ import 'dart:developer';
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+// Couche "services": classes auxiliaires indépendantes de l'UI.
+// Ici, gestion d'une connexion Socket.IO réutilisable par le contrôleur de jeu.
 /// Service léger encapsulant la logique de connexion à Socket.IO.
 /// Il centralise l'ouverture, l'envoi d'évènements et la fermeture du socket.
 class SocketService {

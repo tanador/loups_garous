@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 
+// Écran affiché à la fin de la partie avec le récapitulatif des rôles.
+
 class EndScreen extends ConsumerWidget {
   const EndScreen({super.key});
   @override

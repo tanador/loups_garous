@@ -1,5 +1,6 @@
 import { randomInt } from 'crypto';
 
+// Fonctions utilitaires utilisées par les règles et le modèle de jeu.
 /// Mélange un tableau en place à l'aide de l'algorithme de Fisher-Yates.
 /// L'utilisation de `randomInt` garantit des tirages sûrs et uniformes.
 export function secureShuffle<T>(arr: T[]): T[] {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+// Composants d'interface partagés par plusieurs écrans.
 class DeadlineChip extends StatefulWidget {
   final int? deadlineMs;
   const DeadlineChip({super.key, required this.deadlineMs});

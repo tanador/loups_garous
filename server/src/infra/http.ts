@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import http from 'http';
 
+// Couche "infra": expose un serveur HTTP pour les vérifications et l'attache Socket.IO.
 /// Prépare une application Express minimale exposant un endpoint de santé
 /// et retourne à la fois l'instance Express et le serveur HTTP associé.
 export function createHttpApp() {

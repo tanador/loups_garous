@@ -1,3 +1,5 @@
+// Couche "app": relie les sockets et le stockage aux règles du domaine.
+// L'orchestrateur pilote le cycle de vie d'une partie et route les évènements.
 import { Server, Socket } from "socket.io";
 import { GameStore } from "./store.js";
 import { createGame, addPlayer, removePlayer } from "../domain/game.js";

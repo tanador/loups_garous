@@ -1,3 +1,5 @@
+// Couche "state": gestion de l'état global et des interactions avec le serveur.
+// Le [GameController] ci-dessous centralise toute la logique métier côté client.
 import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import 'widgets/common.dart';
 
+// Écran où le chasseur peut tirer sur un autre joueur après sa mort.
+
 class HunterScreen extends ConsumerStatefulWidget {
   const HunterScreen({super.key});
   @override
