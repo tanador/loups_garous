@@ -569,19 +569,6 @@ export class Orchestrator {
       return;
     }
 
-    const win = winner(game);
-    if (win) {
-      setState(game, "END");
-      this.broadcastState(game);
-      const roles = game.players.map((p) => ({
-        playerId: p.id,
-        role: game.roles[p.id],
-      }));
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
-      this.log(game.id, "END", undefined, "game.end", { winner: win });
-      return;
-    }
-
     this.beginVote(game);
   }
 

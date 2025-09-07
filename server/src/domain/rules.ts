@@ -43,7 +43,21 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
   backtrack(0, total, {});
   if (distributions.length === 0) throw new Error('invalid_role_config');
 
-  const counts = distributions[rng(distributions.length)];
+  function causesImmediateWin(counts: Record<Role, number>): boolean {
+    const wolves = counts['WOLF'] ?? 0;
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const nonWolves = total - wolves;
+    return wolves >= nonWolves;
+  }
+
+  let counts: Record<Role, number>;
+  if (rng === randomInt) {
+    do {
+      counts = distributions[randomInt(distributions.length)];
+    } while (causesImmediateWin(counts));
+  } else {
+    counts = distributions[rng(distributions.length)];
+  }
 
   const roles: Role[] = [];
   for (const r of roleNames) {
