@@ -35,12 +35,18 @@ class _HunterScreenState extends ConsumerState<HunterScreen> {
                   Expanded(
                     child: ListView(
                       children: [
-                        ...targets.map((p) => RadioListTile<String>(
-                              title: Text(p.id),
-                              value: p.id,
-                              groupValue: targetId,
-                              onChanged: (v) => setState(() => targetId = v),
-                            )),
+                        RadioGroup<String?>(
+                          groupValue: targetId,
+                          onChanged: (v) => setState(() => targetId = v),
+                          child: Column(
+                            children: [
+                              ...targets.map((p) => RadioListTile<String?>(
+                                    title: Text(p.id),
+                                    value: p.id,
+                                  )),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: targetId == null

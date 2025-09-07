@@ -13,7 +13,7 @@ class GameOptionsScreen extends ConsumerStatefulWidget {
 }
 
 class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
-  int _maxPlayers = 3;
+  int _maxPlayers = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -26,17 +26,21 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Nombre de joueurs'),
-          RadioListTile<int>(
-            value: 3,
+          RadioGroup<int>(
             groupValue: _maxPlayers,
-            title: const Text('3 joueurs'),
-            onChanged: (v) => setState(() => _maxPlayers = v ?? 3),
-          ),
-          RadioListTile<int>(
-            value: 4,
-            groupValue: _maxPlayers,
-            title: const Text('4 joueurs'),
-            onChanged: (v) => setState(() => _maxPlayers = v ?? 3),
+            onChanged: (v) => setState(() => _maxPlayers = v ?? 4),
+            child: Column(
+              children: const [
+                RadioListTile<int>(
+                  value: 3,
+                  title: Text('3 joueurs'),
+                ),
+                RadioListTile<int>(
+                  value: 4,
+                  title: Text('4 joueurs'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           ElevatedButton(

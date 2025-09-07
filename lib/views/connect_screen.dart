@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,7 @@ class ConnectScreen extends ConsumerStatefulWidget {
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController(text: _paramNick);
+  static bool _autoRan = false; // évite de relancer autoCreate après un retour au ConnectScreen
 
   @override
   void initState() {
@@ -51,14 +53,26 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   }
 
   Future<void> _autoStart() async {
+    if (_autoRan) return; // déjà exécuté pendant cette session
     final ctl = ref.read(gameProvider.notifier);
-    final gm = ref.read(gameProvider);
-    if (_nick.text.trim().isEmpty) return;
-    if (!gm.socketConnected) {
-      await ctl.connect(_url.text);
+    // Ensure nickname (fallback if none provided via PSEUDO or prefs)
+    if (_nick.text.trim().isEmpty) {
+      final rnd = Random();
+      _nick.text = 'Player${1000 + rnd.nextInt(9000)}';
     }
+
+    // Connect if needed and wait until the socket handshake completes
+    if (!ref.read(gameProvider).socketConnected) {
+      await ctl.connect(_url.text);
+      for (int i = 0; i < 100; i++) { // ~10s max
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (ref.read(gameProvider).socketConnected) break;
+      }
+    }
+
     await _saveNick();
     await ctl.createGame(_nick.text.trim(), 4);
+    _autoRan = true; // marque l'auto démarrage comme effectué
   }
 
   Future<void> _saveNick() async {

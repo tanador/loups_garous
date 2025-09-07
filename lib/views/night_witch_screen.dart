@@ -61,13 +61,17 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                   Expanded(
                     child: ListView(
                       children: [
+                        RadioGroup<String?>(
+                          groupValue: poisonId,
+                          onChanged: (v) => setState(() => poisonId = v),
+                          child: Column(
+                            children: [
                         ...ww.alive
                             .where((p) => p.id != s.playerId)
                             .map(
-                              (p) => RadioListTile<String>(
+                              (p) => RadioListTile<String?>(
                                 title: Text(p.id),
                                 value: p.id,
-                                groupValue: poisonId,
                                 secondary: poisonId == p.id
                                     ? IconButton(
                                         icon: const Icon(Icons.cancel),
@@ -75,11 +79,12 @@ class _NightWitchScreenState extends ConsumerState<NightWitchScreen> {
                                             () => poisonId = null),
                                       )
                                     : null,
-                                onChanged: ww.poisonAvailable
-                                    ? (v) => setState(() => poisonId = v)
-                                    : null,
+                                enabled: ww.poisonAvailable,
                               ),
                             ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => ctl.witchDecision(

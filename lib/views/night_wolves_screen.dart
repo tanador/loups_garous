@@ -29,17 +29,19 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
           const SizedBox(height: 8),
           DeadlineChip(deadlineMs: s.deadlineMs),
           const SizedBox(height: 8),
-          ListView(
-            shrinkWrap: true,
-            children: s.wolvesTargets
-                .map((t) => RadioListTile<String>(
-                      title: Text(t.id),
-                      value: t.id,
-                      groupValue: selectedId,
-                      onChanged:
-                          _locked ? null : (v) => setState(() => selectedId = v),
-                    ))
-                .toList(),
+          RadioGroup<String?>(
+            groupValue: selectedId,
+            onChanged: (v) { if(!_locked) setState(() => selectedId = v); },
+            child: ListView(
+              shrinkWrap: true,
+              children: s.wolvesTargets
+                  .map((t) => RadioListTile<String?>(
+                        title: Text(t.id),
+                        value: t.id,
+                        enabled: !_locked,
+                      ))
+                  .toList(),
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton(

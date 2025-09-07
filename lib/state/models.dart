@@ -1,6 +1,6 @@
 // Modèles de données utilisés par toute l'application.
 // Regroupe les énumérations, vues simplifiées et l'état global [GameModel].
-import 'package:flutter/foundation.dart';
+// Modèles statiques: pas de dépendance Flutter nécessaire ici.
 
 /// États successifs possibles de la partie.
 enum GamePhase {
@@ -17,12 +17,13 @@ enum GamePhase {
   END
 }
 /// Convertit une représentation texte en valeur [GamePhase].
-GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
+GamePhase phaseFromStr(String s) =>
+    GamePhase.values.firstWhere((e) => e.name == s);
 
 /// Rôles attribués aux joueurs.
 enum Role { WOLF, WITCH, HUNTER, VILLAGER, CUPID }
 /// Convertit une chaîne en valeur [Role].
-Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
+Role roleFromStr(String s) => Role.values.firstWhere((e) => e.name == s);
 
 /// Informations minimales sur une partie disponible dans le lobby.
 class LobbyGameInfo {
@@ -82,6 +83,7 @@ class GameModel {
   final List<LobbyGameInfo> lobby;
   final String? gameId;
   final String? playerId; // also your nickname
+  final bool isOwner; // client-side flag for lobby actions
   final Role? role;
   final GamePhase phase;
   final int round;
@@ -112,6 +114,7 @@ class GameModel {
     required this.lobby,
     required this.gameId,
     required this.playerId,
+    required this.isOwner,
     required this.role,
     required this.phase,
     required this.round,
@@ -140,12 +143,13 @@ class GameModel {
         lobby: [],
         gameId: null,
         playerId: null,
+        isOwner: false,
         role: null,
         phase: GamePhase.LOBBY,
         round: 0,
         players: [],
         deadlineMs: null,
-        maxPlayers: 3,
+        maxPlayers: 4,
         wolvesTargets: [],
         wolvesLockedTargetId: null,
         confirmationsRemaining: 0,
@@ -157,7 +161,7 @@ class GameModel {
         voteAlive: [],
         lastVote: null,
         winner: null,
-        finalRoles: const [],
+        finalRoles: [],
         vibrations: true,
       );
 
@@ -171,6 +175,7 @@ class GameModel {
     List<LobbyGameInfo>? lobby,
     Object? gameId = _unset,
     Object? playerId = _unset,
+    bool? isOwner,
     Object? role = _unset,
     GamePhase? phase,
     int? round,
@@ -197,6 +202,7 @@ class GameModel {
       lobby: lobby ?? this.lobby,
       gameId: identical(gameId, _unset) ? this.gameId : gameId as String?,
       playerId: identical(playerId, _unset) ? this.playerId : playerId as String?,
+      isOwner: isOwner ?? this.isOwner,
       role: identical(role, _unset) ? this.role : role as Role?,
       phase: phase ?? this.phase,
       round: round ?? this.round,

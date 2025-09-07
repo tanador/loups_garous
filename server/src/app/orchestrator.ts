@@ -68,6 +68,7 @@ export class Orchestrator {
     });
     this.store.put(game);
     this.bindPlayerToRooms(game, player, socket);
+    // no snapshot in lobby; clients rely on lobby list until start
     this.emitLobbyUpdate();
     this.log(game.id, "LOBBY", player.id, "lobby.create", { maxPlayers });
     this.tryAutostart(game);
@@ -91,6 +92,7 @@ export class Orchestrator {
     this.bindPlayerToRooms(game, player, socket);
     this.store.put(game);
     this.emitLobbyUpdate();
+    // no snapshot broadcast in lobby; state snapshots start at game phases
     this.log(game.id, "LOBBY", player.id, "lobby.join");
     this.tryAutostart(game);
     return {
@@ -566,6 +568,16 @@ export class Orchestrator {
       this.schedule(game.id, DURATION.MORNING_MS, () =>
         this.handleMorningEnd(game),
       );
+      return;
+    }
+
+    // If the morning included a hunter shot recap, always proceed to a vote
+    // once survivors have acknowledged, even if a theoretical win condition
+    // (wolves >= others) is met. This ensures the day phase completes
+    // consistently after post-mortem actions.
+    const hadHunterShot = !!recap && recap.hunterKills.length > 0;
+    if (hadHunterShot) {
+      this.beginVote(game);
       return;
     }
 

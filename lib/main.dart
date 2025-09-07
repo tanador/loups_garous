@@ -130,7 +130,7 @@ class WaitingLobby extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
-    final isOwner = s.players.isNotEmpty && s.players.first.id == s.playerId;
+    final isOwner = s.isOwner;
     return Scaffold(
       appBar: AppBar(title: const Text('Salle d’attente')),
       body: Padding(
@@ -165,7 +165,9 @@ class WaitingLobby extends ConsumerWidget {
                       ScaffoldMessenger.of(context)
                           .showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text(err)));
                     }
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    // Pas de navigation nécessaire : le routeur principal
+                    // réaffichera automatiquement l'écran de connexion
+                    // puisque l'état a été réinitialisé.
                   }
                 }
               },

@@ -64,12 +64,13 @@ class GameController extends StateNotifier<GameModel> {
     state = state.copy(
       gameId: null,
       playerId: null,
+      isOwner: false,
       role: null,
       phase: GamePhase.LOBBY,
       round: 0,
       players: [],
       deadlineMs: null,
-      maxPlayers: 3,
+      maxPlayers: 4,
       wolvesTargets: [],
       wolvesLockedTargetId: null,
       confirmationsRemaining: 0,
@@ -150,7 +151,8 @@ class GameController extends StateNotifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
-      state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline, maxPlayers: maxPlayers);
+      final isOwner = players.isNotEmpty && state.playerId != null && players.first.id == state.playerId;
+      state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline, maxPlayers: maxPlayers, isOwner: isOwner);
       log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
@@ -313,11 +315,15 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
+    // Pré-remplit l'état local avec 1 joueur en vie (toi)
+    // pour éviter l'affichage 0/3 avant la réception du snapshot serveur.
+    final me = PlayerView(id: data['playerId'] as String, connected: true, alive: true);
     state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
-      maxPlayers: data['maxPlayers'] as int? ?? maxPlayers,
-      players: [], // filled by snapshot/state changes
+      maxPlayers: (data['maxPlayers'] as int?) ?? maxPlayers,
+      players: [me],
+      isOwner: true,
     );
     await _setContext();
     await _saveSession();
@@ -332,10 +338,15 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
+    // Pré-remplit l'état local avec 1 joueur (toi) pour éviter l'affichage 0/N
+    // avant la réception d'un premier snapshot serveur.
+    final me = PlayerView(id: data['playerId'] as String, connected: true, alive: true);
     state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
       maxPlayers: data['maxPlayers'] as int? ?? state.maxPlayers,
+      players: [me],
+      isOwner: false,
     );
     await _setContext();
     await _saveSession();
@@ -352,7 +363,7 @@ class GameController extends StateNotifier<GameModel> {
       log('[ack] lobby:cancel $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
-        log('cancelGame error: ' + err);
+        log('cancelGame error: $err');
       }
     } catch (e, st) {
       err = e.toString();
@@ -373,7 +384,7 @@ class GameController extends StateNotifier<GameModel> {
       log('[ack] lobby:leave $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
-        log('leaveGame error: ' + err);
+        log('leaveGame error: $err');
       }
     } catch (e, st) {
       err = e.toString();
