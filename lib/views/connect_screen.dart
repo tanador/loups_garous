@@ -7,6 +7,13 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'game_options_screen.dart';
 
+/// Optional nickname provided at launch via `--dart-define=NICK=xxx`.
+const _envNick = String.fromEnvironment('NICK');
+
+/// When true (`--dart-define=AUTO_CREATE=true`), the app connects and
+/// creates a 4-player game automatically.
+const _envAutoCreate = bool.fromEnvironment('AUTO_CREATE');
+
 class ConnectScreen extends ConsumerStatefulWidget {
   const ConnectScreen({super.key});
   @override
@@ -16,12 +23,13 @@ class ConnectScreen extends ConsumerStatefulWidget {
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController();
+  bool _autoStarted = false;
 
   @override
   void initState() {
     super.initState();
     _url = TextEditingController(text: Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
-    _loadLastNick();
+    _initFromEnv();
   }
 
   @override
@@ -31,9 +39,21 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     super.dispose();
   }
 
-  Future<void> _loadLastNick() async {
-    final prefs = await SharedPreferences.getInstance();
-    _nick.text = prefs.getString('nick') ?? '';
+  Future<void> _initFromEnv() async {
+    if (_envNick.isNotEmpty) {
+      _nick.text = _envNick;
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      _nick.text = prefs.getString('nick') ?? '';
+    }
+
+    if (_envAutoCreate && !_autoStarted) {
+      _autoStarted = true;
+      final ctl = ref.read(gameProvider.notifier);
+      await ctl.connect(_url.text);
+      await _saveNick();
+      await ctl.createGame(_nick.text.trim(), 4);
+    }
   }
 
   Future<void> _saveNick() async {

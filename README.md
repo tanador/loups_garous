@@ -2,6 +2,21 @@
 
 A new Flutter project.
 
+## Launch parameters
+
+The application can accept a default nickname and an optional
+auto-create flag when launching with `flutter run`.
+
+```bash
+flutter run \
+  --dart-define=NICK=MonPseudo \
+  --dart-define=AUTO_CREATE=true
+```
+
+`NICK` pre-fills the pseudonym field, and when `AUTO_CREATE` is set to
+`true` the app connects to the server and starts a 4-player game
+automatically.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
