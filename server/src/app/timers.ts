@@ -1,3 +1,4 @@
+// Durées (en ms) utilisées pour chaque phase et contrôle serveur.
 export const DURATION = {
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,

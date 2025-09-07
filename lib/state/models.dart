@@ -1,3 +1,5 @@
+// Modèles de données utilisés par toute l'application.
+// Regroupe les énumérations, vues simplifiées et l'état global [GameModel].
 import 'package:flutter/foundation.dart';
 
 /// États successifs possibles de la partie.

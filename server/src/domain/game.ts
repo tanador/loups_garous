@@ -1,6 +1,7 @@
 import { id } from './utils.js';
 import { Game, Player, Role } from './types.js';
 
+// Fonctions bas niveau manipulant l'état d'une partie.
 /// Crée une nouvelle partie avec les valeurs par défaut.
 /// Un identifiant unique est généré pour pouvoir rejoindre la partie.
 export function createGame(maxPlayers: number): Game {

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 
+// Écran affiché aux joueurs éliminés.
+
 class DeadScreen extends ConsumerWidget {
   const DeadScreen({super.key});
 

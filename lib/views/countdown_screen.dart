@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'role_screen.dart';
 
-/// Displays a 10-second old fashioned film countdown before revealing roles.
+// Écran de compte à rebours affiché avant la révélation des rôles.
 class CountdownScreen extends StatefulWidget {
   const CountdownScreen({super.key});
 

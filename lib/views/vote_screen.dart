@@ -4,6 +4,8 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'widgets/common.dart';
 
+// Écran du village pour voter contre un joueur pendant la journée.
+
 class VoteScreen extends ConsumerStatefulWidget {
   const VoteScreen({super.key});
   @override

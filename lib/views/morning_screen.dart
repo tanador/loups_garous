@@ -4,6 +4,8 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'widgets/common.dart';
 
+// Écran du matin récapitulant les événements de la nuit.
+
 class MorningScreen extends ConsumerStatefulWidget {
   const MorningScreen({super.key});
 

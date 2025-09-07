@@ -1,5 +1,6 @@
 import type { Role } from './roles/index.js';
 
+// Déclarations de types pour l'état de jeu et les entités côté serveur.
 export type CoreGameState =
   | 'LOBBY'
   | 'ROLES'

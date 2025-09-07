@@ -2,6 +2,11 @@ import { createHttpApp } from './infra/http.js';
 import { createSocketServer } from './infra/socket.js';
 import { logger } from './logger.js';
 
+// Architecture serveur :
+// - "infra" expose les transports HTTP et Socket.IO
+// - "app" orchestre les parties et manipule le stockage
+// - "domain" contient les règles du jeu
+//
 // Point d'entrée du serveur Node.js.
 // Il instancie une application HTTP et y attache un serveur Socket.IO
 // pour permettre la communication temps réel avec les clients Flutter.

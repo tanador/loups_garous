@@ -1,5 +1,6 @@
 import type { Game, PendingDeath } from './types.js';
 
+// Bus d'événements léger pour composer les règles du jeu.
 export interface HunterShot { hunterId: string; targetId: string }
 
 export interface EventPayloads {

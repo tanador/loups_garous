@@ -1,3 +1,12 @@
+// -----------------------------------------------------------------------------
+// Application Flutter du jeu Loup-Garou.
+//
+// Organisation :
+// - "state/" contient la logique et les modèles de données exposés via Riverpod.
+// - "services/" regroupe les accès externes (ici la couche Socket.IO).
+// - "views/" rassemble les écrans représentant chaque phase du jeu.
+// -----------------------------------------------------------------------------
+
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

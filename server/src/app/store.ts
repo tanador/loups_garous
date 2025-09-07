@@ -1,5 +1,6 @@
 import { Game } from '../domain/types.js';
 
+// Petit magasin en mémoire conservant les parties actives.
 export class GameStore {
   private games = new Map<string, Game>();
 

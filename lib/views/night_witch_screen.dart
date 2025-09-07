@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import 'widgets/common.dart';
 
+// Écran où la sorcière choisit de soigner ou d'empoisonner un joueur.
+
 class NightWitchScreen extends ConsumerStatefulWidget {
   const NightWitchScreen({super.key});
   @override
