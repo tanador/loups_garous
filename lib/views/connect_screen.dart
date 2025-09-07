@@ -7,6 +7,12 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'game_options_screen.dart';
 
+// Optional compile-time parameters.
+// Pass values using `--dart-define=PSEUDO=foo` and
+// `--dart-define=AUTO_CREATE=true` when launching the app.
+const _paramNick = String.fromEnvironment('PSEUDO', defaultValue: '');
+const _autoCreate = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
+
 // Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
 
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -17,13 +23,17 @@ class ConnectScreen extends ConsumerStatefulWidget {
 
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
-  final _nick = TextEditingController();
+  final _nick = TextEditingController(text: _paramNick);
 
   @override
   void initState() {
     super.initState();
     _url = TextEditingController(text: Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
-    _loadLastNick();
+    _loadLastNick().then((_) {
+      if (_autoCreate) {
+        _autoStart();
+      }
+    });
   }
 
   @override
@@ -35,7 +45,20 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   Future<void> _loadLastNick() async {
     final prefs = await SharedPreferences.getInstance();
-    _nick.text = prefs.getString('nick') ?? '';
+    if (_nick.text.isEmpty) {
+      _nick.text = prefs.getString('nick') ?? '';
+    }
+  }
+
+  Future<void> _autoStart() async {
+    final ctl = ref.read(gameProvider.notifier);
+    final gm = ref.read(gameProvider);
+    if (_nick.text.trim().isEmpty) return;
+    if (!gm.socketConnected) {
+      await ctl.connect(_url.text);
+    }
+    await _saveNick();
+    await ctl.createGame(_nick.text.trim(), 4);
   }
 
   Future<void> _saveNick() async {

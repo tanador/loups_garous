@@ -24,3 +24,18 @@ Vous aurez besoin de l'outil de ligne de commande Flutter et de Node.js.
 Pour plus d'aide sur Flutter consultez
 [la documentation officielle](https://docs.flutter.dev/) qui propose
 des tutoriels et une référence complète de l'API.
+
+### Paramètres de lancement
+
+Il est possible de pré-remplir le pseudonyme et de lancer
+automatiquement une partie lors du démarrage. Pour cela utilisez des
+variables de compilation :
+
+```bash
+flutter run \
+  --dart-define=PSEUDO=MonPseudo \
+  --dart-define=AUTO_CREATE=true
+```
+
+`PSEUDO` renseigne le surnom utilisé et `AUTO_CREATE=true` crée
+immédiatement une partie de 4 joueurs après la connexion.
