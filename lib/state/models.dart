@@ -1,7 +1,19 @@
 import 'package:flutter/foundation.dart';
 
 /// États successifs possibles de la partie.
-enum GamePhase { LOBBY, ROLES, NIGHT_CUPID, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
+enum GamePhase {
+  LOBBY,
+  ROLES,
+  NIGHT_CUPID,
+  NIGHT_LOVERS,
+  NIGHT_WOLVES,
+  NIGHT_WITCH,
+  MORNING,
+  VOTE,
+  RESOLVE,
+  CHECK_END,
+  END
+}
 /// Convertit une représentation texte en valeur [GamePhase].
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 

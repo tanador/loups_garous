@@ -4,6 +4,7 @@ export type CoreGameState =
   | 'LOBBY'
   | 'ROLES'
   | 'NIGHT_CUPID'
+  | 'NIGHT_LOVERS'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'
   | 'MORNING'

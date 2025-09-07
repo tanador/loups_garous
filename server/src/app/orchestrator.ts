@@ -250,12 +250,6 @@ export class Orchestrator {
     // loversMode: SAME_CAMP si même alignement initial, sinon MIXED_CAMPS
     const isWolf = (pid: string) => game.roles[pid] === "WOLF";
     game.loversMode = isWolf(a.id) === isWolf(b.id) ? "SAME_CAMP" : "MIXED_CAMPS";
-
-    // informer chacun des amoureux de l'identité de l'autre (sans rôle)
-    const sa = this.io.sockets.sockets.get(this.playerSocket(game, a.id));
-    const sb = this.io.sockets.sockets.get(this.playerSocket(game, b.id));
-    if (sa) sa.emit("lovers:paired", { partnerId: b.id });
-    if (sb) sb.emit("lovers:paired", { partnerId: a.id });
     this.log(game.id, game.state, playerId, "cupid.pair", { a: a.id, b: b.id, mode: game.loversMode });
 
     this.endNightCupid(game.id);
@@ -264,8 +258,42 @@ export class Orchestrator {
   private endNightCupid(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_CUPID") return;
+    const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
+    const cid = cupid?.id;
+    if (cid) {
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, cid));
+      if (s) s.emit("cupid:sleep");
+    }
+    this.beginNightLovers(game);
+  }
+
+  private beginNightLovers(game: Game) {
+    if (!canTransition(game, game.state, "NIGHT_LOVERS")) return;
+    setState(game, "NIGHT_LOVERS");
+    const lovers = game.players.filter(
+      (p) => p.loverId && game.alive.has(p.id) && p.connected,
+    );
+    if (lovers.length === 0) {
+      this.broadcastState(game);
+      return this.beginNightWolves(game);
+    }
+    this.setDeadline(game, DURATION.LOVERS_MS);
+    this.broadcastState(game);
+    for (const lover of lovers) {
+      const partnerId = lover.loverId!;
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, lover.id));
+      if (s) s.emit("lovers:wake", { partnerId });
+    }
+    this.log(game.id, game.state, undefined, "lovers.wake", { count: lovers.length });
+    this.schedule(game.id, DURATION.LOVERS_MS, () => this.endNightLovers(game.id));
+  }
+
+  private endNightLovers(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_LOVERS") return;
     this.beginNightWolves(game);
   }
+
   private beginNightWolves(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_WOLVES")) return;
     game.round += 1;
