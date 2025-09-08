@@ -94,6 +94,10 @@ class GameModel {
   final int? roleRevealUntilMs;
   // Durée d'appui requise pour révéler le rôle via le badge (ms)
   final int rolePressRevealMs;
+  // Ensemble local des joueurs connus comme amoureux (ids). Renseigné lors de
+  // l'évènement secret lovers:wake (toi et ton partenaire) et potentiellement
+  // complété par heuristique côté UI si les amoureux gagnent (deux survivants).
+  final Set<String> loversKnown;
 
   const GameModel({
     required this.serverUrl,
@@ -124,6 +128,7 @@ class GameModel {
     required this.vibrations,
     required this.roleRevealUntilMs,
     required this.rolePressRevealMs,
+    required this.loversKnown,
   });
 
   /// État initial utilisé au démarrage de l'application.
@@ -156,6 +161,7 @@ class GameModel {
       vibrations: true,
       roleRevealUntilMs: null,
       rolePressRevealMs: 700,
+      loversKnown: {},
     );
 
   static const _unset = Object();
@@ -191,6 +197,7 @@ class GameModel {
     bool? vibrations,
     Object? roleRevealUntilMs = _unset,
     int? rolePressRevealMs,
+    Set<String>? loversKnown,
   }) {
     return GameModel(
       serverUrl: serverUrl ?? this.serverUrl,
@@ -225,6 +232,7 @@ class GameModel {
           ? this.roleRevealUntilMs
           : roleRevealUntilMs as int?,
       rolePressRevealMs: rolePressRevealMs ?? this.rolePressRevealMs,
+      loversKnown: loversKnown ?? this.loversKnown,
     );
   }
 }

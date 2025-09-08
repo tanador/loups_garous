@@ -10,7 +10,6 @@ import {
   targetsForWolves,
   targetsForWitch,
   computeNightDeaths,
-  applyDeaths,
   onPlayerDeath,
   resolveDeaths,
   computeVoteResult,
@@ -22,10 +21,6 @@ import {
 import { setState, canTransition } from "../domain/fsm.js";
 import { DURATION, randomNextWakeMs, CONFIG } from "./timers.js";
 import { logger } from "../logger.js";
-
-type Ack<T = unknown> = (
-  res: { ok: true; data?: T } | { ok: false; error: string; code?: string },
-) => void;
 
 function now() {
   return Date.now();

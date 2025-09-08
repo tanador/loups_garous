@@ -27,6 +27,16 @@ class EndScreen extends ConsumerWidget {
           Role.CUPID => 'Cupidon',
         };
     final roles = s.finalRoles;
+    // Détermine qui était amoureux pour l'affichage final.
+    // 1) Utilise les infos locales connues (si tu étais amoureux).
+    // 2) Si les amoureux ont gagné et que 2 survivants existent, marque-les.
+    final lovers = {...s.loversKnown};
+    if (s.winner == 'LOVERS') {
+      final aliveNow = s.players.where((p) => p.alive).map((p) => p.id).toList(growable: false);
+      if (aliveNow.length == 2) {
+        lovers.addAll(aliveNow);
+      }
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Fin de partie')),
       body: Center(
@@ -36,7 +46,11 @@ class EndScreen extends ConsumerWidget {
                   const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           for (final (playerId, role) in roles)
-            Text('$playerId : ${roleLabel(role)}'),
+            Text(
+              lovers.contains(playerId)
+                  ? '$playerId (amoureux) : ${roleLabel(role)}'
+                  : '$playerId : ${roleLabel(role)}',
+            ),
           const SizedBox(height: 16),
           ElevatedButton(
               onPressed: () async {

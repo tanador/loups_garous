@@ -12,7 +12,7 @@ import { logger } from './logger.js';
 // pour permettre la communication temps réel avec les clients Flutter.
 const PORT = Number(process.env.PORT ?? 3000);
 
-const { app, httpServer } = createHttpApp();
+const { httpServer } = createHttpApp();
 // Les événements de jeu transitent par Socket.IO.
 createSocketServer(httpServer);
 

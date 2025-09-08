@@ -263,7 +263,6 @@ class _WithGlobalOverlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
-    final overlay = const PlayerBadge();
     return Stack(
       children: [
         // Contenu principal (Navigator)

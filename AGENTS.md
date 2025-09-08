@@ -92,6 +92,13 @@ Strong rule for new business logic
 - Dart export run if roles/FSM change: `npm run export:dart`
 - PR includes rationale + logs/screens + run steps
 
+## Warnings Policy
+- Do not approve or merge any change that introduces new warnings.
+- Treat warnings as errors across the codebase (server and client). A PR must not increase warning count and should ideally reduce it.
+- Server: run `npm run lint` and ensure 0 warnings (ESLint). If the build or TypeScript compiler reports warnings, fix them before approval.
+- Client: run `dart analyze`/`flutter analyze` and ensure 0 warnings. Fix all analyzer warnings (unused imports, dead code, null-safety issues, etc.).
+- If a third‑party dependency triggers warnings, add minimal, well‑scoped suppressions with justification in the PR, or upgrade/adjust code to remove them. Never ignore warnings by default.
+
 ## Security & Configuration Tips
 - Socket.IO CORS is permissive for dev; restrict in production.
 - Keep ACK contract stable: server acks `{ ok: true, data? } | { ok: false, error }`.

@@ -6,9 +6,9 @@ import { beforeAll } from 'vitest';
 
 function seedGame() {
   const g = createGame(3);
-  const a = addPlayer(g, { id: 'A', socketId: 'sA' });
-  const b = addPlayer(g, { id: 'B', socketId: 'sB' });
-  const c = addPlayer(g, { id: 'C', socketId: 'sC' });
+  addPlayer(g, { id: 'A', socketId: 'sA' });
+  addPlayer(g, { id: 'B', socketId: 'sB' });
+  addPlayer(g, { id: 'C', socketId: 'sC' });
   assignRoles(g);
   return g;
 }

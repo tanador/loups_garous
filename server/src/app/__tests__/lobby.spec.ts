@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Orchestrator } from '../../app/orchestrator.js';
-import type { Player } from '../../domain/types.js';
 
 // Faux Socket pour simuler un client
 class FakeSocket {
@@ -90,4 +89,3 @@ describe('Lobby orchestration', () => {
     expect(snaps.length).toBeGreaterThan(0);
   });
 });
-

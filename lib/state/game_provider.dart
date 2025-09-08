@@ -283,7 +283,11 @@ class GameController extends StateNotifier<GameModel> {
     s.on('lovers:wake', (data) async {
       final partnerId = data['partnerId'] as String?;
       // secret info: only for you if you're lover
-      state = state.copy(loverPartnerId: partnerId);
+      final you = state.playerId;
+      final known = {...state.loversKnown};
+      if (you != null) known.add(you);
+      if (partnerId != null) known.add(partnerId);
+      state = state.copy(loverPartnerId: partnerId, loversKnown: known);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] lovers:wake partner=$partnerId');
     });
