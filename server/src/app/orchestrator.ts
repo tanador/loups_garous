@@ -20,7 +20,7 @@ import {
   isConsensus,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
-import { DURATION, randomNextWakeMs } from "./timers.js";
+import { DURATION, randomNextWakeMs, CONFIG } from "./timers.js";
 import { logger } from "../logger.js";
 
 type Ack<T = unknown> = (
@@ -172,11 +172,15 @@ export class Orchestrator {
         const s = this.io.sockets.sockets.get(p.socketId);
         if (s) this.bindPlayerToRooms(game, p, s);
       }
-      // notify roles privately
+      // notify roles privately (include countdown duration from server config)
       for (const p of game.players) {
         this.io
           .to(p.socketId)
-          .emit("role:assigned", { role: game.roles[p.id] });
+          .emit("role:assigned", {
+            role: game.roles[p.id],
+            countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
+            pressToRevealMs: CONFIG.TIME_PRESS_BEFOR_REVEAL_ROLE,
+          });
       }
       this.broadcastState(game);
       this.log(game.id, "ROLES", undefined, "roles.assigned", {
@@ -495,11 +499,31 @@ export class Orchestrator {
     for (const v of initial) onPlayerDeath(game, v, 'NIGHT');
     const { deaths } = await resolveDeaths(game, undefined, { deferGrief: true });
 
-    const hunters = deaths.filter((pid) => game.roles[pid] === "HUNTER");
+    // Start with direct night deaths
+    let allDeaths = [...deaths];
+
+    // Track hunters that must shoot after the recap acknowledgment
+    let hunters = deaths.filter((pid) => game.roles[pid] === "HUNTER");
+
+    // If no hunter died directly at night, apply lovers' grief immediately so the
+    // morning recap reflects both members of the couple. Hunters who die of grief
+    // are scheduled to shoot during the MORNING acknowledgment step.
+    if (hunters.length === 0 && (game.deferredGrief?.length ?? 0) > 0) {
+      for (const vid of game.deferredGrief ?? []) {
+        const lover = game.players.find((p) => p.id === vid)?.loverId;
+        if (lover && game.alive.has(lover)) onPlayerDeath(game, lover, 'GRIEF');
+      }
+      game.deferredGrief = [];
+      const { deaths: griefDeaths } = await resolveDeaths(game, undefined, { deferGrief: false });
+      allDeaths.push(...griefDeaths);
+      const griefHunters = griefDeaths.filter((pid) => game.roles[pid] === "HUNTER");
+      if (griefHunters.length > 0) hunters = hunters.concat(griefHunters);
+    }
+
     if (hunters.length > 0) this.pendingHunters.set(game.id, hunters);
 
     const recap = {
-      deaths: deaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
+      deaths: allDeaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
       hunterKills: [] as string[],
     };
     this.morningRecaps.set(game.id, recap);

@@ -1,0 +1,82 @@
+@echo off
+setlocal enableextensions enabledelayedexpansion
+
+rem Verifie que Flutter est disponible
+where flutter >nul 2>&1
+if errorlevel 1 (
+  echo [ERREUR] Flutter introuvable dans le PATH.
+  exit /b 1
+)
+
+rem Se place dans le dossier du script (a mettre a la racine du projet)
+cd /d "%~dp0"
+
+echo [Info] Restauration des dependances...
+flutter pub get || goto :error
+
+set "OUT_BASE=%CD%\multi_builds"
+if not exist "%OUT_BASE%" mkdir "%OUT_BASE%"
+
+call :BuildVariant "Fabrice_Serveur" "Fabrice_Serveur" "true"  || goto :error
+call :BuildVariant "Fabrice_1"      "Fabrice_1"      ""       || goto :error
+call :BuildVariant "Fabrice_2"      "Fabrice_2"      ""       || goto :error
+call :BuildVariant "Fabrice_3"      "Fabrice_3"      ""       || goto :error
+
+echo [Info] Lancement des 4 instances...
+set "BUILD_EXE=%LAST_EXE_NAME%"
+
+start "" "%OUT_BASE%\Fabrice_Serveur\%BUILD_EXE%"
+start "" "%OUT_BASE%\Fabrice_1\%BUILD_EXE%"
+start "" "%OUT_BASE%\Fabrice_2\%BUILD_EXE%"
+start "" "%OUT_BASE%\Fabrice_3\%BUILD_EXE%"
+
+echo [OK] Termine.
+exit /b 0
+
+
+:BuildVariant
+rem %1 = nom-dossier/suffixe ; %2 = PSEUDO ; %3 = AUTO_CREATE (true/false ou vide)
+set "VARIANT=%~1"
+set "PSEUDO=%~2"
+set "AUTO=%~3"
+
+echo.
+echo [Build] %VARIANT%  (PSEUDO=%PSEUDO% AUTO_CREATE=%AUTO%)
+set "DEFINE_ARGS=--dart-define=PSEUDO=%PSEUDO%"
+if not "%AUTO%"=="" set "DEFINE_ARGS=%DEFINE_ARGS% --dart-define=AUTO_CREATE=%AUTO%"
+
+flutter build windows --release %DEFINE_ARGS% || exit /b 1
+
+rem Detecte le dossier de sortie (Flutter recent: x64\runner\Release)
+set "BUILD_DIR=%CD%\build\windows\x64\runner\Release"
+if not exist "%BUILD_DIR%" set "BUILD_DIR=%CD%\build\windows\runner\Release"
+if not exist "%BUILD_DIR%" (
+  echo [ERREUR] Dossier de build introuvable.
+  exit /b 1
+)
+
+rem Recupere le nom de l'executable
+set "EXE_NAME="
+for /f "delims=" %%f in ('dir /b "%BUILD_DIR%\*.exe" ^| findstr /i /v "flutter_tester"') do set "EXE_NAME=%%f"
+if "%EXE_NAME%"=="" (
+  echo [ERREUR] Executable introuvable dans "%BUILD_DIR%".
+  exit /b 1
+)
+set "LAST_EXE_NAME=%EXE_NAME%"
+
+rem Copie la build vers un dossier dedie
+set "DEST=%OUT_BASE%\%VARIANT%"
+if not exist "%DEST%" mkdir "%DEST%"
+robocopy "%BUILD_DIR%" "%DEST%" *.* /E /NFL /NDL /NJH /NJS >nul
+if errorlevel 8 (
+  echo [ERREUR] Echec de copie vers %DEST%.
+  exit /b 1
+)
+exit /b 0
+
+
+:error
+echo.
+echo [ECHEC] Le script a echoue.
+exit /b 1
+

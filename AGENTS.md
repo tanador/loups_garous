@@ -55,10 +55,24 @@ Ordering highlights
 - Server (TypeScript): 2‑space indentation, ESLint (`npm run lint`), small layered modules. Filenames kebab‑case (e.g., `orchestrator.ts`). Public APIs typed explicitly.
 - Client (Dart): follow `flutter_lints`. Classes in PascalCase, methods/vars in lowerCamelCase. Keep UI logic in `views/`, business logic in `state/`.
 
+## Documentation & Code Comments
+- Rédigez du code « auto‑documenté » et commentez suffisamment pour qu’une personne ne connaissant pas l’application comprenne rapidement ce que fait chaque module.
+- Ajoutez des commentaires de haut niveau en tête de fichier pour décrire le rôle du fichier (responsabilités, flux principaux, dépendances clés).
+- Pour chaque classe/fonction publique, documentez l’intention, les paramètres, la valeur de retour et les effets de bord/erreurs possibles.
+- Expliquez les décisions non triviales (choix d’algorithme, hypothèses, contraintes liées au protocole Socket.IO ou au FSM).
+- Maintenez la documentation à jour lors des refactors et des changements de règles de jeu (FSM/roles). Si le comportement externe change, mettez à jour les commentaires et le README si nécessaire.
+- Préférez des exemples courts et concrets dans les commentaires lorsqu’ils clarifient l’usage (ex.: format des acks, séquence d’évènements lors d’une phase).
+
 ## Testing Guidelines
 - Vitest on server. Name tests `*.spec.ts` under `__tests__/` near the code.
 - Add tests when changing orchestration (wolves, witch, cupid/lovers, hunter, vote, FSM, winners). Prefer deterministic tests (fake timers, fake sockets, no network).
 - Run `npm run test` before PRs. Coverage focuses on `src/app` and `src/domain`.
+
+## Agent Workflow & Pre‑handoff Checks
+- When you modify the Flutter client, run `flutter analyze` and fix analyzer errors before handing off (common misses: `import 'dart:async';` for `Timer`, unused imports, nullability).
+- When you modify the Node/TypeScript server, run `npm run test:nocov` (or `npm run test`) locally to validate core flows.
+- Keep changes minimal and focused; do not edit `server/dist/` (build output).
+- If you changed roles or FSM enums, run `npm run export:dart` and rebuild the client.
 
 Strong rule for new business logic
 - Every time a new functional rule is introduced (e.g., a new role or mechanic), add a dedicated test suite covering:

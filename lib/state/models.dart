@@ -88,6 +88,12 @@ class GameModel {
   final List<(String playerId, Role role)> finalRoles;
 
   final bool vibrations;
+  // Affiche localement l'écran de compte à rebours de révélation des rôles
+  // jusqu'à cette échéance (epoch ms). Permet de garantir l'affichage du
+  // compte à rebours même si le serveur change rapidement d'état.
+  final int? roleRevealUntilMs;
+  // Durée d'appui requise pour révéler le rôle via le badge (ms)
+  final int rolePressRevealMs;
 
   const GameModel({
     required this.serverUrl,
@@ -116,6 +122,8 @@ class GameModel {
     required this.winner,
     required this.finalRoles,
     required this.vibrations,
+    required this.roleRevealUntilMs,
+    required this.rolePressRevealMs,
   });
 
   /// État initial utilisé au démarrage de l'application.
@@ -144,9 +152,11 @@ class GameModel {
         voteAlive: [],
         lastVote: null,
         winner: null,
-        finalRoles: [],
-        vibrations: true,
-      );
+      finalRoles: [],
+      vibrations: true,
+      roleRevealUntilMs: null,
+      rolePressRevealMs: 700,
+    );
 
   static const _unset = Object();
 
@@ -179,6 +189,8 @@ class GameModel {
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
     bool? vibrations,
+    Object? roleRevealUntilMs = _unset,
+    int? rolePressRevealMs,
   }) {
     return GameModel(
       serverUrl: serverUrl ?? this.serverUrl,
@@ -209,6 +221,10 @@ class GameModel {
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
       vibrations: vibrations ?? this.vibrations,
+      roleRevealUntilMs: identical(roleRevealUntilMs, _unset)
+          ? this.roleRevealUntilMs
+          : roleRevealUntilMs as int?,
+      rolePressRevealMs: rolePressRevealMs ?? this.rolePressRevealMs,
     );
   }
 }

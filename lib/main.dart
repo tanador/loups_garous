@@ -8,9 +8,13 @@
 // -----------------------------------------------------------------------------
 
 import 'dart:developer';
+import 'dart:io';
+import 'dart:ui' as ui show Offset; // for explicit Offset
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/game_provider.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:flutter/foundation.dart';
 import 'views/connect_screen.dart';
 import 'views/countdown_screen.dart';
 import 'views/night_wolves_screen.dart';
@@ -28,8 +32,53 @@ import 'views/widgets/player_badge.dart';
 // Point d'entrée de l'application Flutter.
 // Initialise les widgets puis démarre l'application
 // sous un `ProviderScope` pour activer Riverpod.
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && Platform.isWindows) {
+    try {
+      // Defer showing until we set size/position
+      await windowManager.ensureInitialized();
+      final env = Platform.environment;
+      // Read desired size/position from environment (set by launcher script)
+      final w = int.tryParse(env['WINDOW_W'] ?? '') ?? 0;
+      final h = int.tryParse(env['WINDOW_H'] ?? '') ?? 0;
+      final x = int.tryParse(env['WINDOW_X'] ?? '') ?? 0;
+      final y = int.tryParse(env['WINDOW_Y'] ?? '') ?? 0;
+      final hasSize = w > 0 && h > 0;
+      final hasPos = env.containsKey('WINDOW_X') && env.containsKey('WINDOW_Y');
+
+      // Convert requested physical pixels to logical size using the current view's devicePixelRatio
+      double scale = 1.0;
+      try {
+        final views = WidgetsBinding.instance.platformDispatcher.views;
+        if (views.isNotEmpty) {
+          scale = views.first.devicePixelRatio;
+        }
+      } catch (_) {}
+      final lw = hasSize ? (w.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
+      final lh = hasSize ? (h.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
+
+      final opts = WindowOptions(
+        size: (lw != null && lh != null) ? Size(lw, lh) : null,
+        center: !(hasPos),
+      );
+      await windowManager.waitUntilReadyToShow(opts, () async {
+        if (hasSize && lw != null && lh != null) {
+          final logicalSize = Size(lw, lh);
+          await windowManager.setSize(logicalSize);
+          await windowManager.setMinimumSize(logicalSize);
+          await windowManager.setMaximumSize(logicalSize);
+        }
+        if (hasPos) {
+          await windowManager.setPosition(ui.Offset(x.toDouble(), y.toDouble()));
+        }
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    } catch (e, st) {
+      log('window init error: $e', stackTrace: st);
+    }
+  }
   runApp(const ProviderScope(child: App()));
 }
 
@@ -60,6 +109,7 @@ class _HomeRouter extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final youRole = s.role;
     final phase = s.phase;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
     final me = s.players.firstWhere(
         (p) => p.id == s.playerId,
         orElse: () => const PlayerView(id: '', connected: true, alive: true));
@@ -67,6 +117,12 @@ class _HomeRouter extends ConsumerWidget {
     // Toujours afficher l'écran de fin lorsque la partie est terminée,
     // même si le joueur local est mort.
     if (phase == GamePhase.END) return const EndScreen();
+
+    // Si la révélation des rôles vient d'être déclenchée, forcer l'affichage
+    // du compte à rebours local pendant ~10s pour tous les joueurs.
+    if (s.roleRevealUntilMs != null && nowMs <= s.roleRevealUntilMs!) {
+      return const CountdownScreen();
+    }
 
     // Si le chasseur est appelé à tirer, afficher l'écran dédié
     // même si la mort n'a pas encore été synchronisée côté client.
@@ -213,13 +269,10 @@ class _WithGlobalOverlay extends ConsumerWidget {
         // Contenu principal (Navigator)
         Positioned.fill(child: child ?? const SizedBox.shrink()),
         // Overlay global (affiché uniquement lorsqu'une partie est rejointe)
-        IgnorePointer(
-          ignoring: true,
-          child: AnimatedOpacity(
-            opacity: s.gameId != null ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 150),
-            child: const PlayerBadge(),
-          ),
+        AnimatedOpacity(
+          opacity: s.gameId != null ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 150),
+          child: const PlayerBadge(),
         ),
       ],
     );

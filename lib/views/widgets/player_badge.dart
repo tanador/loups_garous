@@ -1,14 +1,33 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/game_provider.dart';
+import '../../state/models.dart';
 
 /// Petit badge affichant en permanence le pseudo du joueur local
 /// lorsqu'une partie est rejointe. Injecté globalement via MaterialApp.builder.
-class PlayerBadge extends ConsumerWidget {
+class PlayerBadge extends ConsumerStatefulWidget {
   const PlayerBadge({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayerBadge> createState() => _PlayerBadgeState();
+}
+
+class _PlayerBadgeState extends ConsumerState<PlayerBadge> {
+  bool _pressed = false;
+  bool _revealed = false;
+  Timer? _timer;
+
+  String _roleLabel(Role r) => switch (r) {
+        Role.WOLF => 'Loup-garou',
+        Role.WITCH => 'Sorcière',
+        Role.HUNTER => 'Chasseur',
+        Role.VILLAGER => 'Villageois',
+        Role.CUPID => 'Cupidon',
+      };
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final String? nick = s.playerId; // playerId == nickname côté client
 
@@ -23,29 +42,64 @@ class PlayerBadge extends ConsumerWidget {
     final fg = theme.colorScheme.onSurface;
     final border = theme.colorScheme.outline.withOpacity(0.3);
 
+    final showRole = _revealed && s.role != null;
+    final label = showRole ? 'Rôle: ${_roleLabel(s.role!)}' : 'Vous: $nick';
+    final icon = showRole ? Icons.visibility : Icons.person;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Align(
           alignment: Alignment.bottomLeft,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: border),
-              boxShadow: const [
-                BoxShadow(blurRadius: 6, offset: Offset(0, 2), color: Colors.black26),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.person, size: 16, color: fg),
-                  const SizedBox(width: 6),
-                  Text('Vous: $nick', style: textStyle?.copyWith(color: fg)),
-                ],
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              setState(() {
+                _pressed = true;
+                _revealed = false;
+              });
+              _timer?.cancel();
+              final ms = s.rolePressRevealMs;
+              _timer = Timer(Duration(milliseconds: ms), () {
+                if (mounted && _pressed) setState(() => _revealed = true);
+              });
+            },
+            onTapUp: (_) {
+              _timer?.cancel();
+              setState(() {
+                _pressed = false;
+                _revealed = false;
+              });
+            },
+            onTapCancel: () {
+              _timer?.cancel();
+              setState(() {
+                _pressed = false;
+                _revealed = false;
+              });
+            },
+            child: ExcludeSemantics(
+              excluding: true,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: border),
+                  boxShadow: const [
+                    BoxShadow(blurRadius: 6, offset: Offset(0, 2), color: Colors.black26),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: fg),
+                      const SizedBox(width: 6),
+                      Text(label, style: textStyle?.copyWith(color: fg)),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -54,4 +108,3 @@ class PlayerBadge extends ConsumerWidget {
     );
   }
 }
-

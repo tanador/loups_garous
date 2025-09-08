@@ -1,5 +1,6 @@
 // Couche "state": gestion de l'état global et des interactions avec le serveur.
 // Le [GameController] ci-dessous centralise toute la logique métier côté client.
+import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,13 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   final _socketSvc = SocketService();
+  Timer? _roleRevealTimer;
+
+  @override
+  void dispose() {
+    _roleRevealTimer?.cancel();
+    super.dispose();
+  }
 
   /// Tente de restaurer les préférences depuis le stockage local.
   /// Ne reconnecte PAS automatiquement à une ancienne partie pour éviter
@@ -129,14 +137,38 @@ class GameController extends StateNotifier<GameModel> {
     // --- Role and state
     s.on('role:assigned', (data) {
       final role = roleFromStr(data['role']);
-      state = state.copy(role: role, phase: GamePhase.ROLES);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final seconds = (data['countdownSeconds'] is num)
+          ? (data['countdownSeconds'] as num).toInt()
+          : 10;
+      final pressMs = (data['pressToRevealMs'] is num)
+          ? (data['pressToRevealMs'] as num).toInt()
+          : state.rolePressRevealMs;
+      final until = now + seconds * 1000;
+      // Affiche localement un compte à rebours configuré côté serveur,
+      // même si l'état serveur bouge rapidement après l'assignation.
+      state = state.copy(
+        role: role,
+        phase: GamePhase.ROLES,
+        roleRevealUntilMs: until,
+        rolePressRevealMs: pressMs,
+      );
+      // Programme la fin de la fenêtre d'affichage pour déclencher un rebuild
+      _roleRevealTimer?.cancel();
+      final delay = Duration(seconds: seconds);
+      _roleRevealTimer = Timer(delay, () {
+        // Ne modifie l'état que si l'échéance n'a pas été réécrite entre-temps
+        state = state.copy(roleRevealUntilMs: null);
+      });
       log('[evt] role:assigned $role');
     });
 
     s.on('game:stateChanged', (data) {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
-      state = state.copy(phase: phase, deadlineMs: deadline);
+      // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
+      final loverPartnerId = phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
+      state = state.copy(phase: phase, deadlineMs: deadline, loverPartnerId: loverPartnerId);
       log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
@@ -254,6 +286,12 @@ class GameController extends StateNotifier<GameModel> {
       state = state.copy(loverPartnerId: partnerId);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] lovers:wake partner=$partnerId');
+    });
+
+    // Amoureux: fin de la révélation -> refermer l'écran côté client
+    s.on('lovers:sleep', (_) async {
+      state = state.copy(loverPartnerId: null);
+      log('[evt] lovers:sleep');
     });
 
     // --- Hunter ability

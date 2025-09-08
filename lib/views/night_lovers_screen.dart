@@ -35,14 +35,13 @@ class _NightLoversScreenState extends ConsumerState<NightLoversScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _acked ? Colors.green : null,
               ),
-              onPressed: _acked
-                  ? null
-                  : () async {
-                      setState(() => _acked = true);
-                      try {
-                        await ctl.loversAck();
-                      } catch (_) {}
-                    },
+              onPressed: () async {
+                if (_acked) return; // garde-voie pour éviter les doublons
+                setState(() => _acked = true);
+                try {
+                  await ctl.loversAck();
+                } catch (_) {}
+              },
               icon: Icon(_acked ? Icons.check_circle : Icons.check_circle_outline),
               label: const Text("J'ai lu"),
             ),

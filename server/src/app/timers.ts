@@ -9,6 +9,8 @@ export type TimerConfig = Partial<{
   NEXT_WAKE_DELAY_MAX_MS: number;
   // Compte à rebours avant le début de la partie (côté client peut l'utiliser)
   COUNTDOWN_SECONDS: number;
+  // Durée d'appui (ms) avant de révéler le rôle en maintenant le badge
+  TIME_PRESS_BEFOR_REVEAL_ROLE: number;
   // Overrides facultatifs des durées par phase
   CUPID_MS: number;
   LOVERS_MS: number;
@@ -24,6 +26,7 @@ const defaultConfig: Required<TimerConfig> = {
   NEXT_WAKE_DELAY_MIN_MS: 5_000,
   NEXT_WAKE_DELAY_MAX_MS: 20_000,
   COUNTDOWN_SECONDS: 10,
+  TIME_PRESS_BEFOR_REVEAL_ROLE: 700,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
   WOLVES_MS: 80_000,

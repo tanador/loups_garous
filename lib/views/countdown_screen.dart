@@ -1,29 +1,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../state/game_provider.dart';
 import 'role_screen.dart';
 
 // Écran de compte à rebours affiché avant la révélation des rôles.
-class CountdownScreen extends StatefulWidget {
+class CountdownScreen extends ConsumerStatefulWidget {
   const CountdownScreen({super.key});
 
   @override
-  State<CountdownScreen> createState() => _CountdownScreenState();
+  ConsumerState<CountdownScreen> createState() => _CountdownScreenState();
 }
 
-class _CountdownScreenState extends State<CountdownScreen> {
-  static const _start = 10;
-  late int _seconds = _start;
+class _CountdownScreenState extends ConsumerState<CountdownScreen> {
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_seconds <= 0) {
-        timer.cancel();
-      } else {
-        setState(() => _seconds--);
-      }
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -35,14 +31,19 @@ class _CountdownScreenState extends State<CountdownScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_seconds <= 0) return const RoleScreen();
+    final s = ref.watch(gameProvider);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final until = s.roleRevealUntilMs;
+    final remainingMs = until == null ? 0 : (until - now);
+    final remainingSec = remainingMs <= 0 ? 0 : (remainingMs / 1000).ceil();
+    if (remainingSec <= 0) return const RoleScreen();
 
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FilmCountdown(number: _seconds),
+            FilmCountdown(number: remainingSec),
             const SizedBox(height: 24),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.0),
