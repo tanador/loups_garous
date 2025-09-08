@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator } from '../orchestrator.js';
 import { createGame, addPlayer } from '../../domain/game.js';
-import { assignRoles } from '../../domain/rules.js';
 
 function fakeIo() {
   return {
@@ -19,7 +18,10 @@ describe('morning acknowledgements', () => {
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
-    assignRoles(g);
+    // Set roles deterministically to avoid an immediate WIN at morning.
+    // One wolf and two non-wolves ensures the game proceeds to MORNING and then VOTE.
+    g.roles = { A: 'WOLF', B: 'VILLAGER', C: 'VILLAGER' } as any;
+    g.players.forEach(p => (p.role = g.roles[p.id] as any));
     (orch as any).store.put(g);
 
     g.state = 'NIGHT_WITCH';

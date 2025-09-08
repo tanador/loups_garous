@@ -30,9 +30,8 @@ class _NightCupidScreenState extends ConsumerState<NightCupidScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
-    final targets = s.cupidTargets
-        .where((p) => p.id != s.playerId)
-        .toList();
+    // Autorise Cupidon à se sélectionner lui-même comme amoureux
+    final targets = s.cupidTargets.toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nuit — Cupidon')),
@@ -84,4 +83,3 @@ class _NightCupidScreenState extends ConsumerState<NightCupidScreen> {
     );
   }
 }
-

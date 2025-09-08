@@ -1,29 +1,9 @@
 // Modèles de données utilisés par toute l'application.
 // Regroupe les énumérations, vues simplifiées et l'état global [GameModel].
-// Modèles statiques: pas de dépendance Flutter nécessaire ici.
-
-/// États successifs possibles de la partie.
-enum GamePhase {
-  LOBBY,
-  ROLES,
-  NIGHT_CUPID,
-  NIGHT_LOVERS,
-  NIGHT_WOLVES,
-  NIGHT_WITCH,
-  MORNING,
-  VOTE,
-  RESOLVE,
-  CHECK_END,
-  END
-}
-/// Convertit une représentation texte en valeur [GamePhase].
-GamePhase phaseFromStr(String s) =>
-    GamePhase.values.firstWhere((e) => e.name == s);
-
-/// Rôles attribués aux joueurs.
-enum Role { WOLF, WITCH, HUNTER, VILLAGER, CUPID }
-/// Convertit une chaîne en valeur [Role].
-Role roleFromStr(String s) => Role.values.firstWhere((e) => e.name == s);
+// Les énumérations (GamePhase, Role) et leurs convertisseurs sont générés
+// automatiquement depuis le serveur dans `state/generated/enums.dart`.
+export 'generated/enums.dart';
+import 'generated/enums.dart';
 
 /// Informations minimales sur une partie disponible dans le lobby.
 class LobbyGameInfo {
@@ -84,6 +64,7 @@ class GameModel {
   final String? gameId;
   final String? playerId; // also your nickname
   final bool isOwner; // client-side flag for lobby actions
+  final bool hasSnapshot; // received at least one game:snapshot
   final Role? role;
   final GamePhase phase;
   final int round;
@@ -115,6 +96,7 @@ class GameModel {
     required this.gameId,
     required this.playerId,
     required this.isOwner,
+    required this.hasSnapshot,
     required this.role,
     required this.phase,
     required this.round,
@@ -144,6 +126,7 @@ class GameModel {
         gameId: null,
         playerId: null,
         isOwner: false,
+        hasSnapshot: false,
         role: null,
         phase: GamePhase.LOBBY,
         round: 0,
@@ -176,6 +159,7 @@ class GameModel {
     Object? gameId = _unset,
     Object? playerId = _unset,
     bool? isOwner,
+    bool? hasSnapshot,
     Object? role = _unset,
     GamePhase? phase,
     int? round,
@@ -203,6 +187,7 @@ class GameModel {
       gameId: identical(gameId, _unset) ? this.gameId : gameId as String?,
       playerId: identical(playerId, _unset) ? this.playerId : playerId as String?,
       isOwner: isOwner ?? this.isOwner,
+      hasSnapshot: hasSnapshot ?? this.hasSnapshot,
       role: identical(role, _unset) ? this.role : role as Role?,
       phase: phase ?? this.phase,
       round: round ?? this.round,

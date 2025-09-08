@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, addPlayer } from '../game.js';
 import { assignRoles, computeNightDeaths, applyDeaths, winner } from '../rules.js';
+import { ROLE_REGISTRY_READY } from '../roles/index.js';
+import { beforeAll } from 'vitest';
 
 function seedGame() {
   const g = createGame(3);
@@ -10,6 +12,10 @@ function seedGame() {
   assignRoles(g);
   return g;
 }
+
+beforeAll(async () => {
+  await ROLE_REGISTRY_READY;
+});
 
 describe('night resolution', () => {
   it('heal cancels wolves attack but poison kills target', async () => {

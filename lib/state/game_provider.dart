@@ -21,18 +21,14 @@ class GameController extends StateNotifier<GameModel> {
 
   final _socketSvc = SocketService();
 
-  /// Tente de restaurer une session précédente depuis le stockage local.
-  /// Si une partie était en cours, on reconnecte automatiquement au serveur.
+  /// Tente de restaurer les préférences depuis le stockage local.
+  /// Ne reconnecte PAS automatiquement à une ancienne partie pour éviter
+  /// d'attacher une nouvelle instance à une session existante.
   Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString('serverUrl');
-    final gameId = prefs.getString('gameId');
-    final playerId = prefs.getString('playerId');
     if (url != null) {
-      state = state.copy(serverUrl: url, gameId: gameId, playerId: playerId);
-      if (gameId != null && playerId != null) {
-        connect(url);
-      }
+      state = state.copy(serverUrl: url);
     }
   }
 
@@ -65,6 +61,7 @@ class GameController extends StateNotifier<GameModel> {
       gameId: null,
       playerId: null,
       isOwner: false,
+      hasSnapshot: false,
       role: null,
       phase: GamePhase.LOBBY,
       round: 0,
@@ -102,7 +99,13 @@ class GameController extends StateNotifier<GameModel> {
           'playerId': state.playerId,
         });
         log('[ack] session:resume $ack');
-        await _setContext();
+        if (ack['ok'] != true) {
+          // Session périmée: nettoie et laisse l'UI recréer proprement
+          state = state.copy(gameId: null, playerId: null, isOwner: false, hasSnapshot: false);
+          await _clearSession();
+        } else {
+          await _setContext();
+        }
       }
       // Récupère la liste des parties disponibles dans le lobby.
       _listGames();
@@ -137,7 +140,7 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
-    s.on('game:snapshot', (data) {
+    s.on('game:snapshot', (data) async {
       // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -147,12 +150,35 @@ class GameController extends StateNotifier<GameModel> {
                 alive: j['alive'] == true,
               ))
           .toList();
-      final role = roleFromStr(data['you']['role']);
+      final rawRole = (data['you'] as Map?)?['role'];
+      final youId = (data['you'] as Map?)?['id']?.toString();
+      final role = rawRole is String ? roleFromStr(rawRole) : state.role;
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
-      final isOwner = players.isNotEmpty && state.playerId != null && players.first.id == state.playerId;
-      state = state.copy(phase: phase, players: players, role: role, deadlineMs: deadline, maxPlayers: maxPlayers, isOwner: isOwner);
+      final snapshotGameId = data['id']?.toString();
+      // Si nous n'avions pas encore les identifiants (fallback quand l'ACK a échoué),
+      // les récupérer depuis le snapshot pour permettre à l'UI d'avancer.
+      final nextGameId = state.gameId ?? snapshotGameId;
+      final nextPlayerId = state.playerId ?? youId;
+      final isOwner = players.isNotEmpty && nextPlayerId != null && players.first.id == nextPlayerId;
+      state = state.copy(
+        gameId: nextGameId,
+        playerId: nextPlayerId,
+        phase: phase,
+        players: players,
+        role: role,
+        deadlineMs: deadline,
+        maxPlayers: maxPlayers,
+        isOwner: isOwner,
+        hasSnapshot: true,
+      );
+      // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
+      // et persiste la session afin d'éviter toute désynchronisation.
+      if ((snapshotGameId != null || youId != null) && (state.gameId != null && state.playerId != null)) {
+        try { await _setContext(); } catch (_) {}
+        try { await _saveSession(); } catch (_) {}
+      }
       log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
@@ -315,17 +341,16 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
-    // Pré-remplit l'état local avec 1 joueur en vie (toi)
-    // pour éviter l'affichage 0/3 avant la réception du snapshot serveur.
-    final me = PlayerView(id: data['playerId'] as String, connected: true, alive: true);
     state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
       maxPlayers: (data['maxPlayers'] as int?) ?? maxPlayers,
-      players: [me],
       isOwner: true,
+      hasSnapshot: false,
     );
     await _setContext();
+    // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
+    try { await _listGames(); } catch (_) {}
     await _saveSession();
     return null;
   }
@@ -338,17 +363,16 @@ class GameController extends StateNotifier<GameModel> {
       return err;
     }
     final data = Map<String, dynamic>.from(ack['data']);
-    // Pré-remplit l'état local avec 1 joueur (toi) pour éviter l'affichage 0/N
-    // avant la réception d'un premier snapshot serveur.
-    final me = PlayerView(id: data['playerId'] as String, connected: true, alive: true);
     state = state.copy(
       gameId: data['gameId'],
       playerId: data['playerId'],
       maxPlayers: data['maxPlayers'] as int? ?? state.maxPlayers,
-      players: [me],
       isOwner: false,
+      hasSnapshot: false,
     );
     await _setContext();
+    // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
+    try { await _listGames(); } catch (_) {}
     await _saveSession();
     return null;
   }
@@ -364,6 +388,8 @@ class GameController extends StateNotifier<GameModel> {
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
         log('cancelGame error: $err');
+        // Tolère game_not_found côté client: on nettoie quand même l'état
+        if (err == 'game_not_found' || err == 'invalid_payload' || err == 'invalid_context') err = null;
       }
     } catch (e, st) {
       err = e.toString();
@@ -385,6 +411,8 @@ class GameController extends StateNotifier<GameModel> {
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
         log('leaveGame error: $err');
+        // Tolère game_not_found côté client (ex: jeu déjà annulé)
+        if (err == 'game_not_found' || err == 'invalid_payload' || err == 'invalid_context') err = null;
       }
     } catch (e, st) {
       err = e.toString();
@@ -408,6 +436,24 @@ class GameController extends StateNotifier<GameModel> {
       'playerId': state.playerId,
     });
     log('[ack] context:set $ack');
+    // Demande explicitement un snapshot après avoir fixé le contexte
+    try {
+      final ack2 = await _socketSvc.emitAck('session:resume', {
+        'gameId': state.gameId,
+        'playerId': state.playerId,
+      });
+      log('[ack] session:resume(post-context) $ack2');
+    } catch (e) {
+      log('session:resume post-context failed: $e');
+    }
+  }
+
+  /// Permet de relancer une synchronisation (context + snapshot)
+  /// si l'UI est affichée mais aucun snapshot n'a encore été reçu.
+  Future<void> ensureSynced() async {
+    if (state.gameId == null || state.playerId == null) return;
+    if (state.hasSnapshot) return;
+    await _setContext();
   }
 
   Future<void> toggleReady(bool ready) async {
@@ -437,6 +483,12 @@ class GameController extends StateNotifier<GameModel> {
     });
     log('[ack] cupid:choose $ack');
     state = state.copy(cupidTargets: []);
+  }
+
+  // ------------- Lovers Ack -------------
+  Future<void> loversAck() async {
+    final ack = await _socketSvc.emitAck('lovers:ack', {});
+    log('[ack] lovers:ack $ack');
   }
 
   // ------------- Hunter -------------

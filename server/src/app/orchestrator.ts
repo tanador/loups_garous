@@ -68,7 +68,8 @@ export class Orchestrator {
     });
     this.store.put(game);
     this.bindPlayerToRooms(game, player, socket);
-    // no snapshot in lobby; clients rely on lobby list until start
+    // Send an initial snapshot to the creator so the client can render lobby from server state
+    this.sendSnapshot(game, player.id);
     this.emitLobbyUpdate();
     this.log(game.id, "LOBBY", player.id, "lobby.create", { maxPlayers });
     this.tryAutostart(game);
@@ -92,7 +93,8 @@ export class Orchestrator {
     this.bindPlayerToRooms(game, player, socket);
     this.store.put(game);
     this.emitLobbyUpdate();
-    // no snapshot broadcast in lobby; state snapshots start at game phases
+    // Send a snapshot to the newly joined player for immediate lobby sync
+    this.sendSnapshot(game, player.id);
     this.log(game.id, "LOBBY", player.id, "lobby.join");
     this.tryAutostart(game);
     return {

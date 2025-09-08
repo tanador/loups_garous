@@ -4,12 +4,21 @@ import '../state/game_provider.dart';
 
 /// Écran affiché lorsque les amoureux sont réveillés par Cupidon.
 /// Il informe le joueur de l'identité de son partenaire.
-class NightLoversScreen extends ConsumerWidget {
+class NightLoversScreen extends ConsumerStatefulWidget {
   const NightLoversScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final partnerId = ref.watch(gameProvider).loverPartnerId;
+  ConsumerState<NightLoversScreen> createState() => _NightLoversScreenState();
+}
+
+class _NightLoversScreenState extends ConsumerState<NightLoversScreen> {
+  bool _acked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(gameProvider);
+    final ctl = ref.read(gameProvider.notifier);
+    final partnerId = s.loverPartnerId;
     return Scaffold(
       appBar: AppBar(title: const Text('Amoureux')),
       body: Center(
@@ -22,6 +31,22 @@ class NightLoversScreen extends ConsumerWidget {
               Text('Votre partenaire est $partnerId ❤️',
                   style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _acked ? Colors.green : null,
+              ),
+              onPressed: _acked
+                  ? null
+                  : () async {
+                      setState(() => _acked = true);
+                      try {
+                        await ctl.loversAck();
+                      } catch (_) {}
+                    },
+              icon: Icon(_acked ? Icons.check_circle : Icons.check_circle_outline),
+              label: const Text("J'ai lu"),
+            ),
+            const SizedBox(height: 8),
             const Text('Fermez les yeux'),
           ],
         ),

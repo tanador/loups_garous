@@ -131,25 +131,38 @@ class WaitingLobby extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final isOwner = s.isOwner;
+    // Si aucun snapshot n'a été reçu, déclenche une resynchronisation
+    if (!s.hasSnapshot && s.gameId != null && s.playerId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ctl.ensureSynced();
+      });
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Salle d’attente')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text('Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/${s.maxPlayers}'),
+            if (!s.hasSnapshot) ...[
+              Text('Partie ${s.gameId} • synchronisation...'),
+            ] else ...[
+              Text('Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/${s.maxPlayers}')
+            ],
             const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                children: s.players
-                    .map((p) => ListTile(
-                          title: Text(p.id),
-                          subtitle: Text(p.alive ? 'Vivant' : 'Mort'),
-                          trailing: Icon(p.connected ? Icons.wifi : Icons.wifi_off),
-                        ))
-                    .toList(),
+            if (!s.hasSnapshot)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else
+              Expanded(
+                child: ListView(
+                  children: s.players
+                      .map((p) => ListTile(
+                            title: Text(p.id),
+                            subtitle: Text(p.alive ? 'Vivant' : 'Mort'),
+                            trailing: Icon(p.connected ? Icons.wifi : Icons.wifi_off),
+                          ))
+                      .toList(),
+                ),
               ),
-            ),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () async {

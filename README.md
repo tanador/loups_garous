@@ -1,5 +1,8 @@
 # Loup Garou
 
+[![Server CI](https://github.com/tanador/loup_garou/actions/workflows/server.yml/badge.svg)](https://github.com/tanador/loup_garou/actions/workflows/server.yml)
+[![Flutter CI](https://github.com/tanador/loup_garou/actions/workflows/flutter.yml/badge.svg)](https://github.com/tanador/loup_garou/actions/workflows/flutter.yml)
+
 Projet d'apprentissage autour du jeu du **Loup-Garou**.  Il contient :
 
 - une application Flutter dans le dossier `lib/`
@@ -13,6 +16,27 @@ Projet d'apprentissage autour du jeu du **Loup-Garou**.  Il contient :
 
 Ce dépôt peut servir de base pour comprendre l'organisation d'une petite
 application temps réel Flutter ↔ Node.js.
+
+## Intégration Continue (CI)
+
+- Server CI (Node/TypeScript)
+  - Installe les dépendances (`npm ci`), lance le typecheck (`tsc --noEmit`), le lint (ESLint), puis les tests (Vitest).
+  - Fichier: `.github/workflows/server.yml`.
+- Flutter CI (client)
+  - Installe Flutter stable, restaure le cache pub, exécute `flutter pub get`, `flutter analyze`, et `flutter test`.
+  - Fichier: `.github/workflows/flutter.yml`.
+
+Résultat: chaque push et PR déclenche ces jobs. Les badges ci‑dessus affichent l’état actuel.
+
+## Types/Énumérations partagés (générés)
+
+Les énumérations partagées (phases du jeu et rôles) sont générées depuis le serveur afin d’éviter les divergences.
+
+- Générer côté client Dart à partir du serveur:
+  - `cd server && npm run export:dart`
+  - Produit `lib/state/generated/enums.dart` (GamePhase, Role, et convertisseurs). Le client l’importe et le ré‑exporte depuis `lib/state/models.dart`.
+
+Note: Pour aller plus loin, vous pouvez étendre la génération aux schémas d’entrées (Zod) en exportant du JSON Schema (via `zod-to-json-schema`) et en générant des modèles Dart (ex. quicktype). Cette étape n’est pas nécessaire pour faire tourner le projet.
 
 ## Démarrage rapide
 
@@ -34,7 +58,7 @@ variables de compilation :
 ```bash
 flutter run \
   --dart-define=PSEUDO=MonPseudo \
-  --dart-define=AUTO_CREATE=true
+ --dart-define=AUTO_CREATE=true
 ```
 
 `PSEUDO` renseigne le surnom utilisé et `AUTO_CREATE=true` crée

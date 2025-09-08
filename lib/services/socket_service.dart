@@ -47,20 +47,25 @@ class SocketService {
   }
 
   /// Émet un évènement et attend un accusé de réception sous forme de Map.
-  /// Un timeout est appliqué pour éviter de bloquer indéfiniment.
+  /// API officielle de socket_io_client 3.1.2: `emitWithAckAsync(event, data)` retourne un Future.
   Future<Map<String, dynamic>> emitAck(
-     String event,
-     Map<String, Object?> payload, {
-      Duration timeout = const Duration(seconds: 8),
-    })async {
+    String event,
+    Map<String, Object?> payload, {
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
     try {
       final res = await socket.emitWithAckAsync(event, payload).timeout(timeout);
       if (res is Map) {
-        return res.map((k, v) => MapEntry(k.toString(), v));
+        return Map<String, dynamic>.from(
+          res.map((k, v) => MapEntry(k.toString(), v)),
+        );
       }
       return {'ok': false, 'error': 'bad_ack_format', 'got': res};
     } on TimeoutException {
       return {'ok': false, 'error': 'timeout'};
+    } catch (e, st) {
+      log('[socket] emitAck error $e', stackTrace: st);
+      return {'ok': false, 'error': e.toString()};
     }
   }
 
