@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
-import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema } from '../app/schemas.js';
+import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema } from '../app/schemas.js';
 
 // Couche "infra": instancie le serveur Socket.IO et enregistre les handlers.
 export function createSocketServer(httpServer: HttpServer) {
@@ -215,6 +215,20 @@ export function createSocketServer(httpServer: HttpServer) {
         return;
       }
       orch.voteCancel(gameId, playerId);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
+    });
+
+    handle(socket, 'lovers:ack', LoversAckSchema, (_data, ack) => {
+      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
+      orch.loversAck(gameId, playerId);
       if (typeof ack === 'function') {
         ack({ ok: true });
       }

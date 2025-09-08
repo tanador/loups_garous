@@ -20,7 +20,7 @@ import {
   isConsensus,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
-import { DURATION } from "./timers.js";
+import { DURATION, randomNextWakeMs } from "./timers.js";
 import { logger } from "../logger.js";
 
 type Ack<T = unknown> = (
@@ -283,6 +283,8 @@ export class Orchestrator {
       this.broadcastState(game);
       return this.beginNightWolves(game);
     }
+    // Reset per-phase acknowledgements for lovers
+    (game as any).loversAcks = new Set<string>();
     this.setDeadline(game, DURATION.LOVERS_MS);
     this.broadcastState(game);
     for (const lover of lovers) {
@@ -298,6 +300,33 @@ export class Orchestrator {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_LOVERS") return;
     this.beginNightWolves(game);
+  }
+
+  loversAck(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_LOVERS") throw new Error("bad_state");
+    const p = game.players.find((x) => x.id === playerId);
+    if (!p || !p.loverId) throw new Error("not_lover");
+    const acks: Set<string> = (game as any).loversAcks ?? new Set<string>();
+    acks.add(playerId);
+    (game as any).loversAcks = acks;
+    const loversIds = game.players
+      .filter((x) => x.loverId && game.alive.has(x.id) && x.connected)
+      .map((x) => x.id);
+    const allAcked = loversIds.every((id) => acks.has(id));
+    this.log(game.id, game.state, playerId, "lovers.ack", { acked: acks.size });
+    if (allAcked) {
+      // Demander aux amoureux de se rendormir puis enchaîner après un délai aléatoire
+      const lovers = game.players.filter((x) => x.loverId && game.alive.has(x.id) && x.connected);
+      for (const lover of lovers) {
+        const s = this.io.sockets.sockets.get(this.playerSocket(game, lover.id));
+        if (s) s.emit('lovers:sleep');
+      }
+      const pause = randomNextWakeMs();
+      this.setDeadline(game, pause);
+      this.broadcastState(game);
+      this.schedule(game.id, pause, () => this.endNightLovers(game.id));
+    }
   }
 
   private beginNightWolves(game: Game) {
@@ -488,7 +517,9 @@ export class Orchestrator {
     setState(game, "MORNING");
     this.broadcastState(game);
 
-    const win = winner(game);
+    // Do not declare a winner while a hunter shot is pending
+    const pending = this.pendingHunters.get(game.id) ?? [];
+    const win = pending.length > 0 ? null : winner(game);
     if (win) {
       setState(game, "END");
       this.broadcastState(game);
@@ -561,15 +592,24 @@ export class Orchestrator {
       this.pendingHunters.delete(game.id);
       this.morningRecaps.set(game.id, recap);
 
-      // After the hunter shot, survivors must acknowledge the new recap
-      // before the game can proceed. Reset acknowledgments and deadline
-      // just like the initial morning recap.
+      // After the hunter shot, end immediately if a win condition is met.
+      const win2 = winner(game);
+      if (win2) {
+        setState(game, "END");
+        this.broadcastState(game);
+        const roles = game.players.map((p) => ({
+          playerId: p.id,
+          role: game.roles[p.id],
+        }));
+        this.io.to(`room:${game.id}`).emit("game:ended", { winner: win2, roles });
+        this.log(game.id, "END", undefined, "game.end", { winner: win2 });
+        return;
+      }
+      // Otherwise survivors must acknowledge the new recap before proceeding
       game.morningAcks.clear();
       this.setDeadline(game, DURATION.MORNING_MS);
       this.broadcastState(game);
-      this.schedule(game.id, DURATION.MORNING_MS, () =>
-        this.handleMorningEnd(game),
-      );
+      this.schedule(game.id, DURATION.MORNING_MS, () => this.handleMorningEnd(game));
       return;
     }
 
@@ -579,6 +619,18 @@ export class Orchestrator {
     // consistently after post-mortem actions.
     const hadHunterShot = !!recap && recap.hunterKills.length > 0;
     if (hadHunterShot) {
+      const win2 = winner(game);
+      if (win2) {
+        setState(game, "END");
+        this.broadcastState(game);
+        const roles = game.players.map((p) => ({
+          playerId: p.id,
+          role: game.roles[p.id],
+        }));
+        this.io.to(`room:${game.id}`).emit("game:ended", { winner: win2, roles });
+        this.log(game.id, "END", undefined, "game.end", { winner: win2 });
+        return;
+      }
       this.beginVote(game);
       return;
     }

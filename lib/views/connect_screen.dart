@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,11 +9,44 @@ import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'game_options_screen.dart';
 
-// Optional compile-time parameters.
-// Pass values using `--dart-define=PSEUDO=foo` and
-// `--dart-define=AUTO_CREATE=true` when launching the app.
-const _paramNick = String.fromEnvironment('PSEUDO', defaultValue: '');
-const _autoCreate = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
+// Paramètres de lancement (lecture à l'exécution)
+// _paramNick     -> force le pseudo par défaut
+// _autoCreate    -> si "true" (ou 1/yes/y), crée automatiquement une partie (4 joueurs)
+//
+// Sources prises en compte, par ordre de priorité :
+// 1) Variables d'environnement (ex: _paramNick, _autoCreate)
+// 2) Dart-define (compat: PSEUDO / AUTO_CREATE)
+final String _paramNick = (() {
+  try {
+    if (!kIsWeb) {
+      final env = Platform.environment;
+      final v = (env['_paramNick'] ?? env['_PARAMNICK'] ?? env['PARAMNICK'] ?? env['PSEUDO'] ?? '').trim();
+      if (v.isNotEmpty) return v;
+    }
+  } catch (_) {}
+  const byKey = String.fromEnvironment('_paramNick', defaultValue: '');
+  if (byKey.isNotEmpty) return byKey;
+  const legacy = String.fromEnvironment('PSEUDO', defaultValue: '');
+  return legacy;
+})();
+
+final bool _autoCreate = (() {
+  try {
+    if (!kIsWeb) {
+      final env = Platform.environment;
+      final raw = env['_autoCreate'] ?? env['_AUTOCREATE'] ?? env['AUTOCREATE'] ?? env['AUTO_CREATE'];
+      if (raw != null) {
+        final s = raw.toLowerCase();
+        if (s == '1' || s == 'true' || s == 'yes' || s == 'y') return true;
+      }
+    }
+  } catch (_) {}
+  const byKey = bool.fromEnvironment('_autoCreate', defaultValue: false);
+  const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
+  return byKey || legacy;
+})();
+
+
 
 // Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
 
@@ -26,6 +60,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController(text: _paramNick);
   static bool _autoRan = false; // évite de relancer autoCreate après un retour au ConnectScreen
+  static bool _autoClientRan = false; // évite de relancer l'auto connexion/join via PSEUDO
 
   @override
   void initState() {
@@ -35,6 +70,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       if (_autoCreate) {
         _autoStart();
       }
+      // Si un pseudonyme est fourni (_paramNick),
+      // on simule un clic sur "Se connecter" puis on rejoint automatiquement
+      // une partie en attente s'il y en a au lobby.
+      if (_paramNick.isNotEmpty) {
+        _autoConnectAndJoinIfPossible();
+      }
     });
   }
 
@@ -43,6 +84,36 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     _url.dispose();
     _nick.dispose();
     super.dispose();
+  }
+
+  Future<void> _autoConnectAndJoinIfPossible() async {
+    if (_autoClientRan) return;
+    final ctl = ref.read(gameProvider.notifier);
+    // Assure une connexion socket comme si on avait cliqué sur "Se connecter"
+    if (!ref.read(gameProvider).socketConnected) {
+      await ctl.connect(_url.text);
+      for (int i = 0; i < 100; i++) { // ~10s max
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (ref.read(gameProvider).socketConnected) break;
+      }
+    }
+    await _saveNick();
+    // Rafraîchit et attend la liste de parties du lobby
+    await ctl.refreshLobby();
+    for (int i = 0; i < 50; i++) { // ~5s max
+      await Future.delayed(const Duration(milliseconds: 100));
+      final lobby = ref.read(gameProvider).lobby;
+      if (lobby.isNotEmpty) break;
+    }
+    final s = ref.read(gameProvider);
+    if (s.gameId == null && s.lobby.isNotEmpty) {
+      // Prend une partie qui a des places disponibles si possible, sinon la première.
+      final games = s.lobby;
+      final withSlots = games.where((g) => g.slots > 0).toList();
+      final target = (withSlots.isNotEmpty ? withSlots : games).first;
+      await ctl.joinGame(target.id, _nick.text.trim());
+    }
+    _autoClientRan = true;
   }
 
   Future<void> _loadLastNick() async {

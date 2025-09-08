@@ -70,9 +70,7 @@ echo   start_server.cmd ^[--port N^]
 echo   start_server.cmd windows
 echo.
 echo Sans argument: installe, compile et lance le serveur sur le port 3000.
-echo Sous-commande "windows":
-echo   flutter config --enable-windows-desktop ^& flutter create --platforms=windows "^<racine_projet^>"
-exit /b 0
+
 
 :ERR
 echo [ERREUR] Une commande a échoué. Code %ERRORLEVEL%.

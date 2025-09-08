@@ -23,6 +23,7 @@ import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'views/hunter_screen.dart';
 import 'state/models.dart';
+import 'views/widgets/player_badge.dart';
 
 // Point d'entrée de l'application Flutter.
 // Initialise les widgets puis démarre l'application
@@ -45,6 +46,9 @@ class App extends ConsumerWidget {
       title: 'Loup-Garou',
       theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
       darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
+      // Injecte un overlay global pour afficher le pseudo du joueur
+      // sur tous les écrans lorsqu'une partie est en cours.
+      builder: (context, child) => _WithGlobalOverlay(child: child),
       home: _HomeRouter(),
     );
   }
@@ -191,6 +195,33 @@ class WaitingLobby extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Enveloppe globale pour ajouter un overlay persistant (ex: pseudo du joueur)
+/// au-dessus de toutes les vues de l'application.
+class _WithGlobalOverlay extends ConsumerWidget {
+  final Widget? child;
+  const _WithGlobalOverlay({this.child});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(gameProvider);
+    final overlay = const PlayerBadge();
+    return Stack(
+      children: [
+        // Contenu principal (Navigator)
+        Positioned.fill(child: child ?? const SizedBox.shrink()),
+        // Overlay global (affiché uniquement lorsqu'une partie est rejointe)
+        IgnorePointer(
+          ignoring: true,
+          child: AnimatedOpacity(
+            opacity: s.gameId != null ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 150),
+            child: const PlayerBadge(),
+          ),
+        ),
+      ],
     );
   }
 }

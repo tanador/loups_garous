@@ -56,3 +56,4 @@ export const VoteCastSchema = z.object({
 });
 
 export const VoteCancelSchema = z.object({});
+export const LoversAckSchema = z.object({});
