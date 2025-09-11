@@ -368,6 +368,8 @@ export class Orchestrator {
     if (game.roles[playerId] !== "WOLF") throw new Error("forbidden");
     if (!game.alive.has(targetId)) throw new Error("invalid_target");
     if (game.roles[targetId] === "WOLF") throw new Error("invalid_target");
+    const lover = game.players.find((p) => p.id === playerId)?.loverId;
+    if (lover && targetId === lover) throw new Error("cannot_target_lover");
 
     game.wolvesChoices[playerId] = targetId;
     const { consensus, target } = isConsensus(game);
@@ -458,6 +460,9 @@ export class Orchestrator {
       if (poisonTargetId === playerId) throw new Error("cannot_poison_self");
       if (!game.alive.has(poisonTargetId))
         throw new Error("invalid_poison_target");
+      const lover = game.players.find((p) => p.id === playerId)?.loverId;
+      if (lover && lover === poisonTargetId)
+        throw new Error("cannot_target_lover");
       game.night.poisoned = poisonTargetId;
       game.inventory.witch.poisonUsed = true;
     }
@@ -471,9 +476,12 @@ export class Orchestrator {
   }
 
   hunterShoot(gameId: string, playerId: string, targetId: string) {
+    const game = this.mustGet(gameId);
     const key = `${gameId}:${playerId}`;
     const pending = this.hunterAwaiting.get(key);
     if (!pending) throw new Error("no_pending_shot");
+    const lover = game.players.find((p) => p.id === playerId)?.loverId;
+    if (lover && lover === targetId) throw new Error("cannot_target_lover");
     if (!pending.alive.includes(targetId)) throw new Error("invalid_target");
     clearTimeout(pending.timer);
     this.hunterAwaiting.delete(key);
@@ -689,6 +697,8 @@ export class Orchestrator {
     if (game.state !== "VOTE") throw new Error("bad_state");
     if (!game.alive.has(playerId)) throw new Error("dead_cannot_vote");
     if (!game.alive.has(targetId)) throw new Error("invalid_target");
+    const lover = game.players.find((p) => p.id === playerId)?.loverId;
+    if (lover && lover === targetId) throw new Error("cannot_target_lover");
     game.votes[playerId] = targetId;
     this.log(game.id, game.state, playerId, "vote.cast", { targetId });
 
@@ -818,19 +828,21 @@ export class Orchestrator {
         resolve(undefined);
         return;
       }
+      const lover = game.players.find((p) => p.id === hunterId)?.loverId;
+      const options = alive.filter((pid) => pid !== hunterId && pid !== lover);
       const key = `${game.id}:${hunterId}`;
       const timer = setTimeout(() => {
         this.hunterAwaiting.delete(key);
         resolve(undefined);
       }, DURATION.HUNTER_MS);
-      this.hunterAwaiting.set(key, { resolve, alive, timer });
+      this.hunterAwaiting.set(key, { resolve, alive: options, timer });
       this.setDeadline(game, DURATION.HUNTER_MS);
       this.broadcastState(game);
       s.emit("hunter:wake", {
-        alive: alive.map((pid) => this.playerLite(game, pid)),
+        alive: options.map((pid) => this.playerLite(game, pid)),
       });
       this.log(game.id, game.state, hunterId, "hunter.wake", {
-        options: alive.length,
+        options: options.length,
       });
     });
   }
