@@ -20,6 +20,8 @@ describe('Witch decisions validations', () => {
       alive:new Set(['WITCH','A','B']), night:{ attacked:'A' }, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
       votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
     };
+    // Register the game in the orchestrator store so witchDecision can access it
+    (orch as any).store.put(game);
   });
 
   it('cannot save if nothing to save', () => {
@@ -39,4 +41,3 @@ describe('Witch decisions validations', () => {
     expect(() => orch.witchDecision(game.id, 'WITCH', false, 'Z')).toThrowError('invalid_poison_target');
   });
 });
-

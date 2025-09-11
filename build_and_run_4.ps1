@@ -6,6 +6,8 @@
   - Lance la compilation Windows du client Flutter en parallèle
   - Ouvre 4 instances du client, côte à côte, sur l’écran choisi
   - Force la taille de chaque fenêtre à 300x600 px et la positionne sans chevauchement
+  - Avant de lancer, ferme toute instance serveur (port choisi) et toute instance
+    Windows du client déjà en cours d’exécution
 
   Paramètres:
     -Port <int>         Port HTTP du serveur (défaut 3000)
@@ -45,6 +47,79 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host "[INFO] Repo path: $repoRoot"
 
+# --- 0) Nettoyage: fermer les serveurs/app clients déjà en cours ---
+function Stop-ProcessTree {
+  param([int]$Pid)
+  if (-not $Pid) { return }
+  try {
+    # Tuer le processus et ses enfants (Windows)
+    $null = & taskkill /PID $Pid /T /F 2>$null
+  } catch { }
+}
+
+Write-Host "[INFO] Cleaning up previous instances (server + clients)..."
+
+# 0.a) Fermer le serveur écoutant sur le port demandé
+try {
+  $pids = @()
+  try {
+    $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($conns) { $pids = $conns | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique }
+  } catch { }
+  if (-not $pids -or $pids.Count -eq 0) {
+    # Fallback via netstat
+    try {
+      $lines = netstat -ano -p tcp | Select-String -SimpleMatch (":$Port")
+      if ($lines) {
+        $pids = $lines | ForEach-Object { ($_ -split '\s+')[-1] } | Where-Object { $_ -match '^\d+$' } | Sort-Object -Unique
+      }
+    } catch { }
+  }
+  foreach ($pid in $pids) {
+    Write-Host "[INFO] Stopping server process PID=$pid (port $Port)"
+    Stop-ProcessTree -Pid [int]$pid
+  }
+} catch {
+  try {
+    $em = $_
+    $msg = "[WARN] Failed to probe/stop server on port {0}: {1}" -f $Port, ($em.Exception.Message)
+    Write-Host $msg
+  } catch {
+    Write-Host "[WARN] Failed to probe/stop server on port (message unavailable)"
+  }
+}
+
+# 0.b) Fermer les fenêtres cmd lancées via start_server.cmd (si restées ouvertes)
+try {
+  # Détection par ligne de commande
+  $srvCmds = Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'start_server\.cmd' }
+  foreach ($c in $srvCmds) {
+    Write-Host "[INFO] Closing server console (cmd.exe) PID=$($c.ProcessId) [commandline match]"
+    Stop-ProcessTree -Pid $c.ProcessId
+  }
+  # Détection par titre de fenêtre (assigné lors du lancement)
+  $srvByTitle = Get-Process -Name cmd -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowTitle -like 'LG_SERVER_*' }
+  foreach ($p in $srvByTitle) {
+    Write-Host "[INFO] Closing server console (cmd.exe) PID=$($p.Id) [title=$($p.MainWindowTitle)]"
+    Stop-ProcessTree -Pid $p.Id
+  }
+} catch { }
+
+# 0.c) Fermer toutes les instances Windows de l'appli Flutter
+try {
+  $clientExeName = 'loup_garou_client'
+  $clients = @(Get-Process -Name $clientExeName -ErrorAction SilentlyContinue)
+  foreach ($p in $clients) {
+    Write-Host "[INFO] Stopping client PID=$($p.Id)"
+    Stop-ProcessTree -Pid $p.Id
+  }
+} catch { }
+
+# Petit délai pour libérer les verrous de fichiers/ports
+Start-Sleep -Milliseconds 400
+
 # --- 1) Démarrer le serveur dans une nouvelle fenêtre de console ---
 $serverCmd = Join-Path $repoRoot 'start_server.cmd'
 if (-not (Test-Path $serverCmd)) {
@@ -52,9 +127,10 @@ if (-not (Test-Path $serverCmd)) {
 }
 
 Write-Host "[INFO] Launching server (port $Port) in a new window..."
-# Utilise cmd.exe /k pour garder la fenêtre ouverte et afficher les logs
-$cmdArgs = ('/k "{0}" {1}' -f $serverCmd, $Port)
-Start-Process -FilePath 'cmd.exe' -ArgumentList $cmdArgs -WorkingDirectory $repoRoot -WindowStyle Normal | Out-Null
+# Utilise cmd.exe /k pour garder la fenêtre ouverte et afficher les logs, avec un titre distinctif
+$serverTitle = "LG_SERVER_$Port"
+$cmdInner = "title $serverTitle & `"$serverCmd`" $Port"
+Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal | Out-Null
 
 # --- 2) Start Flutter Windows build concurrently ---
 Write-Host "[INFO] Checking Flutter..."

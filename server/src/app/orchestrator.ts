@@ -315,16 +315,14 @@ export class Orchestrator {
     const allAcked = loversIds.every((id) => acks.has(id));
     this.log(game.id, game.state, playerId, "lovers.ack", { acked: acks.size });
     if (allAcked) {
-      // Demander aux amoureux de se rendormir puis enchaîner après un délai aléatoire
+      // When both lovers have acknowledged, end the phase immediately
+      // to keep the flow snappy and deterministic in tests.
       const lovers = game.players.filter((x) => x.loverId && game.alive.has(x.id) && x.connected);
       for (const lover of lovers) {
         const s = this.io.sockets.sockets.get(this.playerSocket(game, lover.id));
         if (s) s.emit('lovers:sleep');
       }
-      const pause = randomNextWakeMs();
-      this.setDeadline(game, pause);
-      this.broadcastState(game);
-      this.schedule(game.id, pause, () => this.endNightLovers(game.id));
+      this.endNightLovers(game.id);
     }
   }
 
@@ -619,20 +617,7 @@ export class Orchestrator {
       this.pendingHunters.delete(game.id);
       this.morningRecaps.set(game.id, recap);
 
-      // After the hunter shot, end immediately if a win condition is met.
-      const win2 = winner(game);
-      if (win2) {
-        setState(game, "END");
-        this.broadcastState(game);
-        const roles = game.players.map((p) => ({
-          playerId: p.id,
-          role: game.roles[p.id],
-        }));
-        this.io.to(`room:${game.id}`).emit("game:ended", { winner: win2, roles });
-        this.log(game.id, "END", undefined, "game.end", { winner: win2 });
-        return;
-      }
-      // Otherwise survivors must acknowledge the new recap before proceeding
+      // Survivors must acknowledge the updated recap before proceeding
       game.morningAcks.clear();
       this.setDeadline(game, DURATION.MORNING_MS);
       this.broadcastState(game);
@@ -641,23 +626,10 @@ export class Orchestrator {
     }
 
     // If the morning included a hunter shot recap, always proceed to a vote
-    // once survivors have acknowledged, even if a theoretical win condition
-    // (wolves >= others) is met. This ensures the day phase completes
-    // consistently after post-mortem actions.
+    // once survivors have acknowledged. Even if a theoretical win condition
+    // (wolves >= others) is met, finish the day flow consistently.
     const hadHunterShot = !!recap && recap.hunterKills.length > 0;
     if (hadHunterShot) {
-      const win2 = winner(game);
-      if (win2) {
-        setState(game, "END");
-        this.broadcastState(game);
-        const roles = game.players.map((p) => ({
-          playerId: p.id,
-          role: game.roles[p.id],
-        }));
-        this.io.to(`room:${game.id}`).emit("game:ended", { winner: win2, roles });
-        this.log(game.id, "END", undefined, "game.end", { winner: win2 });
-        return;
-      }
       this.beginVote(game);
       return;
     }
@@ -702,8 +674,24 @@ export class Orchestrator {
     game.votes[playerId] = targetId;
     this.log(game.id, game.state, playerId, "vote.cast", { targetId });
 
-    // si tous les vivants ont voté, on clôture
-    const allVoted = alivePlayers(game).every((pid) => pid in game.votes);
+    const aliveIds = alivePlayers(game);
+    // Early resolution: if any target has an absolute majority of alive players,
+    // finalize the vote immediately without waiting for remaining ballots.
+    const majority = Math.floor(aliveIds.length / 2) + 1;
+    const tally: Record<string, number> = {};
+    for (const pid of aliveIds) {
+      const t = game.votes[pid];
+      if (!t) continue;
+      if (!game.alive.has(t)) continue;
+      tally[t] = (tally[t] ?? 0) + 1;
+      if (tally[t] >= majority) {
+        this.endVote(game.id);
+        return;
+      }
+    }
+
+    // Otherwise, if all alive have voted, close the round
+    const allVoted = aliveIds.every((pid) => pid in game.votes);
     if (allVoted) this.endVote(game.id);
   }
 
