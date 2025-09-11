@@ -157,6 +157,23 @@ export class Orchestrator {
     this.io.emit("lobby:updated", { games: this.listGames() });
   }
 
+  // --------------- Global Sleep (eyes closed) ---------------
+  // Short randomized pause between major wakes so everyone closes eyes.
+  private globalSleep(game: Game, next: () => void) {
+    const min = Math.max(0, CONFIG.NEXT_WAKE_DELAY_MIN_MS);
+    const max = Math.max(min, CONFIG.NEXT_WAKE_DELAY_MAX_MS);
+    const pause = Math.floor(min + Math.random() * (max - min));
+    (game as any).closingEyes = true;
+    this.setDeadline(game, pause);
+    this.broadcastState(game);
+    for (const p of game.players) this.sendSnapshot(game, p.id);
+    this.schedule(game.id, pause, () => {
+      (game as any).closingEyes = false;
+      this.broadcastState(game);
+      next();
+    });
+  }
+
   // -------------------- Autostart and Roles --------------------
   private tryAutostart(game: Game) {
     if (game.players.length === game.maxPlayers && game.state === "LOBBY") {
@@ -196,13 +213,14 @@ export class Orchestrator {
     for (const pl of game.players) this.sendSnapshot(game, pl.id);
     const allReady = game.players.every((x) => x.isReady);
     if (allReady && game.state === "ROLES") {
-      // Nuit 0: Cupidon d'abord s'il est présent
       const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
-      if (cupid && game.alive.has(cupid.id) && cupid.connected) {
-        this.beginNightCupid(game);
-      } else {
-        this.beginNightWolves(game);
-      }
+      this.globalSleep(game, () => {
+        if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+          this.beginNightCupid(game);
+        } else {
+          this.beginNightWolves(game);
+        }
+      });
     }
   }
 
@@ -270,7 +288,7 @@ export class Orchestrator {
       const s = this.io.sockets.sockets.get(this.playerSocket(game, cid));
       if (s) s.emit("cupid:sleep");
     }
-    this.beginNightLovers(game);
+    this.globalSleep(game, () => this.beginNightLovers(game));
   }
 
   private beginNightLovers(game: Game) {
@@ -281,7 +299,7 @@ export class Orchestrator {
     );
     if (lovers.length === 0) {
       this.broadcastState(game);
-      return this.beginNightWolves(game);
+      return this.globalSleep(game, () => this.beginNightWolves(game));
     }
     // Reset per-phase acknowledgements for lovers
     (game as any).loversAcks = new Set<string>();
@@ -299,7 +317,7 @@ export class Orchestrator {
   private endNightLovers(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_LOVERS") return;
-    this.beginNightWolves(game);
+    this.globalSleep(game, () => this.beginNightWolves(game));
   }
 
   loversAck(gameId: string, playerId: string) {
@@ -397,8 +415,11 @@ export class Orchestrator {
     // Si pas de consensus ou pas de choix: aucune attaque
     const { consensus, target } = isConsensus(game);
     game.night.attacked = consensus ? target : undefined;
-
-    this.beginNightWitch(game);
+    const wolves = wolvesOf(game).filter(
+      (pid) => game.alive.has(pid) && game.players.find((p) => p.id === pid)?.connected,
+    );
+    if (wolves.length > 0) this.io.to(`room:${game.id}:wolves`).emit('wolves:sleep');
+    this.globalSleep(game, () => this.beginNightWitch(game));
   }
 
   private beginNightWitch(game: Game) {
@@ -410,7 +431,7 @@ export class Orchestrator {
     // S'il n'y a pas de sorcière vivante ou connectée, on passe directement à la phase suivante
     if (!wid || !game.alive.has(wid) || !wp?.connected) {
       this.broadcastState(game);
-      return this.beginMorning(game);
+      return this.globalSleep(game, () => this.beginMorning(game));
     }
 
     this.setDeadline(game, DURATION.WITCH_MS);
@@ -491,7 +512,13 @@ export class Orchestrator {
   private async endNightWitch(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_WITCH") return;
-    await this.beginMorning(game);
+    const wid = witchId(game);
+    const wp = wid ? game.players.find((p) => p.id === wid) : undefined;
+    if (wid && game.alive.has(wid) && wp?.connected) {
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, wid));
+      if (s) s.emit('witch:sleep');
+    }
+    this.globalSleep(game, () => this.beginMorning(game));
   }
 
   private async beginMorning(game: Game) {
@@ -653,6 +680,21 @@ export class Orchestrator {
 
   private beginVote(game: Game) {
     if (!canTransition(game, game.state, "VOTE")) return;
+    // Guard: if a winner is already determined (e.g., last survivor
+    // or exactly two mixed-camps lovers), conclude immediately instead
+    // of opening a vote.
+    const win = winner(game);
+    if (win) {
+      setState(game, "END");
+      this.broadcastState(game);
+      const roles = game.players.map((p) => ({
+        playerId: p.id,
+        role: game.roles[p.id],
+      }));
+      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
+      this.log(game.id, "END", undefined, "game.end", { winner: win });
+      return;
+    }
     setState(game, "VOTE");
     game.votes = {};
     game.deadlines = {};
@@ -772,7 +814,7 @@ export class Orchestrator {
       this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
       this.log(game.id, "END", undefined, "game.end", { winner: win });
     } else {
-      this.beginNightWolves(game);
+      this.globalSleep(game, () => this.beginNightWolves(game));
     }
   }
 
@@ -842,6 +884,7 @@ export class Orchestrator {
       state: game.state,
       serverTime: Date.now(),
       deadline: game.deadlines?.phaseEndsAt ?? null,
+      closingEyes: (game as any).closingEyes === true,
     });
   }
 
@@ -870,6 +913,7 @@ export class Orchestrator {
       },
       alive: publicAlive,
       deadline: game.deadlines?.phaseEndsAt ?? null,
+      closingEyes: (game as any).closingEyes === true,
     };
     this.io.to(you.socketId).emit("game:snapshot", sanitized);
   }

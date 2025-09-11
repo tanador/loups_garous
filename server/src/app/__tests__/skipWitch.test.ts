@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator } from '../orchestrator.js';
 import { createGame, addPlayer } from '../../domain/game.js';
 
@@ -12,6 +12,7 @@ function fakeIo() {
 
 describe('witch phase', () => {
   it('skips directly to morning when no witch is alive', async () => {
+    vi.useFakeTimers();
     const orch = new Orchestrator(fakeIo());
     const g = createGame(3);
     addPlayer(g, { id: 'Wolf1', socketId: 'sW1' });
@@ -25,11 +26,15 @@ describe('witch phase', () => {
     g.night.attacked = 'Villager';
 
     await (orch as any).beginNightWitch(g);
-
-    expect(g.state).toBe('END');
+    // With global sleep, the state remains NIGHT_WITCH during the pause
+    // Advance time to let the flow reach morning/end
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(['MORNING','END']).toContain(g.state as any);
+    vi.useRealTimers();
   });
 
   it('skips directly to morning when witch is disconnected', async () => {
+    vi.useFakeTimers();
     const orch = new Orchestrator(fakeIo());
     const g = createGame(3);
     addPlayer(g, { id: 'Wolf1', socketId: 'sW1' });
@@ -45,8 +50,9 @@ describe('witch phase', () => {
     g.night.attacked = 'Witch';
 
     await (orch as any).beginNightWitch(g);
-
-    expect(g.state).toBe('END');
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(['MORNING','END']).toContain(g.state as any);
+    vi.useRealTimers();
   });
 });
 

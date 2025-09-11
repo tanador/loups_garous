@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Orchestrator } from "../orchestrator.js";
 import { createGame, addPlayer } from "../../domain/game.js";
-import { assignRoles } from "../../domain/rules.js";
 
 function fakeIo(calls: any[]) {
   return {
@@ -22,7 +21,8 @@ describe("vote ties", () => {
     addPlayer(g, { id: "A", socketId: "sA" });
     addPlayer(g, { id: "B", socketId: "sB" });
     addPlayer(g, { id: "C", socketId: "sC" });
-    assignRoles(g);
+    g.roles = { A:'VILLAGER', B:'WOLF', C:'VILLAGER' } as any;
+    g.players.forEach(p => (p as any).role = (g.roles as any)[p.id]);
     (orch as any).store.put(g);
     g.state = "MORNING";
     (orch as any).beginVote(g);

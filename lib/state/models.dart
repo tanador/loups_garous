@@ -89,6 +89,12 @@ class GameModel {
   final List<(String playerId, Role role)> finalRoles;
 
   final bool vibrations;
+  // Global transition: tout le monde garde les yeux fermés jusqu'à la deadline
+  final bool closingEyes;
+  // Indicateur local pour l'écran ROLES: mémorise le clic "Je suis prêt"
+  // afin que l'UI reste cohérente même en cas de rebuild avant la
+  // synchronisation serveur.
+  final bool youReadyLocal;
   // Affiche localement l'écran de compte à rebours de révélation des rôles
   // jusqu'à cette échéance (epoch ms). Permet de garantir l'affichage du
   // compte à rebours même si le serveur change rapidement d'état.
@@ -127,6 +133,8 @@ class GameModel {
     required this.winner,
     required this.finalRoles,
     required this.vibrations,
+    required this.closingEyes,
+    required this.youReadyLocal,
     required this.roleRevealUntilMs,
     required this.rolePressRevealMs,
     required this.loversKnown,
@@ -160,6 +168,8 @@ class GameModel {
         winner: null,
       finalRoles: [],
       vibrations: true,
+      closingEyes: false,
+      youReadyLocal: false,
       roleRevealUntilMs: null,
       rolePressRevealMs: 700,
       loversKnown: <String>{},
@@ -196,6 +206,8 @@ class GameModel {
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
     bool? vibrations,
+    bool? closingEyes,
+    bool? youReadyLocal,
     Object? roleRevealUntilMs = _unset,
     int? rolePressRevealMs,
     Set<String>? loversKnown,
@@ -229,6 +241,8 @@ class GameModel {
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
       vibrations: vibrations ?? this.vibrations,
+      closingEyes: closingEyes ?? this.closingEyes,
+      youReadyLocal: youReadyLocal ?? this.youReadyLocal,
       roleRevealUntilMs: identical(roleRevealUntilMs, _unset)
           ? this.roleRevealUntilMs
           : roleRevealUntilMs as int?,

@@ -30,10 +30,18 @@ describe('Vote flow', () => {
   });
 
   it('tie triggers re-vote (vote:options after tie results)', async () => {
+    // Add a third player to avoid immediate END on parity (wolves >= others)
+    const c = mkP('C');
+    io.sockets.sockets.set(c.socketId, new FakeSocket(c.socketId));
+    game.players.push(c);
+    game.roles = { A:'VILLAGER', B:'WOLF', C:'VILLAGER' } as any;
+    game.alive = new Set(['A','B','C']);
+
     (orch as any).beginVote(game);
-    // A vote B, B vote A -> égalité
+    // A vote B, B vote A, C vote C -> égalité
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'B', 'A');
+    orch.voteCast(game.id, 'C', 'C');
     const tie = io.emits.find(e => e.event === 'vote:results' && e.payload?.eliminatedId === null);
     expect(tie).toBeTruthy();
     // Avance le temps pour déclencher le re-vote
@@ -74,16 +82,19 @@ describe('Vote flow', () => {
   });
 
   it('revote with tie again leads to another vote:options emission', async () => {
-    // Repart from 2 players to force ties deterministically
-    game.players = game.players.slice(0, 2);
-    game.roles = { A: 'VILLAGER', B: 'WOLF' } as any;
-    game.alive = new Set(['A','B']);
+    // Use 3 players to allow ties without immediate END on parity
+    const c = mkP('C');
+    io.sockets.sockets.set(c.socketId, new FakeSocket(c.socketId));
+    game.players = [ ...game.players.slice(0,2), c ];
+    game.roles = { A:'VILLAGER', B:'WOLF', C:'VILLAGER' } as any;
+    game.alive = new Set(['A','B','C']);
     (orch as any).store.put(game);
 
     ;(orch as any).beginVote(game);
-    // First round tie
+    // First round tie (1-1-1)
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'B', 'A');
+    orch.voteCast(game.id, 'C', 'C');
     const tie1 = io.emits.find(e => e.event === 'vote:results' && e.payload?.eliminatedId === null);
     expect(tie1).toBeTruthy();
     // One re-vote options emitted after 3s
@@ -92,9 +103,10 @@ describe('Vote flow', () => {
     const afterCount = io.emits.filter(e => e.event === 'vote:options').length;
     expect(afterCount).toBeGreaterThan(beforeCount);
 
-    // Second round tie again
+    // Second round tie again (1-1-1)
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'B', 'A');
+    orch.voteCast(game.id, 'C', 'C');
     const tie2 = io.emits.filter(e => e.event === 'vote:results' && e.payload?.eliminatedId === null).length;
     expect(tie2).toBeGreaterThan(1);
     const before2 = io.emits.filter(e => e.event === 'vote:options').length;

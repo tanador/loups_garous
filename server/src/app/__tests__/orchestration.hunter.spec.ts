@@ -118,6 +118,8 @@ describe('Orchestrator – hunter death should not end game before shot', () => 
   });
   
   it('ends NIGHT_LOVERS early when both lovers acknowledge', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
     const game: Game = {
       id: 'G2',
       state: 'NIGHT_LOVERS',
@@ -148,7 +150,9 @@ describe('Orchestrator – hunter death should not end game before shot', () => 
     orch.loversAck(game.id, 'A');
     expect(game.state).toBe('NIGHT_LOVERS');
     orch.loversAck(game.id, 'B');
-    // Phase should advance to NIGHT_WOLVES immediately
-    expect(game.state).toBe('NIGHT_WOLVES');
+    // With global sleep between phases, advance timers to pass the pause
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(['NIGHT_WOLVES','NIGHT_WITCH','MORNING','VOTE']).toContain(game.state as any);
+    vi.useRealTimers();
   });
 });

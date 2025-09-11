@@ -5,18 +5,11 @@ import '../state/models.dart';
 
 // Écran révélant au joueur son rôle tiré au sort.
 
-class RoleScreen extends ConsumerStatefulWidget {
+class RoleScreen extends ConsumerWidget {
   const RoleScreen({super.key});
 
   @override
-  ConsumerState<RoleScreen> createState() => _RoleScreenState();
-}
-
-class _RoleScreenState extends ConsumerState<RoleScreen> {
-  bool _isReady = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     // Libellé du rôle (compatible Dart sans « switch expression »)
@@ -46,21 +39,21 @@ class _RoleScreenState extends ConsumerState<RoleScreen> {
     final meId = s.playerId;
     final players = s.players;
     final isAllReady = players.isNotEmpty && players.every((p) {
-      if (p.id == meId) return _isReady || p.ready;
+      if (p.id == meId) return s.youReadyLocal || p.ready;
       return p.ready;
     });
 
     final total = players.length;
-    final readyCount = players.where((p) => (p.id == meId) ? (_isReady || p.ready) : p.ready).length;
+    final readyCount = players.where((p) => (p.id == meId) ? (s.youReadyLocal || p.ready) : p.ready).length;
 
     // Prépare le panneau d'attente pour alléger l'expression dans la Column
-    final Widget waitingPanel = (_isReady && !isAllReady)
+    final Widget waitingPanel = (s.youReadyLocal && !isAllReady)
         ? _WaitingPanel(
             readyCount: readyCount,
             total: total,
             players: players,
             meId: meId,
-            isReadyLocal: _isReady,
+            isReadyLocal: s.youReadyLocal,
           )
         : const SizedBox.shrink();
 
@@ -72,23 +65,22 @@ class _RoleScreenState extends ConsumerState<RoleScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Vous êtes :', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(
-                roleLabel,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
+              if (!s.youReadyLocal) ...[
+                Text('Vous êtes :', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  roleLabel,
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+              ],
               ElevatedButton(
                 onPressed: () {
-                  final newReady = !_isReady;
-                  setState(() {
-                    _isReady = newReady;
-                  });
+                  final newReady = !s.youReadyLocal;
                   ctl.toggleReady(newReady);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isReady ? Colors.green : null,
+                  backgroundColor: s.youReadyLocal ? Colors.green : null,
                 ),
                 child: const Text('Je suis prêt'),
               ),

@@ -46,15 +46,17 @@ describe('hunter death handling', () => {
 
   it('requires new acknowledgments after hunter shot', async () => {
     const orch = new Orchestrator(fakeIo());
-    const g = createGame(4);
+    const g = createGame(5);
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
     addPlayer(g, { id: 'D', socketId: 'sD' });
+    addPlayer(g, { id: 'E', socketId: 'sE' });
     g.roles['A'] = 'HUNTER';
     g.roles['B'] = 'VILLAGER';
     g.roles['C'] = 'WOLF';
     g.roles['D'] = 'VILLAGER';
+    g.roles['E'] = 'VILLAGER';
     (orch as any).store.put(g);
     g.state = 'NIGHT_WITCH';
     g.night.attacked = 'A';
@@ -67,6 +69,7 @@ describe('hunter death handling', () => {
     orch.dayAck(g.id, 'B');
     orch.dayAck(g.id, 'C');
     orch.dayAck(g.id, 'D');
+    orch.dayAck(g.id, 'E');
     await new Promise(res => setTimeout(res, 0));
     expect(spy).toHaveBeenCalled();
     // Hunter shot should not advance state yet
@@ -75,6 +78,7 @@ describe('hunter death handling', () => {
     // Remaining alive players must acknowledge again
     orch.dayAck(g.id, 'C');
     orch.dayAck(g.id, 'D');
+    orch.dayAck(g.id, 'E');
     await new Promise(res => setTimeout(res, 0));
     expect(g.state).toBe('VOTE');
   });

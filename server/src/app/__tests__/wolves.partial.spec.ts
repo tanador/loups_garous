@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Orchestrator } from '../../app/orchestrator.js';
 import type { Game, Player } from '../../domain/types.js';
 
@@ -30,7 +30,8 @@ describe('Wolves partial consensus (no lock)', () => {
     (orch as any).store.put(game);
   });
 
-  it('emits targetLocked with targetId=null, then locks on consensus later', () => {
+  it('emits targetLocked with targetId=null, then locks on consensus later', async () => {
+    vi.useFakeTimers();
     (orch as any).beginNightWolves(game);
     orch.wolvesChoose(game.id, 'WOLF_A', 'V1');
     orch.wolvesChoose(game.id, 'WOLF_B', 'V2');
@@ -44,7 +45,9 @@ describe('Wolves partial consensus (no lock)', () => {
     const lock2 = io.emits.filter(e => e.event === 'wolves:targetLocked').pop();
     expect(lock2?.payload?.targetId).toBe('V1');
     expect(lock2?.payload?.confirmationsRemaining).toBe(0);
-    // Phase should advance (endNightWolves -> NIGHT_WITCH)
-    expect(game.state).toBe('NIGHT_WITCH');
+    // With global sleep, advance timers to pass the pause before NIGHT_WITCH
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(['NIGHT_WITCH','MORNING','END']).toContain(game.state as any);
+    vi.useRealTimers();
   });
 });

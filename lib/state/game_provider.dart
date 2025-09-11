@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:vibration/vibration.dart';
 
 final gameProvider =
     StateNotifierProvider<GameController, GameModel>((ref) => GameController());
@@ -81,6 +82,7 @@ class GameController extends StateNotifier<GameModel> {
       lastVote: null,
       winner: null,
       finalRoles: [],
+      youReadyLocal: false,
     );
   }
 
@@ -147,20 +149,27 @@ class GameController extends StateNotifier<GameModel> {
         phase: GamePhase.ROLES,
         roleRevealUntilMs: until,
         rolePressRevealMs: pressMs,
+        youReadyLocal: false,
       );
       log('[evt] role:assigned $role');
     });
 
-    s.on('game:stateChanged', (data) {
+    s.on('game:stateChanged', (data) async {
+      final wasClosing = state.closingEyes;
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
+      final closing = data['closingEyes'] == true;
       // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
       final loverPartnerId = phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
-      state = state.copy(phase: phase, deadlineMs: deadline, loverPartnerId: loverPartnerId);
+      state = state.copy(phase: phase, deadlineMs: deadline, loverPartnerId: loverPartnerId, closingEyes: closing);
+      if (wasClosing && !closing) {
+        try { await _vibrateWakeIfAlive(); } catch (_) {}
+      }
       log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
     s.on('game:snapshot', (data) async {
+      final wasClosing = state.closingEyes;
       // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -176,6 +185,7 @@ class GameController extends StateNotifier<GameModel> {
       final role = rawRole is String ? roleFromStr(rawRole) : state.role;
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
+      final closing = data['closingEyes'] == true;
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
       final snapshotGameId = data['id']?.toString();
       // Si nous n'avions pas encore les identifiants (fallback quand l'ACK a échoué),
@@ -190,10 +200,14 @@ class GameController extends StateNotifier<GameModel> {
         players: players,
         role: role,
         deadlineMs: deadline,
+        closingEyes: closing,
         maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
       );
+      if (wasClosing && !closing) {
+        try { await _vibrateWakeIfAlive(); } catch (_) {}
+      }
       // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
       // et persiste la session afin d'éviter toute désynchronisation.
       if ((snapshotGameId != null || youId != null) && (state.gameId != null && state.playerId != null)) {
@@ -489,12 +503,63 @@ class GameController extends StateNotifier<GameModel> {
 
   Future<void> toggleReady(bool ready) async {
     final event = ready ? 'player:ready' : 'player:unready';
-    final ack = await _socketSvc.emitAck(event, {});
+    // Optimistic update for immediate UI feedback
+    state = state.copy(youReadyLocal: ready);
+    var ack = await _socketSvc.emitAck(event, {});
     log('[ack] $event $ack');
+    // Auto-heal missing context by re-sending context and retrying once
+    if (ack['ok'] != true) {
+      final err = (ack['error'] ?? '').toString();
+      if (err == 'missing_context' || err == 'invalid_context') {
+        try {
+          await _setContext();
+          ack = await _socketSvc.emitAck(event, {});
+          log('[ack] retry $event $ack');
+        } catch (e) {
+          log('retry $event failed: $e');
+        }
+      }
+    }
+    // If still rejected, revert local flag to reflect server state
+    if (ack['ok'] != true) state = state.copy(youReadyLocal: !ready);
     if (ready) {
       // Une fois prêt, masque l'écran de rôle pour laisser place à la phase suivante.
       state = state.copy(roleRevealUntilMs: null);
     }
+  }
+
+  // Vibrations au réveil: 5s de vibration moyenne, seulement si le joueur local est vivant.
+  Future<void> _vibrateWakeIfAlive() async {
+    try {
+      final meId = state.playerId;
+      if (meId == null) return;
+      final me = state.players.firstWhere(
+        (p) => p.id == meId,
+        orElse: () => const PlayerView(id: '', connected: true, alive: true),
+      );
+      if (!me.alive) return;
+      if (!state.vibrations) return;
+
+      final hasVib = await Vibration.hasVibrator() ?? false;
+      if (hasVib) {
+        final hasAmp = await Vibration.hasCustomVibrationsSupport() ?? false;
+        if (hasAmp) {
+          await Vibration.vibrate(duration: 5000, amplitude: 128);
+        } else {
+          await Vibration.vibrate(duration: 5000);
+        }
+      } else {
+        // Fallback: pulses HapticFeedback pendant ~5s
+        const totalMs = 5000;
+        const stepMs = 300;
+        int elapsed = 0;
+        while (elapsed < totalMs) {
+          try { await HapticFeedback.mediumImpact(); } catch (_) {}
+          await Future.delayed(const Duration(milliseconds: stepMs));
+          elapsed += stepMs;
+        }
+      }
+    } catch (_) {}
   }
 
   // ------------- Wolves -------------
