@@ -21,7 +21,8 @@ class PlayerView {
   final String id;
   final bool connected;
   final bool alive;
-  const PlayerView({required this.id, required this.connected, required this.alive});
+  final bool ready;
+  const PlayerView({required this.id, required this.connected, required this.alive, this.ready = false});
 }
 
 /// Version "allégée" d'un joueur utilisée dans certaines listes.
@@ -161,7 +162,7 @@ class GameModel {
       vibrations: true,
       roleRevealUntilMs: null,
       rolePressRevealMs: 700,
-      loversKnown: {},
+      loversKnown: <String>{},
     );
 
   static const _unset = Object();

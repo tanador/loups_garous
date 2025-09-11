@@ -1,4 +1,49 @@
 # Repository Guidelines
+# Repository Guidelines
+
+This document is a concise contributor guide for this project. It summarizes how the repository is organized, how to run, test, and contribute changes efficiently.
+
+## Project Structure & Module Organization
+- `lib/` (Flutter client)
+  - UI in `views/`, app state in `state/`, side‑effects in `services/`.
+- `server/` (Node.js + TypeScript)
+  - HTTP/Socket in `src/infra/`, orchestration in `src/app/`, rules/FSM/roles in `src/domain/`.
+- Tests: `server/src/**/__tests__/*.spec.ts`.
+
+## Build, Test, and Development Commands
+- Server
+  - `npm run dev` — run TS via ts-node (fast dev).
+  - `npm run build` — transpile to `dist/` (do not edit `dist/`).
+  - `npm start` — run built server (`PORT` env, default 3000).
+  - `npm run test` / `npm run test:watch` — Vitest (with/without watch).
+  - `npm run export:dart` — export enums to Flutter after FSM/roles change.
+- Client
+  - `flutter run -d windows` or `flutter run -d chrome`.
+  - Optional: `--dart-define=AUTO_CREATE=true --dart-define=PSEUDO=Alice`.
+  - Android emulator uses `http://10.0.2.2:3000`.
+
+## Coding Style & Naming Conventions
+- Server (TypeScript)
+  - 2‑space indentation; ESLint (`npm run lint`); filenames kebab‑case; public APIs typed.
+- Client (Dart)
+  - Follow `flutter_lints`; classes in PascalCase; methods/vars lowerCamelCase; keep UI logic in `views/` and business logic in `state/`.
+
+## Testing Guidelines
+- Framework: Vitest on server.
+- Location: `server/src/**/__tests__/*.spec.ts`.
+- Prefer deterministic tests (fake timers/sockets; no real network). Focus coverage on `src/app` and `src/domain` when changing orchestration (wolves, witch, cupid/lovers, hunter, vote, FSM, winners).
+
+## Commit & Pull Request Guidelines
+- Commits: short, imperative subject (≤72 chars) + concise body (what/why).
+- PRs: include summary, rationale, linked issues, and evidence (logs/screens). New business rules must include dedicated tests and run instructions.
+
+## Security & Configuration Tips
+- Dev CORS is permissive; restrict in production.
+- Keep ACK contract stable: `{ ok: true, data? } | { ok: false, error }`.
+- If roles/FSM change: run `npm run export:dart` and rebuild the client.
+
+## Architecture Overview (quick)
+Finite‑state flow: `LOBBY → ROLES → NIGHT_* → MORNING → VOTE → RESOLVE → CHECK_END → (END or back to NIGHT_WOLVES)`. Ordering nuances: morning hunter shot resolves before win check; lovers phase can end early on both acks.
 
 ## Quick Start
 - Server: `cd server && npm i && npm run dev`
@@ -67,6 +112,15 @@ Ordering highlights
 - Vitest on server. Name tests `*.spec.ts` under `__tests__/` near the code.
 - Add tests when changing orchestration (wolves, witch, cupid/lovers, hunter, vote, FSM, winners). Prefer deterministic tests (fake timers, fake sockets, no network).
 - Run `npm run test` before PRs. Coverage focuses on `src/app` and `src/domain`.
+
+## Politique « Tests d’abord » (Agent)
+- Pensez tests en amont: identifiez le comportement impacté, cherchez les tests existants et planifiez l’ajout/la mise à jour des tests avant d’implémenter ou de répondre à une demande.
+- Côté serveur (Node/TS): écrivez/ajustez des tests Vitest sous `server/src/**/__tests__/*.spec.ts` avant de finaliser le code. Utilisez des timers et sockets factices, évitez tout accès réseau.
+- FSM/rôles/nouvelles règles métier: tests dédiés obligatoires (orchestration, conditions de victoire, contrat Socket.IO, cas négatifs).
+- Côté client (Flutter): pour la logique `state/` et `services/`, ajoutez des tests unitaires; pour les flux UI critiques, ajoutez des widget tests. Exécutez `flutter analyze` puis (si pertinent) `flutter test`.
+- Avant de conclure un développement ou de rendre une réponse finale, exécutez les tests: `npm run test:nocov` (ou `npm run test`) côté serveur; `flutter analyze` puis `flutter test` côté client. Mentionnez l’état des tests dans la réponse/PR.
+- Si l’exécution locale des tests est impossible, fournissez un plan de tests concret (cas, données, événements/acks attendus) et indiquez où créer les fichiers de test.
+- Ne considérez pas une tâche terminée si des tests manquent ou échouent: créez/rectifiez d’abord les tests, puis corrigez le code jusqu’au vert.
 
 ## Agent Workflow & Pre‑handoff Checks
 - When you modify the Flutter client, run `flutter analyze` and fix analyzer errors before handing off (common misses: `import 'dart:async';` for `Timer`, unused imports, nullability).

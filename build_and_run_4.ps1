@@ -47,6 +47,56 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host "[INFO] Repo path: $repoRoot"
 
+# --- Ctrl+C handler: on interruption, close server console and clients ---
+try { Unregister-Event -SourceIdentifier 'LG_CtrlC' -ErrorAction SilentlyContinue } catch { }
+$serverTitle = "LG_SERVER_$Port"
+$env:LG_SERVER_TITLE = $serverTitle
+$env:LG_SERVER_PORT = "$Port"
+try {
+  Register-ObjectEvent -InputObject ([console]) -EventName CancelKeyPress -SourceIdentifier 'LG_CtrlC' -Action {
+    param($sender, $eventArgs)
+    # Annule l'arrêt par défaut pour nous laisser nettoyer proprement
+    try { if ($eventArgs) { $eventArgs.Cancel = $true } } catch { }
+    try {
+      $title = $env:LG_SERVER_TITLE
+      if ($title) {
+        Get-Process -Name cmd -ErrorAction SilentlyContinue |
+          Where-Object { $_.MainWindowTitle -eq $title } |
+          ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
+      }
+    } catch { }
+    try {
+      # Éteindre le serveur par PID(s) écoutant sur le port
+      $p = $env:LG_SERVER_PORT
+      if ($p) {
+        try {
+          $list = Get-NetTCPConnection -LocalPort ([int]$p) -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique
+          foreach ($procId in $list) { & taskkill /PID $procId /T /F 2>$null | Out-Null }
+        } catch { }
+        try {
+          netstat -ano -p tcp | Select-String -SimpleMatch (":" + $p) |
+            ForEach-Object { ($_ -split '\s+')[-1] } |
+            Where-Object { $_ -match '^\d+$' } | Sort-Object -Unique |
+            ForEach-Object { & taskkill /PID $_ /T /F 2>$null | Out-Null }
+        } catch { }
+      }
+    } catch { }
+    try {
+      # Fermer aussi les consoles cmd associées à start_server.cmd
+      Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'start_server\.cmd' } |
+        ForEach-Object { & taskkill /PID $_.ProcessId /T /F 2>$null | Out-Null }
+    } catch { }
+    try {
+      # Fermer les clients
+      Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue |
+        ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
+    } catch { }
+  } | Out-Null
+  Write-Host "[INFO] Ctrl+C handler registered (will close server/clients)."
+} catch { }
+
 # --- 0) Nettoyage: fermer les serveurs/app clients déjà en cours ---
 function Stop-ProcessTree {
   param([int]$Pid)
@@ -75,9 +125,9 @@ try {
       }
     } catch { }
   }
-  foreach ($pid in $pids) {
-    Write-Host "[INFO] Stopping server process PID=$pid (port $Port)"
-    Stop-ProcessTree -Pid [int]$pid
+  foreach ($procId in $pids) {
+    Write-Host "[INFO] Stopping server process PID=$procId (port $Port)"
+    Stop-ProcessTree -Pid [int]$procId
   }
 } catch {
   try {
@@ -130,7 +180,7 @@ Write-Host "[INFO] Launching server (port $Port) in a new window..."
 # Utilise cmd.exe /k pour garder la fenêtre ouverte et afficher les logs, avec un titre distinctif
 $serverTitle = "LG_SERVER_$Port"
 $cmdInner = "title $serverTitle & `"$serverCmd`" $Port"
-Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal | Out-Null
+$script:serverProc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal -PassThru
 
 # --- 2) Start Flutter Windows build concurrently ---
 Write-Host "[INFO] Checking Flutter..."
@@ -138,9 +188,39 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
   throw 'Flutter not found in PATH. Install Flutter and retry.'
 }
 
-Write-Host "[INFO] Starting Windows build in background..."
-$buildArgs = @('build','windows','--release')
-$buildProc = Start-Process -FilePath 'flutter' -ArgumentList $buildArgs -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru
+try {
+  Write-Host "[INFO] Enabling Windows desktop target (idempotent)..."
+  & flutter config --enable-windows-desktop | Out-Null
+} catch { }
+
+Write-Host "[INFO] Ensuring pub packages are fetched..."
+$logDir = Join-Path $repoRoot 'logs'
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory | Out-Null }
+$pubLog = Join-Path $logDir 'flutter_pub_get.log'
+$pubErrLog = Join-Path $logDir 'flutter_pub_get.err.log'
+$pubArgs = @('pub','get')
+$pubProc = Start-Process -FilePath 'flutter' -ArgumentList $pubArgs -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $pubLog -RedirectStandardError $pubErrLog -PassThru
+while (-not $pubProc.HasExited) { Start-Sleep -Milliseconds 250 }
+$pubExit = $pubProc.ExitCode
+if ($null -eq $pubExit) {
+  # Some shells/wrappers might not propagate exit code; infer from log.
+  try {
+    $ok = Select-String -Path $pubLog -SimpleMatch 'Got dependencies!' -Quiet
+    if ($ok) { $pubExit = 0 } else { $pubExit = 1 }
+  } catch { $pubExit = 1 }
+}
+if ($pubExit -ne 0) {
+  Write-Host "[ERROR] flutter pub get failed (exit $pubExit). See $pubLog (stdout) and $pubErrLog (stderr)" -ForegroundColor Red
+  try { Get-Content -Path $pubLog -Tail 60 | ForEach-Object { Write-Host $_ } } catch { }
+  try { Get-Content -Path $pubErrLog -Tail 60 | ForEach-Object { Write-Host $_ } } catch { }
+  throw "Flutter pub get failed with exit code $pubExit"
+}
+
+Write-Host "[INFO] Starting Windows build in background... (logs: logs/flutter_build_windows.log, logs/flutter_build_windows.err.log)"
+$buildArgs = @('build','windows','--release','-v')
+$buildLog = Join-Path $logDir 'flutter_build_windows.log'
+$buildErrLog = Join-Path $logDir 'flutter_build_windows.err.log'
+$buildProc = Start-Process -FilePath 'flutter' -ArgumentList $buildArgs -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $buildLog -RedirectStandardError $buildErrLog -PassThru
 
 # In parallel: wait for server port to open
 Write-Host "[INFO] Waiting for server on port $Port while build runs..."
@@ -158,7 +238,20 @@ try {
 # Wait for build to finish
 Write-Host "[INFO] Waiting for Windows build to finish (pid $($buildProc.Id))..."
 while (-not $buildProc.HasExited) { Start-Sleep -Milliseconds 500 }
-if ($buildProc.ExitCode -ne 0) { throw "Flutter build failed with exit code $($buildProc.ExitCode)" }
+$buildExit = $buildProc.ExitCode
+if ($null -eq $buildExit) {
+  # Fallback: infer success by probing output binary presence
+  try {
+    $candidate = Join-Path $repoRoot 'build\windows\x64\runner\Release\loup_garou_client.exe'
+    if (Test-Path $candidate) { $buildExit = 0 } else { $buildExit = 1 }
+  } catch { $buildExit = 1 }
+}
+if ($buildExit -ne 0) {
+  Write-Host "[ERROR] Flutter build failed (exit $($buildProc.ExitCode)). Showing last lines:" -ForegroundColor Red
+  try { Get-Content -Path $buildLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  try { Get-Content -Path $buildErrLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  throw "Flutter build failed with exit code $buildExit (see $buildLog and $buildErrLog)"
+}
 
 # --- 3) Resolve Windows executable path ---
 $candidate = Join-Path $repoRoot 'build\windows\x64\runner\Release\loup_garou_client.exe'
@@ -415,3 +508,9 @@ for ($i = 0; $i -lt $procs.Count; $i++) {
 }
 
 Write-Host "[OK] Server and 4 clients launched."
+Write-Host "[INFO] Press Ctrl+C in this console to stop server and clients (or close the server window)."
+if ($script:serverProc) {
+  try { Wait-Process -Id $script:serverProc.Id } catch { }
+} else {
+  try { Wait-Event -SourceIdentifier 'LG_CtrlC' } catch { while ($true) { Start-Sleep -Seconds 60 } }
+}

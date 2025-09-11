@@ -168,6 +168,7 @@ class GameController extends StateNotifier<GameModel> {
                 id: j['id'],
                 connected: j['connected'] == true,
                 alive: j['alive'] == true,
+                ready: j['ready'] == true,
               ))
           .toList();
       final rawRole = (data['you'] as Map?)?['role'];
@@ -310,7 +311,7 @@ class GameController extends StateNotifier<GameModel> {
       final deadIds = deaths.map((d) => d.$1).toSet();
       final updatedPlayers = state.players
           .map((p) => deadIds.contains(p.id)
-              ? PlayerView(id: p.id, connected: p.connected, alive: false)
+              ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
               : p)
           .toList();
       state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
@@ -341,7 +342,7 @@ class GameController extends StateNotifier<GameModel> {
           ? state.players
           : state.players
               .map((p) => p.id == elimId
-                  ? PlayerView(id: p.id, connected: p.connected, alive: false)
+                  ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
                   : p)
               .toList();
       state = state.copy(lastVote: vr, players: updatedPlayers);

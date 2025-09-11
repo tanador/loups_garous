@@ -181,11 +181,8 @@ export class Orchestrator {
       this.log(game.id, "ROLES", undefined, "roles.assigned", {
         roles: "hidden",
       });
-      // If Cupid is present, start Night 0 immediately to prompt lover pairing
-      const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
-      if (cupid && game.alive.has(cupid.id) && cupid.connected) {
-        this.beginNightCupid(game);
-      }
+      // Wait for all players to click "ready" on the client before starting.
+      // Next transition is triggered from playerReady() when everyone is ready.
     }
   }
 
@@ -195,6 +192,8 @@ export class Orchestrator {
     if (!p) throw new Error("player_not_found");
     p.isReady = true;
     this.log(gameId, game.state, playerId, "player.ready");
+    // Refresh readiness to everyone
+    for (const pl of game.players) this.sendSnapshot(game, pl.id);
     const allReady = game.players.every((x) => x.isReady);
     if (allReady && game.state === "ROLES") {
       // Nuit 0: Cupidon d'abord s'il est présent
@@ -213,6 +212,8 @@ export class Orchestrator {
     if (!p) throw new Error("player_not_found");
     p.isReady = false;
     this.log(gameId, game.state, playerId, "player.unready");
+    // Refresh readiness to everyone
+    for (const pl of game.players) this.sendSnapshot(game, pl.id);
   }
 
   // -------------------- Phases --------------------
@@ -855,6 +856,7 @@ export class Orchestrator {
         id: p.id,
         connected: p.connected,
         alive: game.alive.has(p.id),
+        ready: !!p.isReady,
       })),
       maxPlayers: game.maxPlayers,
       you: { id: you.id, role: game.roles[you.id] },
