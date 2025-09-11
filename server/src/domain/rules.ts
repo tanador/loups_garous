@@ -195,7 +195,8 @@ export function targetsForWolves(game: Game): string[] {
 /// Cibles possibles de la sorcière pour la potion de mort (tous sauf elle).
 export function targetsForWitch(game: Game): string[] {
   const wid = witchId(game);
-  return alivePlayers(game).filter(pid => pid !== wid);
+  const lover = game.players.find(p => p.id === wid)?.loverId;
+  return alivePlayers(game).filter(pid => pid !== wid && pid !== lover);
 }
 
 /// Indique si un joueur peut être sauvé par la potion de vie.
