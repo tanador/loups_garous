@@ -21,13 +21,8 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   final _socketSvc = SocketService();
-  Timer? _roleRevealTimer;
-
-  @override
-  void dispose() {
-    _roleRevealTimer?.cancel();
-    super.dispose();
-  }
+  // Affiche un compte à rebours local avant la révélation des rôles.
+  // Aucun timer supplémentaire n'est conservé après la fin du compte à rebours.
 
   /// Tente de restaurer les préférences depuis le stockage local.
   /// Ne reconnecte PAS automatiquement à une ancienne partie pour éviter
@@ -153,13 +148,6 @@ class GameController extends StateNotifier<GameModel> {
         roleRevealUntilMs: until,
         rolePressRevealMs: pressMs,
       );
-      // Programme la fin de la fenêtre d'affichage pour déclencher un rebuild
-      _roleRevealTimer?.cancel();
-      final delay = Duration(seconds: seconds);
-      _roleRevealTimer = Timer(delay, () {
-        // Ne modifie l'état que si l'échéance n'a pas été réécrite entre-temps
-        state = state.copy(roleRevealUntilMs: null);
-      });
       log('[evt] role:assigned $role');
     });
 
@@ -502,6 +490,10 @@ class GameController extends StateNotifier<GameModel> {
     final event = ready ? 'player:ready' : 'player:unready';
     final ack = await _socketSvc.emitAck(event, {});
     log('[ack] $event $ack');
+    if (ready) {
+      // Une fois prêt, masque l'écran de rôle pour laisser place à la phase suivante.
+      state = state.copy(roleRevealUntilMs: null);
+    }
   }
 
   // ------------- Wolves -------------

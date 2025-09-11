@@ -26,6 +26,7 @@ import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'views/hunter_screen.dart';
+import 'views/role_screen.dart';
 import 'state/models.dart';
 import 'views/widgets/player_badge.dart';
 
@@ -119,9 +120,13 @@ class _HomeRouter extends ConsumerWidget {
     if (phase == GamePhase.END) return const EndScreen();
 
     // Si la révélation des rôles vient d'être déclenchée, forcer l'affichage
-    // du compte à rebours local pendant ~10s pour tous les joueurs.
-    if (s.roleRevealUntilMs != null && nowMs <= s.roleRevealUntilMs!) {
-      return const CountdownScreen();
+    // du compte à rebours local, puis de l'écran de rôle même si le serveur
+    // est déjà passé à la phase suivante.
+    if (s.roleRevealUntilMs != null) {
+      if (nowMs <= s.roleRevealUntilMs!) {
+        return const CountdownScreen();
+      }
+      return const RoleScreen();
     }
 
     // Si le chasseur est appelé à tirer, afficher l'écran dédié
@@ -141,7 +146,7 @@ class _HomeRouter extends ConsumerWidget {
     // Route vers l'écran approprié selon la phase de jeu courante.
     switch (phase) {
       case GamePhase.ROLES:
-        return const CountdownScreen();
+        return const RoleScreen();
       case GamePhase.NIGHT_CUPID:
         if (youRole == Role.CUPID) return const NightCupidScreen();
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
