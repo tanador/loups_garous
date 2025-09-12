@@ -22,6 +22,7 @@ class _PlayerBadgeState extends ConsumerState<PlayerBadge> {
         Role.WOLF => 'Loup-garou',
         Role.WITCH => 'Sorcière',
         Role.HUNTER => 'Chasseur',
+        Role.SEER => 'Voyante',
         Role.VILLAGER => 'Villageois',
         Role.CUPID => 'Cupidon',
       };

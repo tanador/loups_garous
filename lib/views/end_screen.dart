@@ -23,6 +23,7 @@ class EndScreen extends ConsumerWidget {
           Role.WOLF => 'Loup-garou',
           Role.WITCH => 'Sorcière',
           Role.HUNTER => 'Chasseur',
+          Role.SEER => 'Voyante',
           Role.VILLAGER => 'Villageois',
           Role.CUPID => 'Cupidon',
         };
@@ -84,4 +85,3 @@ class EndScreen extends ConsumerWidget {
     );
   }
 }
-

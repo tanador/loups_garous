@@ -23,12 +23,8 @@ enum GamePhase {
 GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
 // Keep in sync with server/roles.config.json registry keys
-// Ajout du rôle SEER
-
-enum GamePhase { LOBBY, ROLES, NIGHT_CUPID, NIGHT_LOVERS, NIGHT_SEER, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
-GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
-
-// Keep in sync with server/roles.config.json registry keys
 
 enum Role { CUPID, HUNTER, SEER, VILLAGER, WITCH, WOLF }
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);
+
+
