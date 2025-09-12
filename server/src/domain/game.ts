@@ -20,6 +20,7 @@ export function createGame(maxPlayers: number): Game {
     inventory: { witch: { healUsed: false, poisonUsed: false } },
     votes: {},
     history: [],
+    privateLog: [],
     deadlines: {},
     wolvesChoices: {},
     morningAcks: new Set<string>(),
@@ -48,7 +49,8 @@ export function addPlayer(game: Game, p: { id: string; socketId: string; role?: 
     role: p.role,
     isReady: false,
     connected: true,
-    lastSeen: Date.now()
+    lastSeen: Date.now(),
+    privateLog: [],
   };
   game.players.push(player);
   game.alive.add(player.id);

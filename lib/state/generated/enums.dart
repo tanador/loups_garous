@@ -4,6 +4,7 @@
 import 'package:flutter/foundation.dart';
 
 // Keep in sync with server/src/domain/fsm.ts transitions keys
+
 // Ajout de NIGHT_SEER pour la phase de la voyante
 enum GamePhase {
   LOBBY,
@@ -23,5 +24,11 @@ GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeE
 
 // Keep in sync with server/roles.config.json registry keys
 // Ajout du rôle SEER
+
+enum GamePhase { LOBBY, ROLES, NIGHT_CUPID, NIGHT_LOVERS, NIGHT_SEER, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
+GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
+
+// Keep in sync with server/roles.config.json registry keys
+
 enum Role { CUPID, HUNTER, SEER, VILLAGER, WITCH, WOLF }
 Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);

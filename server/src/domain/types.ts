@@ -6,6 +6,7 @@ export type CoreGameState =
   | 'ROLES'
   | 'NIGHT_CUPID'
   | 'NIGHT_LOVERS'
+  | 'NIGHT_SEER'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'
   | 'MORNING'
@@ -30,6 +31,11 @@ export interface Player {
   lastSeen: number;
   // Lover link (Cupidon). If set, must be symmetric with the partner's loverId
   loverId?: string;
+  /**
+   * Per-player private event log.
+   * Stores audit events visible only to that player (e.g., seer peeks).
+   */
+  privateLog: { type: string; [k: string]: unknown }[];
 }
 
 export interface NightState {
@@ -42,6 +48,8 @@ export interface HistoryEvent {
   round: number;
   night: { attacked?: string; saved?: string; poisoned?: string; deaths: string[] };
   day?: { eliminated?: string | null; tally: Record<string, number> };
+  /** Optional list of audit events for the round (e.g., seer peeks). */
+  events?: { type: string; [k: string]: unknown }[];
 }
 
 // Coarse game phase (independent from fine-grained GameState)
@@ -70,6 +78,7 @@ export interface Game {
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
   votes: Record<string, string>; // nickname -> target nickname
   history: HistoryEvent[];
+  privateLog: any[]; // événements privés (ex.: visions de la voyante)
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
   morningAcks: Set<string>;
