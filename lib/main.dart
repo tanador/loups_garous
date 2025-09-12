@@ -31,6 +31,7 @@ import 'views/night_witch_screen.dart';
 import 'views/night_cupid_screen.dart';
 import 'views/night_lovers_screen.dart';
 import 'views/night/seer_view.dart';
+import 'views/night/thief.dart';
 import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
@@ -182,6 +183,9 @@ class _HomeRouter extends ConsumerWidget {
     switch (phase) {
       case GamePhase.ROLES:
         return const RoleScreen();
+      case GamePhase.NIGHT_THIEF:
+        if (youRole == Role.THIEF) return const ThiefView();
+        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_CUPID:
         if (youRole == Role.CUPID) return const NightCupidScreen();
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');

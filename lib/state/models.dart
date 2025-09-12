@@ -80,6 +80,8 @@ class GameModel {
 
   final WitchWake? witchWake;
   final List<Lite> hunterTargets;
+  // Rôles visibles au centre pour le voleur lorsqu'il se réveille.
+  final List<Role> thiefCenter;
   // Liste des joueurs vivants que la voyante peut sonder cette nuit.
   // Elle est envoyée par le serveur au moment du réveil.
   final List<Lite> seerTargets;
@@ -134,6 +136,7 @@ class GameModel {
     required this.confirmationsRemaining,
     required this.witchWake,
     required this.hunterTargets,
+    required this.thiefCenter,
     required this.seerTargets,
     required this.seerLog,
     required this.seerPending,
@@ -173,6 +176,7 @@ class GameModel {
         confirmationsRemaining: 0,
         witchWake: null,
         hunterTargets: [],
+        thiefCenter: [],
         seerTargets: [],
         seerLog: [],
         seerPending: null,
@@ -215,6 +219,7 @@ class GameModel {
     int? confirmationsRemaining,
     Object? witchWake = _unset,
     List<Lite>? hunterTargets,
+    List<Role>? thiefCenter,
     List<Lite>? seerTargets,
     List<(String playerId, Role role)>? seerLog,
     Object? seerPending = _unset,
@@ -254,6 +259,7 @@ class GameModel {
       confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
       witchWake: identical(witchWake, _unset) ? this.witchWake : witchWake as WitchWake?,
       hunterTargets: hunterTargets ?? this.hunterTargets,
+      thiefCenter: thiefCenter ?? this.thiefCenter,
       seerTargets: seerTargets ?? this.seerTargets,
       seerLog: seerLog ?? this.seerLog,
       seerPending: identical(seerPending, _unset) ? this.seerPending : seerPending as (String, Role)?,
