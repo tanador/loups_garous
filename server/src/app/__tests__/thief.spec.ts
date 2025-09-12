@@ -4,8 +4,11 @@ import type { Game, Player } from '../../domain/types.js';
 
 class FakeSocket {
   public emits: { event: string; payload: any }[] = [];
+  public joins: string[] = [];
+  public leaves: string[] = [];
   constructor(public id: string) {}
-  join(_r: string) {}
+  join(r: string) { this.joins.push(r); }
+  leave(r: string) { this.leaves.push(r); }
   emit(event: string, payload: any) { this.emits.push({ event, payload }); }
 }
 class FakeServer {
@@ -14,7 +17,7 @@ class FakeServer {
   to(room: string) { return { emit: (event: string, payload: any) => this.emits.push({ room, event, payload }) }; }
   emit(event: string, payload: any) { this.emits.push({ room: null, event, payload }); }
 }
-const mkP = (id: string): Player => ({ id, socketId: 's:'+id, isReady:true, connected:true, lastSeen:Date.now() } as any);
+const mkP = (id: string): Player => ({ id, socketId: 's:'+id, isReady:true, connected:true, lastSeen:Date.now(), privateLog:[] } as any);
 
 describe('Thief phase', () => {
   let io: FakeServer; let orch: Orchestrator; let game: Game; let thiefSock: FakeSocket;
@@ -48,5 +51,19 @@ describe('Thief phase', () => {
     const cupidWake = thiefSock.emits.find(e => e.event === 'cupid:wake');
     expect(cupidWake).toBeTruthy();
     expect(game.state).toBe('NIGHT_CUPID');
+  });
+
+  it('updates rooms and logs when thief becomes witch', () => {
+    game.center = ['WITCH', 'VILLAGER'] as any;
+    (orch as any).beginNightThief(game);
+    orch.thiefChoose(game.id, 'T', 0);
+    expect(thiefSock.joins).toContain('room:G:witch');
+    const thief = game.players.find(p => p.id === 'T')!;
+    expect(thief.privateLog).toEqual([
+      { type: 'THIEF_CHOOSE', oldRole: 'THIEF', newRole: 'WITCH', index: 0, night: 0 }
+    ]);
+    expect(game.history[0].events).toContainEqual({
+      type: 'THIEF_CHOOSE', playerId: 'T', oldRole: 'THIEF', newRole: 'WITCH', index: 0
+    });
   });
 });

@@ -273,9 +273,30 @@ export class Orchestrator {
     game.center[index] = oldRole;
     game.roles[playerId] = newRole;
     const player = game.players.find((p) => p.id === playerId);
-    if (player) player.role = newRole;
+    if (player) {
+      player.role = newRole;
+      player.privateLog.push({
+        type: "THIEF_CHOOSE",
+        oldRole,
+        newRole,
+        index,
+        night: game.round,
+      });
+      let h = game.history.find((ev) => ev.round === game.round);
+      if (!h) {
+        h = { round: game.round, night: { deaths: [] }, events: [] } as any;
+        game.history.push(h);
+      } else if (!h.events) {
+        h.events = [];
+      }
+      h.events!.push({ type: "THIEF_CHOOSE", playerId, oldRole, newRole, index });
+    }
     const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
-    if (player && s) this.bindPlayerToRooms(game, player, s);
+    if (player && s) {
+      if (oldRole === "WOLF") s.leave(`room:${game.id}:wolves`);
+      if (oldRole === "WITCH") s.leave(`room:${game.id}:witch`);
+      this.bindPlayerToRooms(game, player, s);
+    }
     this.sendSnapshot(game, playerId);
     this.log(game.id, game.state, playerId, "thief.choose", { index, newRole });
     this.endNightThief(game.id);
