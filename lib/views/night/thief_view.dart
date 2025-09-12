@@ -176,33 +176,6 @@ Color _roleColor(BuildContext context, Role? r) {
   }
 }
 
-class _RoleCard extends StatelessWidget {
-  final Role? role;
-  const _RoleCard({required this.role});
-  @override
-  Widget build(BuildContext context) {
-    final text = _roleLabel(role);
-    final icon = _roleIcon(role);
-    final color = _roleColor(context, role);
-    return Container(
-      height: 100,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(height: 6),
-          Text(text),
-        ],
-      ),
-    );
-  }
-}
-
 class _ChoiceTile extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -224,14 +197,14 @@ class _ChoiceTile extends StatelessWidget {
     final card = Container(
       height: 120,
       decoration: BoxDecoration(
-        border: Border.all(color: enabled ? outline : outline.withOpacity(0.4)),
+        border: Border.all(color: enabled ? outline : outline.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: enabled ? color : color.withOpacity(0.4), size: 28),
+          Icon(icon, color: enabled ? color : color.withValues(alpha: 0.4), size: 28),
           const SizedBox(height: 8),
           Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: enabled ? null : Colors.grey)),
           const SizedBox(height: 4),
