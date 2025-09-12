@@ -51,9 +51,7 @@ class ThiefView extends ConsumerWidget {
                               messenger.showSnackBar(SnackBar(content: Text(err)));
                             } else {
                               if (s.vibrations) await HapticFeedback.selectionClick();
-                              messenger.showSnackBar(
-                                SnackBar(content: Text('Prendre : ${_roleLabel(center[0])}')),
-                              );
+                              // Pas de notification de prise pour préserver la confidentialité
                             }
                           }
                         : null,
@@ -74,9 +72,7 @@ class ThiefView extends ConsumerWidget {
                               messenger.showSnackBar(SnackBar(content: Text(err)));
                             } else {
                               if (s.vibrations) await HapticFeedback.selectionClick();
-                              messenger.showSnackBar(
-                                SnackBar(content: Text('Prendre : ${_roleLabel(center[1])}')),
-                              );
+                              // Pas de notification de prise pour préserver la confidentialité
                             }
                           }
                         : null,
