@@ -386,7 +386,14 @@ export class Orchestrator {
     const lover = game.players.find((p) => p.id === playerId)?.loverId;
     if (lover && targetId === lover) throw new Error("cannot_target_lover");
 
-    // Autorise le revote: on enregistre simplement le dernier choix du loup.\n    // Côté client, le bouton peut se déverrouiller pour changer d'avis tant\n    // que le consensus n'est pas atteint.\n    game.wolvesChoices[playerId] = targetId;
+    // Autorise le revote: on enregistre simplement le dernier choix du loup.
+    // Côté client, le bouton peut se déverrouiller pour changer d'avis tant
+    // que le consensus n'est pas atteint.
+    //
+    // Utilise une copie immuable pour éviter les objets non extensibles ou
+    // gelés qui ignorent l'affectation directe et empêchent d'enregistrer
+    // correctement le vote.
+    game.wolvesChoices = { ...game.wolvesChoices, [playerId]: targetId };
     const { consensus, target } = isConsensus(game);
     const wolvesActive = activeWolves(game);
 
