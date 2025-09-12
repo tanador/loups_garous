@@ -26,6 +26,7 @@ describe('lovers grief resolution', () => {
     game = {
       id:'G1', state:'NIGHT_WITCH', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[a,b,x], roles:{ A:'VILLAGER', B:'WOLF', X:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive:new Set(['A','B','X']), night:{ attacked:'A' }, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:'MIXED_CAMPS',
     } as any;
     // lovers A <-> B

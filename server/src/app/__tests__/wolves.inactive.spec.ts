@@ -18,6 +18,7 @@ describe('isConsensus with inactive wolves', () => {
     const game: Game = {
       id: 'G', state: 'NIGHT_WOLVES', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 3,
       players: [w1, w2, v], roles: { W1: 'WOLF', W2: 'WOLF', V: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['W1', 'W2', 'V']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: { W1: 'V' }, morningAcks: new Set(), loversMode: null,
     } as any;
@@ -33,6 +34,7 @@ describe('isConsensus with inactive wolves', () => {
     const game: Game = {
       id: 'G', state: 'NIGHT_WOLVES', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 3,
       players: [w1, w2, v], roles: { W1: 'WOLF', W2: 'WOLF', V: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['W1', 'V']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: { W1: 'V' }, morningAcks: new Set(), loversMode: null,
     } as any;

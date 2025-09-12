@@ -21,6 +21,7 @@ describe('Vote — Option A (plurality, no early finish)', () => {
     game = {
       id:'G', state:'VOTE', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:6,
       players, roles: Object.fromEntries(ids.map(id => [id,'VILLAGER'])) as any,
+      center: Array(2) as any,
       alive:new Set(ids), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
       votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
     } as any;

@@ -17,6 +17,7 @@ describe('Witch decisions validations', () => {
     game = {
       id:'G', state:'NIGHT_WITCH', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[w,a,b], roles:{ WITCH:'WITCH', A:'VILLAGER', B:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive:new Set(['WITCH','A','B']), night:{ attacked:'A' }, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
       votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
     };

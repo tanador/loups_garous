@@ -49,6 +49,7 @@ describe('Lobby orchestration', () => {
     // Le créateur reçoit un snapshot initial
     const snap = io.emits.find(e => e.event === 'game:snapshot');
     expect(snap).toBeTruthy();
+    expect(snap?.payload?.center).toEqual([null, null]);
     // Le lobby est diffusé à tous
     const lobby = io.emits.find(e => e.event === 'lobby:updated');
     expect(lobby).toBeTruthy();

@@ -63,6 +63,7 @@ describe('Seer probes', () => {
       maxPlayers: 4,
       players: [seer, thief, A, B],
       roles: { SEER: 'SEER', THIEF: 'THIEF', A: 'VILLAGER', B: 'WOLF' } as any,
+      center: Array(2) as any,
       alive: new Set(['SEER', 'THIEF', 'A', 'B']),
       night: {},
       inventory: { witch: { healUsed: false, poisonUsed: false } },
@@ -141,6 +142,7 @@ describe('Seer peek flow', () => {
     game = {
       id:'G', state:'NIGHT_SEER', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[seer,a,b], roles:{ SEER:'SEER', A:'VILLAGER', B:'WOLF' } as any,
+      center: Array(2) as any,
       alive:new Set(['SEER','A','B']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
       votes:{}, history:[], privateLog:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
     } as any;

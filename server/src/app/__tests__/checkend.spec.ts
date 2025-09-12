@@ -25,6 +25,7 @@ describe('CHECK_END after RESOLVE', () => {
     game = {
       id:'G1', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[a,b,c], roles:{ A:'VILLAGER', B:'WOLF', C:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive:new Set(['A','B','C']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null,
     } as any;
     (orch as any).store.put(game);
@@ -49,6 +50,7 @@ describe('CHECK_END after RESOLVE', () => {
     game = {
       id:'G2', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[a,b,w], roles:{ A:'VILLAGER', B:'VILLAGER', W:'WOLF' } as any,
+      center: Array(2) as any,
       alive:new Set(['A','B','W']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null,
     } as any;
     (orch as any).store.put(game);
@@ -75,6 +77,7 @@ describe('CHECK_END after RESOLVE', () => {
     game = {
       id:'G3', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[a,b,x], roles:{ A:'WOLF', B:'VILLAGER', X:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive:new Set(['A','B','X']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:'MIXED_CAMPS',
     } as any;
     // lovers A <-> B

@@ -74,6 +74,7 @@ export interface Game {
   maxPlayers: number;
   players: Player[];
   roles: Record<string, Role>; // nickname -> role
+  center: Role[]; // hidden center cards (length 2)
   alive: Set<string>; // set of nicknames
   night: NightState;
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };

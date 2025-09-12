@@ -25,6 +25,7 @@ describe('Wolves consensus and target lock', () => {
     const game: Game = {
       id: 'G', state: 'NIGHT_WOLVES', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 4,
       players: [A,B,V,X], roles: { WOLF_A:'WOLF', WOLF_B:'WOLF', VILLAGER:'VILLAGER', VILLAGER_2:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['WOLF_A','WOLF_B','VILLAGER','VILLAGER_2']), night: {}, inventory: { witch:{ healUsed:false, poisonUsed:false }},
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null
     };

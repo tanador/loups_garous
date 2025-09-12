@@ -1097,6 +1097,7 @@ export class Orchestrator {
         ready: !!p.isReady,
       })),
       maxPlayers: game.maxPlayers,
+      center: Array(game.center.length).fill(null),
       you: { id: you.id, role: game.roles[you.id] },
       night: {
         attacked:

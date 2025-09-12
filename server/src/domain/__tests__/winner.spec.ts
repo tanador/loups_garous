@@ -10,7 +10,7 @@ function makeGame(alive: string[], roles: Record<string, any>, lovers?: [string,
   }
   return {
     id:'G', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:players.length,
-    players: players as any, roles: roles as any, alive: new Set(alive), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
+    players: players as any, roles: roles as any, center: Array(2) as any, alive: new Set(alive), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
     votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode: lovers ? 'MIXED_CAMPS' : null
   } as any;
 }
