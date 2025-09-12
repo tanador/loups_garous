@@ -347,6 +347,21 @@ export class Orchestrator {
     }
   }
 
+  seerProbe(gameId: string, playerId: string, targetId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
+    if ((game.roles[playerId] as any) !== "SEER") throw new Error("forbidden");
+    if (playerId === targetId) throw new Error("cannot_probe_self");
+    if (!game.alive.has(targetId)) throw new Error("invalid_probe_target");
+    const role = game.roles[targetId];
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    if (s) s.emit("seer:reveal", { playerId: targetId, role });
+    (game as any).privateLog = (game as any).privateLog ?? {};
+    ((game as any).privateLog[playerId] =
+      (game as any).privateLog[playerId] ?? []).push({ playerId: targetId, role });
+    this.log(game.id, game.state, playerId, "seer.probe", { targetId });
+  }
+
   private beginNightWolves(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_WOLVES")) return;
     game.round += 1;

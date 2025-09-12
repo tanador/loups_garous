@@ -76,4 +76,5 @@ export interface Game {
   loversMode?: LoversMode;
   pendingDeaths?: PendingDeath[]; // FIFO queue for resolution helpers
   deferredGrief?: string[]; // victims whose lovers should later die of grief
+  privateLog?: Record<string, { playerId: string; role: string }[]>;
 }
