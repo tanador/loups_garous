@@ -563,9 +563,35 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Wolves -------------
-  Future<void> wolvesChoose(String targetId) async {
-    final ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
+  Future<String?> wolvesChoose(String targetId) async {
+    // Try once; if context is missing, auto-heal by setting context and retrying.
+    var ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
     log('[ack] wolves:chooseTarget $ack');
+    if (ack['ok'] == true) return null;
+    final err = (ack['error'] ?? '').toString();
+    if (err == 'missing_context' || err == 'invalid_context') {
+      try {
+        await _setContext();
+        ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
+        log('[ack] retry wolves:chooseTarget $ack');
+        if (ack['ok'] == true) return null;
+      } catch (e) {
+        log('retry wolves:chooseTarget failed: $e');
+      }
+    }
+    // Map known server errors to user-friendly messages; otherwise return raw code.
+    switch (err) {
+      case 'cannot_target_lover':
+        return "Vous ne pouvez pas cibler votre amoureux·se.";
+      case 'invalid_target':
+        return "Cible invalide (déjà morte ou interdite).";
+      case 'forbidden':
+        return "Action non autorisée pour votre rôle.";
+      case 'bad_state':
+        return "Phase incompatible avec cette action.";
+      default:
+        return err.isEmpty ? 'action_failed' : err;
+    }
   }
 
   // ------------- Witch -------------

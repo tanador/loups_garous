@@ -46,11 +46,22 @@ class EndScreen extends ConsumerWidget {
                   const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           for (final (playerId, role) in roles)
-            Text(
-              lovers.contains(playerId)
+            Builder(builder: (context) {
+              final alive = s.players.firstWhere(
+                (p) => p.id == playerId,
+                orElse: () => const PlayerView(id: '', connected: true, alive: false),
+              ).alive;
+              final text = lovers.contains(playerId)
                   ? '$playerId (amoureux) : ${roleLabel(role)}'
-                  : '$playerId : ${roleLabel(role)}',
-            ),
+                  : '$playerId : ${roleLabel(role)}';
+              return ListTile(
+                dense: true,
+                leading: alive
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : const Text('☠️', style: TextStyle(fontSize: 20)),
+                title: Text(text),
+              );
+            }),
           const SizedBox(height: 16),
           ElevatedButton(
               onPressed: () async {

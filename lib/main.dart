@@ -29,7 +29,6 @@ import 'views/hunter_screen.dart';
 import 'views/role_screen.dart';
 import 'state/models.dart';
 import 'views/widgets/player_badge.dart';
-import 'views/widgets/common.dart';
 
 // Point d'entrée de l'application Flutter.
 // Initialise les widgets puis démarre l'application
@@ -109,6 +108,11 @@ class _HomeRouter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
+    // Pendant les transitions globales (closingEyes), afficher un écran simple
+    // dans le flux principal plutôt qu'un overlay.
+    if (s.closingEyes) {
+      return const SleepingPlaceholder(title: ' ', subtitle: 'Fermez les yeux');
+    }
     final youRole = s.role;
     final phase = s.phase;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -279,31 +283,7 @@ class _WithGlobalOverlay extends ConsumerWidget {
           duration: const Duration(milliseconds: 150),
           child: const PlayerBadge(),
         ),
-        // Overlay "Fermez les yeux" durant les transitions globales
-        // Activé quand le serveur envoie closingEyes=true (cf. orchestrator.globalSleep)
-        if (s.closingEyes)
-          Positioned.fill(
-            child: AbsorbPointer(
-              absorbing: true,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.75),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Fermez les yeux',
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      DeadlineChip(deadlineMs: s.deadlineMs),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+        // Plus d'overlay pendant les transitions: l'écran principal gère l'affichage.
       ],
     );
   }

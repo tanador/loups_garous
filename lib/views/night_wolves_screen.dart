@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../state/models.dart';
 import 'widgets/common.dart';
 
 // Écran de la phase nocturne où les loups désignent une cible commune.
@@ -19,6 +20,17 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
+    // Filtre la cible interdite (amoureux·se) pour éviter un rejet serveur.
+    String? forbidId;
+    if (s.role == Role.WOLF) {
+      forbidId = s.loverPartnerId;
+      if (forbidId == null && s.playerId != null && s.loversKnown.isNotEmpty) {
+        final others = s.loversKnown.where((id) => id != s.playerId).toList();
+        if (others.length == 1) forbidId = others.first;
+      }
+    }
+    final shownTargets = s.wolvesTargets.where((t) => t.id != forbidId).toList();
+    final canValidate = selectedId != null && selectedId != forbidId;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nuit — Loups')),
@@ -34,7 +46,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
             onChanged: (v) { if(!_locked) setState(() => selectedId = v); },
             child: ListView(
               shrinkWrap: true,
-              children: s.wolvesTargets
+              children: shownTargets
                   .map((t) => RadioListTile<String?>(
                         title: Text(t.id),
                         value: t.id,
@@ -45,13 +57,16 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            onPressed: selectedId == null
+            onPressed: !canValidate
                 ? null
-                : () {
-                    final newLocked = !_locked;
-                    setState(() => _locked = newLocked);
-                    if (newLocked) {
-                      ctl.wolvesChoose(selectedId!);
+                : () async {
+                    final err = await ctl.wolvesChoose(selectedId!);
+                    if (err == null) {
+                      if (mounted) setState(() => _locked = true);
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(err)),
+                      );
                     }
                   },
             style: ElevatedButton.styleFrom(
@@ -63,7 +78,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
             Builder(builder: (_) {
               String locked = s.wolvesLockedTargetId!;
               final match =
-                  s.wolvesTargets.where((t) => t.id == s.wolvesLockedTargetId).toList();
+                  shownTargets.where((t) => t.id == s.wolvesLockedTargetId).toList();
               if (match.isNotEmpty) locked = match.first.id;
               return Text(
                   'Cible verrouillée: $locked • confirmations restantes: ${s.confirmationsRemaining}');

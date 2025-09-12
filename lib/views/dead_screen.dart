@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../state/models.dart';
 
 // Écran affiché aux joueurs éliminés.
 
@@ -10,7 +11,9 @@ class DeadScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
+    final bool blockQuit = s.role == Role.HUNTER && s.phase == GamePhase.MORNING;
     return Scaffold(
       appBar: AppBar(title: const Text('Vous êtes mort')),
       body: Center(
@@ -30,21 +33,27 @@ class DeadScreen extends ConsumerWidget {
                     const Text('Vous êtes mort',
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          await ctl.leaveToHome();
-                        } catch (e, st) {
-                          log('leaveToHome exception: $e', stackTrace: st);
-                        } finally {
-                          if (context.mounted) {
-                            Navigator.of(context)
-                                .popUntil((route) => route.isFirst);
+                    if (!blockQuit)
+                      ElevatedButton(
+                        onPressed: () async {
+                          try {
+                            await ctl.leaveToHome();
+                          } catch (e, st) {
+                            log('leaveToHome exception: $e', stackTrace: st);
+                          } finally {
+                            if (context.mounted) {
+                              Navigator.of(context)
+                                  .popUntil((route) => route.isFirst);
+                            }
                           }
-                        }
-                      },
-                      child: const Text('Quitter'),
-                    )
+                        },
+                        child: const Text('Quitter'),
+                      )
+                    else
+                      const Text(
+                        'Attendez votre tir de chasseur...',
+                        style: TextStyle(fontSize: 16),
+                      )
                   ],
                 ),
               ),
