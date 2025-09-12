@@ -80,9 +80,10 @@ class GameModel {
 
   final WitchWake? witchWake;
   final List<Lite> hunterTargets;
-  // Cibles disponibles pour la voyante lors de son réveil
+  // Liste des joueurs vivants que la voyante peut sonder cette nuit.
+  // Elle est envoyée par le serveur au moment du réveil.
   final List<Lite> seerTargets;
-  // Historique privé des révélations de la voyante
+  // Journal privé des rôles révélés par la voyante au fil des nuits.
   final List<(String playerId, Role role)> seerLog;
   final List<Lite> cupidTargets;
   final String? loverPartnerId;

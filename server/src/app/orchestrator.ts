@@ -348,6 +348,12 @@ export class Orchestrator {
   }
 
 
+  /**
+   * Révèle immédiatement le rôle de `targetId` à la voyante `playerId`.
+   * Utilitaire surtout employé dans les tests unitaires sans passer par
+   * la phase complète de réveil/dormir. Les validations miment
+   * exactement celles de {@link seerPeek}.
+   */
   seerProbe(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
@@ -361,7 +367,14 @@ export class Orchestrator {
     ((game as any).privateLog[playerId] =
       (game as any).privateLog[playerId] ?? []).push({ playerId: targetId, role });
     this.log(game.id, game.state, playerId, "seer.probe", { targetId });
-=======
+  }
+
+  /**
+   * Démarre la phase `NIGHT_SEER`.
+   * La voyante se réveille, reçoit la liste des joueurs vivants
+   * (hors elle-même) et dispose de quelques secondes pour choisir
+   * une cible à sonder.
+   */
   private beginNightSeer(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_SEER")) return;
     setState(game, "NIGHT_SEER");
@@ -379,12 +392,18 @@ export class Orchestrator {
       .filter((p) => p.id !== sid && game.alive.has(p.id))
       .map((p) => this.playerLite(game, p.id));
     const s = this.io.sockets.sockets.get(this.playerSocket(game, sid));
+    // Réveil ciblé : seul le socket de la voyante reçoit l'évènement.
     if (s) s.emit("seer:wake", { alive });
     this.log(game.id, game.state, sid, "seer.wake", { targets: alive.length });
 
     this.schedule(game.id, DURATION.SEER_MS, () => this.endNightSeer(game.id));
   }
 
+  /**
+   * Traite la commande `seer:peek` envoyée par le client.
+   * Vérifie la validité de la cible puis révèle son rôle uniquement
+   * à la voyante avant de clôturer la phase.
+   */
   seerPeek(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
@@ -394,9 +413,11 @@ export class Orchestrator {
 
     const role = game.roles[targetId];
     const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    // La révélation est strictement privée.
     if (s) s.emit("seer:reveal", { targetId, role });
     this.log(game.id, game.state, playerId, "seer.peek", { targetId, role });
 
+    // Audit interne : consigne de la vision pour la fin de partie.
     const logArr = ((game as any).privateLog ??= []);
     logArr.push({ round: game.round, seer: playerId, target: targetId, role });
 
@@ -413,7 +434,6 @@ export class Orchestrator {
       if (s) s.emit("seer:sleep");
     }
     this.globalSleep(game, () => this.beginNightWolves(game));
-
   }
 
   private beginNightWolves(game: Game) {

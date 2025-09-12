@@ -5,7 +5,6 @@
     "WITCH": "./src/domain/roles/witch.ts",
     "SEER": "./src/domain/roles/seer.ts",
     "HUNTER": "./src/domain/roles/hunter.ts",
-    "SEER": "./src/domain/roles/seer.ts",
     "VILLAGER": "./src/domain/roles/villager.ts"
   },
   "setups": {
