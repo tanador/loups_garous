@@ -14,6 +14,7 @@ export type TimerConfig = Partial<{
   // Overrides facultatifs des durées par phase
   CUPID_MS: number;
   LOVERS_MS: number;
+  SEER_MS: number;
   WOLVES_MS: number;
   WITCH_MS: number;
   HUNTER_MS: number;
@@ -29,6 +30,7 @@ const defaultConfig: Required<TimerConfig> = {
   TIME_PRESS_BEFOR_REVEAL_ROLE: 700,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
+  SEER_MS: 80_000,
   WOLVES_MS: 80_000,
   WITCH_MS: 80_000,
   HUNTER_MS: 80_000,
@@ -62,6 +64,7 @@ export const CONFIG = loadConfig();
 export const DURATION = {
   CUPID_MS: CONFIG.CUPID_MS,
   LOVERS_MS: CONFIG.LOVERS_MS,
+  SEER_MS: CONFIG.SEER_MS,
   WOLVES_MS: CONFIG.WOLVES_MS,
   WITCH_MS: CONFIG.WITCH_MS,
   HUNTER_MS: CONFIG.HUNTER_MS,

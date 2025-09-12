@@ -77,6 +77,8 @@ class GameController extends StateNotifier<GameModel> {
       confirmationsRemaining: 0,
       witchWake: null,
       hunterTargets: [],
+      seerTargets: [],
+      seerLog: [],
       recap: null,
       voteAlive: [],
       lastVote: null,
@@ -244,6 +246,37 @@ class GameController extends StateNotifier<GameModel> {
       _resetGameState();
       await _clearSession();
       log('[evt] game:cancelled');
+    });
+
+    // --- Night: seer
+    s.on('seer:wake', (data) async {
+      final list = ((data['alive'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => Lite(id: j['id']))
+          .toList();
+      state = state.copy(seerTargets: list);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] seer:wake targets=${list.length}');
+    });
+
+    s.on('seer:reveal', (data) {
+      final pid = data['playerId']?.toString();
+      final roleStr = data['role']?.toString();
+      if (pid == null || roleStr == null) return;
+      Role role;
+      try {
+        role = roleFromStr(roleStr);
+      } catch (_) {
+        return;
+      }
+      final logList = [...state.seerLog, (pid, role)];
+      state = state.copy(seerLog: logList);
+      log('[evt] seer:reveal target=$pid role=$roleStr');
+    });
+
+    s.on('seer:sleep', (_) async {
+      state = state.copy(seerTargets: []);
+      log('[evt] seer:sleep');
     });
 
     // --- Night: wolves
@@ -652,6 +685,12 @@ class GameController extends StateNotifier<GameModel> {
   Future<void> loversAck() async {
     final ack = await _socketSvc.emitAck('lovers:ack', {});
     log('[ack] lovers:ack $ack');
+  }
+
+  // ------------- Seer -------------
+  Future<void> seerPeek(String targetId) async {
+    final ack = await _socketSvc.emitAck('seer:peek', {'targetId': targetId});
+    log('[ack] seer:peek $ack');
   }
 
   // ------------- Hunter -------------
