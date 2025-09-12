@@ -51,6 +51,10 @@ export const CupidChooseSchema = z.object({
   targetB: zNickname,
 });
 
+export const ThiefChooseSchema = z.object({
+  index: z.number().int().min(0).max(1),
+});
+
 export const WitchDecisionSchema = z.object({
   save: z.boolean(),
   poisonTargetId: zNickname.optional()
