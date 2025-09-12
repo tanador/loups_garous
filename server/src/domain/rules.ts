@@ -62,6 +62,15 @@ export function wolvesOf(game: Game): string[] {
   return game.players.filter(p => game.roles[p.id] === 'WOLF').map(p => p.id);
 }
 
+/// Liste les loups vivants et connectés.
+export function activeWolves(game: Game): string[] {
+  return game.players
+    .filter(
+      (p) => game.roles[p.id] === 'WOLF' && game.alive.has(p.id) && p.connected,
+    )
+    .map((p) => p.id);
+}
+
 /// Identifiant de la sorcière, s'il y en a une.
 export function witchId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'WITCH')?.id;
@@ -218,16 +227,14 @@ export function canBeSaved(game: Game, pid: string): boolean {
  *   ce qui pourrait bloquer la phase inutilement.
  */
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
-  // Pour déterminer le consensus, on prend en compte tous les loups déclarés.
-  // (Le calcul d'affichage côté UI peut, lui, limiter aux loups vivants/connectés.)
-  const wolves = wolvesOf(game);
+  const wolves = activeWolves(game);
   if (wolves.length <= 1) {
     const t = wolves.length === 1 ? game.wolvesChoices[wolves[0]] : null;
     return t ? { consensus: true, target: t } : { consensus: false };
   }
-  const choices = wolves.map(w => game.wolvesChoices[w]).filter(Boolean) as string[];
+  const choices = wolves.map((w) => game.wolvesChoices[w]).filter(Boolean) as string[];
   if (choices.length < wolves.length) return { consensus: false };
-  const allSame = choices.every(c => c === choices[0]);
+  const allSame = choices.every((c) => c === choices[0]);
   return allSame ? { consensus: true, target: choices[0] } : { consensus: false };
 }
 
