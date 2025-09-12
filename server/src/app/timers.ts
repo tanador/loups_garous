@@ -12,6 +12,7 @@ export type TimerConfig = Partial<{
   // Durée d'appui (ms) avant de révéler le rôle en maintenant le badge
   TIME_PRESS_BEFOR_REVEAL_ROLE: number;
   // Overrides facultatifs des durées par phase
+  THIEF_MS: number;
   CUPID_MS: number;
   LOVERS_MS: number;
   SEER_MS: number;
@@ -28,6 +29,7 @@ const defaultConfig: Required<TimerConfig> = {
   NEXT_WAKE_DELAY_MAX_MS: 20_000,
   COUNTDOWN_SECONDS: 10,
   TIME_PRESS_BEFOR_REVEAL_ROLE: 700,
+  THIEF_MS: 80_000,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
   SEER_MS: 80_000,
@@ -63,6 +65,7 @@ export const CONFIG = loadConfig();
 
 export const DURATION = {
   CUPID_MS: CONFIG.CUPID_MS,
+  THIEF_MS: CONFIG.THIEF_MS,
   LOVERS_MS: CONFIG.LOVERS_MS,
   SEER_MS: CONFIG.SEER_MS,
   WOLVES_MS: CONFIG.WOLVES_MS,

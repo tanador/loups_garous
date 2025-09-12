@@ -219,9 +219,12 @@ export class Orchestrator {
     for (const pl of game.players) this.sendSnapshot(game, pl.id);
     const allReady = game.players.every((x) => x.isReady);
     if (allReady && game.state === "ROLES") {
+      const thief = game.players.find((p) => game.roles[p.id] === "THIEF");
       const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
       this.globalSleep(game, () => {
-        if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+        if (thief && game.alive.has(thief.id) && thief.connected) {
+          this.beginNightThief(game);
+        } else if (cupid && game.alive.has(cupid.id) && cupid.connected) {
           this.beginNightCupid(game);
         } else {
           this.beginNightSeer(game);
@@ -241,6 +244,62 @@ export class Orchestrator {
   }
 
   // -------------------- Phases --------------------
+  private beginNightThief(game: Game) {
+    if (!canTransition(game, game.state, "NIGHT_THIEF")) return;
+    setState(game, "NIGHT_THIEF");
+    const thief = game.players.find((p) => game.roles[p.id] === "THIEF");
+    const tid = thief?.id;
+    if (!tid || !game.alive.has(tid) || !thief?.connected) {
+      this.broadcastState(game);
+      return this.beginNightCupid(game);
+    }
+    (game as any).thiefId = tid;
+    this.setDeadline(game, DURATION.THIEF_MS);
+    this.broadcastState(game);
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, tid));
+    if (s) s.emit("thief:wake", { center: [...game.center] });
+    this.log(game.id, game.state, tid, "thief.wake");
+    this.schedule(game.id, DURATION.THIEF_MS, () => this.endNightThief(game.id));
+  }
+
+  thiefChoose(gameId: string, playerId: string, index: number) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_THIEF") throw new Error("bad_state");
+    if (game.roles[playerId] !== "THIEF") throw new Error("forbidden");
+    if (index < 0 || index > 1) throw new Error("invalid_choice");
+    const newRole = game.center[index];
+    if (!newRole) throw new Error("invalid_choice");
+    const oldRole = game.roles[playerId];
+    game.center[index] = oldRole;
+    game.roles[playerId] = newRole;
+    const player = game.players.find((p) => p.id === playerId);
+    if (player) player.role = newRole;
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    if (player && s) this.bindPlayerToRooms(game, player, s);
+    this.sendSnapshot(game, playerId);
+    this.log(game.id, game.state, playerId, "thief.choose", { index, newRole });
+    this.endNightThief(game.id);
+  }
+
+  private endNightThief(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_THIEF") return;
+    const tid = (game as any).thiefId as string | undefined;
+    if (tid) {
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, tid));
+      if (s) s.emit("thief:sleep");
+      (game as any).thiefId = undefined;
+    }
+    this.globalSleep(game, () => {
+      const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
+      if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+        this.beginNightCupid(game);
+      } else {
+        this.beginNightSeer(game);
+      }
+    });
+  }
+
   private beginNightCupid(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_CUPID")) return;
     setState(game, "NIGHT_CUPID");

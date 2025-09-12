@@ -4,6 +4,7 @@ import type { Role } from './roles/index.js';
 export type CoreGameState =
   | 'LOBBY'
   | 'ROLES'
+  | 'NIGHT_THIEF'
   | 'NIGHT_CUPID'
   | 'NIGHT_LOVERS'
   // Phase où la voyante choisit une cible à sonder.

@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
-import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, SeerPeekSchema, SeerAckSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema, VoteAckSchema } from '../app/schemas.js';
+import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, SeerPeekSchema, SeerAckSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema, VoteAckSchema, ThiefChooseSchema } from '../app/schemas.js';
 
 // Couche "infra": instancie le serveur Socket.IO et enregistre les handlers.
 export function createSocketServer(httpServer: HttpServer) {
@@ -163,6 +163,20 @@ export function createSocketServer(httpServer: HttpServer) {
         return;
       }
       orch.seerAck(gameId, playerId);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
+    });
+
+    handle(socket, 'thief:choose', ThiefChooseSchema, (data, ack) => {
+      const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
+      orch.thiefChoose(gameId, playerId, data.index);
       if (typeof ack === 'function') {
         ack({ ok: true });
       }
