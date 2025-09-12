@@ -7,6 +7,15 @@
 // - "views/" rassemble les écrans représentant chaque phase du jeu.
 // -----------------------------------------------------------------------------
 
+// NOTE MISE A JOUR (2025-09-12)
+// Pendant les transitions globales ("Fermez les yeux"), on ne veut plus
+// d'overlay sombre avec un chronomètre. Désormais, quand le serveur indique
+// `closingEyes=true`, le routeur principal affiche un écran minimaliste avec
+// uniquement le texte « Fermez les yeux » (sans timer). Cela garantit la
+// même expérience sobre pour tous les joueurs et évite les effets de bord
+// liés aux overlays.
+// Les timers restent visibles dans les écrans de rôle (loups, sorcière, vote…).
+
 import 'dart:developer';
 import 'dart:io';
 import 'dart:ui' as ui show Offset; // for explicit Offset
@@ -108,6 +117,18 @@ class _HomeRouter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
+    // MISE A JOUR 2025-09-12
+    // Contexte produit : durant les "pauses" du jeu (transitions de phase),
+    // tous les joueurs doivent simplement voir le texte « Fermez les yeux »,
+    // sans overlay ni compte à rebours.
+    // Choix technique : gérer `closingEyes` ici, dans le routeur, pour rendre
+    // un écran neutre (SleepingPlaceholder) et éviter toute superposition.
+    // Avantages :
+    // - Pas de superposition complexe : pas de fond noir bloquant ni widgets
+    //   cliquables.
+    // - Pas de chronomètre : l'affichage reste calme et identique pour tous.
+    // - Responsabilités claires : le routeur choisit l'écran à afficher ;
+    //   l'enveloppe globale (_WithGlobalOverlay) ne gère plus ce cas.
     // Pendant les transitions globales (closingEyes), afficher un écran simple
     // dans le flux principal plutôt qu'un overlay.
     if (s.closingEyes) {
@@ -179,6 +200,8 @@ class _HomeRouter extends ConsumerWidget {
 
 /// Affiche un écran simpliste pendant que le joueur "dort"
 /// lors des phases de nuit auxquelles il ne participe pas.
+/// MISE A JOUR 2025-09-12: aussi utilisé pendant `closingEyes` pour afficher
+/// uniquement « Fermez les yeux » sans chronomètre ni overlay global.
 class SleepingPlaceholder extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -267,6 +290,10 @@ class WaitingLobby extends ConsumerWidget {
 
 /// Enveloppe globale pour ajouter un overlay persistant (ex: pseudo du joueur)
 /// au-dessus de toutes les vues de l'application.
+///
+/// Note (2025-09-12): cet overlay n'affiche plus l'état « Fermez les yeux »
+/// des transitions globales. Ce cas est désormais géré par _HomeRouter
+/// (rendu principal), afin d'éviter tout chronomètre et simplifier l'UI.
 class _WithGlobalOverlay extends ConsumerWidget {
   final Widget? child;
   const _WithGlobalOverlay({this.child});
@@ -283,6 +310,13 @@ class _WithGlobalOverlay extends ConsumerWidget {
           duration: const Duration(milliseconds: 150),
           child: const PlayerBadge(),
         ),
+        // MISE A JOUR 2025-09-12
+        // L'overlay « Fermez les yeux » a été retiré d'ici pour éviter
+        // l'effet de superposition + chronomètre. Le rendu de cet état
+        // de transition est désormais fait dans _HomeRouter : lorsqu'il
+        // détecte `closingEyes==true`, il renvoie un écran simple sans timer.
+        // Ainsi, _WithGlobalOverlay reste dédié aux éléments persistants
+        // (ex. PlayerBadge) et n'empiète plus sur les transitions.
         // Plus d'overlay pendant les transitions: l'écran principal gère l'affichage.
       ],
     );

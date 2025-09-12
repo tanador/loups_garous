@@ -20,7 +20,13 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
-    // Filtre la cible interdite (amoureux·se) pour éviter un rejet serveur.
+    // Règle métier (explication):
+    // Pendant la phase des loups, un loup ne peut pas cibler son/sa partenaire amoureux·se.
+    // Pour éviter un rejet côté serveur, on filtre cette cible dans la liste proposée.
+    //
+    // Note: s.loverPartnerId est connu uniquement par les amoureux.
+    // Par sécurité UX, si le local connaît les deux ids (heuristique loversKnown),
+    // on filtre également le partenaire.
     String? forbidId;
     if (s.role == Role.WOLF) {
       forbidId = s.loverPartnerId;
@@ -30,6 +36,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
       }
     }
     final shownTargets = s.wolvesTargets.where((t) => t.id != forbidId).toList();
+    // Ne permet la validation que si la sélection n’est pas interdite.
     final canValidate = selectedId != null && selectedId != forbidId;
 
     return Scaffold(
@@ -57,6 +64,8 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
+            // IMPORTANT: ne « locke » l’UI qu’après un ACK serveur réussi.
+            // En cas d’erreur (ex. cible interdite), on affiche un message.
             onPressed: !canValidate
                 ? null
                 : () async {

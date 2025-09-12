@@ -563,12 +563,29 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Wolves -------------
+  /// Envoie le choix de la cible du loup au serveur.
+  ///
+  /// Explications pour un débutant (et non joueur):
+  /// - Dans le jeu, la phase « loups » consiste à choisir un villageois à éliminer.
+  /// - Le serveur valide ou rejette la demande via un ACK (accusé de réception).
+  /// - Certains choix sont interdits, par exemple si le loup est amoureux d’un joueur,
+  ///   il ne peut pas le cibler (règle métier côté serveur).
+  ///
+  /// Robustesse côté client:
+  /// - Nous n’« enfermons » plus l’UI en mode validé tant que le serveur n’a pas
+  ///   accepté l’action (ack ok). Cela évite l’état « rien ne se passe » si le serveur
+  ///   rejette le choix.
+  /// - Si le contexte de socket est manquant (gameId/playerId pas encore fixés côté
+  ///   serveur), on tente une auto-réparation en renvoyant d’abord `context:set` puis
+  ///   en rejouant l’action une seule fois.
+  /// - En cas d’erreur, on retourne un message utilisateur compréhensible pour l’UI.
   Future<String?> wolvesChoose(String targetId) async {
-    // Try once; if context is missing, auto-heal by setting context and retrying.
+    // 1) Envoi standard
     var ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
     log('[ack] wolves:chooseTarget $ack');
     if (ack['ok'] == true) return null;
     final err = (ack['error'] ?? '').toString();
+    // 2) Auto-réparation si le contexte manque, puis un seul retry
     if (err == 'missing_context' || err == 'invalid_context') {
       try {
         await _setContext();
@@ -579,7 +596,7 @@ class GameController extends StateNotifier<GameModel> {
         log('retry wolves:chooseTarget failed: $e');
       }
     }
-    // Map known server errors to user-friendly messages; otherwise return raw code.
+    // 3) Adapter les erreurs connues vers des messages lisibles par l’utilisateur
     switch (err) {
       case 'cannot_target_lover':
         return "Vous ne pouvez pas cibler votre amoureux·se.";

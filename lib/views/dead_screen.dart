@@ -13,6 +13,11 @@ class DeadScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
+    // Spécificité du rôle « Chasseur »:
+    // Lorsqu’il meurt, il peut tirer une dernière balle. Cet « éveil » arrive
+    // pendant la phase MORNING via l’événement serveur hunter:wake.
+    // Pour éviter que le joueur quitte avant d’exercer ce pouvoir, on masque
+    // temporairement le bouton « Quitter » quand la phase est MORNING.
     final bool blockQuit = s.role == Role.HUNTER && s.phase == GamePhase.MORNING;
     return Scaffold(
       appBar: AppBar(title: const Text('Vous êtes mort')),
