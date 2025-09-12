@@ -6,6 +6,7 @@ export type CoreGameState =
   | 'ROLES'
   | 'NIGHT_CUPID'
   | 'NIGHT_LOVERS'
+  // Phase où la voyante choisit une cible à sonder.
   | 'NIGHT_SEER'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'

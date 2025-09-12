@@ -248,7 +248,8 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] game:cancelled');
     });
 
-    // --- Night: seer
+    // --- Phase de nuit : rôle Voyante ---
+    // Réveil : le serveur envoie la liste des joueurs vivants sondables.
     s.on('seer:wake', (data) async {
       final list = ((data['alive'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -259,6 +260,7 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] seer:wake targets=${list.length}');
     });
 
+    // Réception d'une révélation de rôle suite à `seer:peek`.
     s.on('seer:reveal', (data) {
       final pid = data['playerId']?.toString();
       final roleStr = data['role']?.toString();
@@ -274,6 +276,7 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] seer:reveal target=$pid role=$roleStr');
     });
 
+    // Fin de phase : la voyante se rendort.
     s.on('seer:sleep', (_) async {
       state = state.copy(seerTargets: []);
       log('[evt] seer:sleep');
@@ -688,6 +691,8 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Seer -------------
+  /// Envoie au serveur la cible que la voyante souhaite sonder.
+  /// Le serveur répondra ensuite avec l'évènement `seer:reveal`.
   Future<void> seerPeek(String targetId) async {
     final ack = await _socketSvc.emitAck('seer:peek', {'targetId': targetId});
     log('[ack] seer:peek $ack');

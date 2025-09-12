@@ -209,7 +209,12 @@ export function targetsForWitch(game: Game): string[] {
 }
 
 /**
- * Logs a seer's peek at a target's role and returns the revealed role.
+ * Consigne la vision de la voyante et renvoie le rôle révélé.
+ *
+ * La voyante (camp du village) peut, chaque nuit, regarder en secret
+ * le rôle exact d'un joueur encore vivant. Cette fonction stocke
+ * l'information dans son journal privé et dans l'historique de la partie
+ * afin de pouvoir être consultée en fin de partie ou pour audit.
  */
 export function recordSeerPeek(game: Game, seerId: string, targetId: string): Role {
   const role = game.roles[targetId];
