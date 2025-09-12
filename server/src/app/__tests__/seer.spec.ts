@@ -1,6 +1,10 @@
 // Tests du rôle Voyante côté serveur.
-// Ils vérifient que la révélation est privée, que les cibles sont validées
-// et que la phase nocturne se déroule correctement.
+//
+// La voyante est un personnage clé de *Loup Garou* : chaque nuit elle
+// choisit un joueur et découvre secrètement son rôle. Ces tests
+// s'assurent que cette interaction reste privée, que les cibles sont
+// correctement validées et que l'enchaînement "réveil → sondage → ACK
+// → sommeil" se déroule comme prévu.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Orchestrator } from '../../app/orchestrator.js';
 import type { Game, Player } from '../../domain/types.js';

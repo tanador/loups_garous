@@ -30,7 +30,9 @@ export class Orchestrator {
   private io: Server;
   private store = new GameStore();
   private timers = new Map<string, NodeJS.Timeout>();
-  // En attente de l'ACK de la voyante après révélation
+  // La voyante reçoit une révélation privée et doit confirmer l'avoir lue
+  // avant que la partie ne continue. On mémorise donc les parties en pause
+  // dans `pendingSeerAck` en attendant l'ACK explicite du client.
   private pendingSeerAck = new Set<string>(); // gameId
   private rateCounters = new Map<string, { n: number; resetAt: number }>(); // per-socket simple limiter
   private hunterAwaiting = new Map<
@@ -355,6 +357,11 @@ export class Orchestrator {
    * Utilitaire surtout employé dans les tests unitaires sans passer par
    * la phase complète de réveil/dormir. Les validations miment
    * exactement celles de {@link seerPeek}.
+   *
+   * Dans le jeu, la voyante peut une fois par nuit "sonder" un joueur
+   * pour connaître son rôle secret. Cette méthode court‑circuite la
+   * mécanique de réveil afin de cibler directement un joueur depuis un
+   * test automatisé.
    */
   seerProbe(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
@@ -375,7 +382,9 @@ export class Orchestrator {
    * Démarre la phase `NIGHT_SEER`.
    * La voyante se réveille, reçoit la liste des joueurs vivants
    * (hors elle-même) et dispose de quelques secondes pour choisir
-   * une cible à sonder.
+   * une cible à sonder. C'est la toute première étape de la nuit :
+   * elle agit avant les loups afin de fournir potentiellement une
+   * information stratégique au village.
    */
   private beginNightSeer(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_SEER")) return;
@@ -392,6 +401,8 @@ export class Orchestrator {
 
     const alive = game.players
       .filter((p) => p.id !== sid && game.alive.has(p.id))
+      // Seule la structure minimale (id) est envoyée au client pour réduire
+      // la surface de fuite d'informations sensibles.
       .map((p) => this.playerLite(game, p.id));
     const s = this.io.sockets.sockets.get(this.playerSocket(game, sid));
     // Réveil ciblé : seul le socket de la voyante reçoit l'évènement.
@@ -405,6 +416,10 @@ export class Orchestrator {
    * Traite la commande `seer:peek` envoyée par le client.
    * Vérifie la validité de la cible puis révèle son rôle uniquement
    * à la voyante avant de clôturer la phase.
+   *
+   * Le serveur attend ensuite un accusé de lecture (`seer:ack`) afin
+   * d'éviter qu'une transition de phase ne soit manquée par la
+   * joueuse — par exemple en cas de notification système.
    */
   seerPeek(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
@@ -434,6 +449,8 @@ export class Orchestrator {
   // ACK de lecture par la Voyante après la révélation
   seerAck(gameId: string, playerId: string) {
     const game = this.mustGet(gameId);
+    // Toute commande pourrait être reçue hors contexte (latence, client
+    // malicieux). On vérifie donc systématiquement la phase et le rôle.
     if (game.state !== "NIGHT_SEER") return; // ignorer si mauvaise phase
     if (game.roles[playerId] !== "SEER") return; // ignorer si pas la voyante
     if (!this.pendingSeerAck.has(game.id)) return; // rien en attente
