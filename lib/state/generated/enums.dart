@@ -1,10 +1,27 @@
 // GENERATED FILE - DO NOT EDIT MANUALLY
 // Source: server roles.config.json and domain FSM
 
+import 'package:flutter/foundation.dart';
+
 // Keep in sync with server/src/domain/fsm.ts transitions keys
-enum GamePhase { LOBBY, ROLES, NIGHT_CUPID, NIGHT_LOVERS, NIGHT_WOLVES, NIGHT_WITCH, MORNING, VOTE, RESOLVE, CHECK_END, END }
-GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => e.name == s);
+// Ajout de NIGHT_SEER pour la phase de la voyante
+enum GamePhase {
+  LOBBY,
+  ROLES,
+  NIGHT_CUPID,
+  NIGHT_LOVERS,
+  NIGHT_SEER,
+  NIGHT_WOLVES,
+  NIGHT_WITCH,
+  MORNING,
+  VOTE,
+  RESOLVE,
+  CHECK_END,
+  END
+}
+GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);
 
 // Keep in sync with server/roles.config.json registry keys
-enum Role { CUPID, HUNTER, VILLAGER, WITCH, WOLF }
-Role roleFromStr(String s) => Role.values.firstWhere((e) => e.name == s);
+// Ajout du rôle SEER
+enum Role { CUPID, HUNTER, SEER, VILLAGER, WITCH, WOLF }
+Role roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);

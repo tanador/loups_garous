@@ -30,6 +30,7 @@ import 'views/night_wolves_screen.dart';
 import 'views/night_witch_screen.dart';
 import 'views/night_cupid_screen.dart';
 import 'views/night_lovers_screen.dart';
+import 'views/night/seer_view.dart';
 import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
 import 'views/end_screen.dart';
@@ -178,6 +179,9 @@ class _HomeRouter extends ConsumerWidget {
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_LOVERS:
         if (s.loverPartnerId != null) return const NightLoversScreen();
+        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+      case GamePhase.NIGHT_SEER:
+        if (youRole == Role.SEER) return const SeerView();
         return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_WOLVES:
         if (youRole == Role.WOLF) return const NightWolvesScreen();

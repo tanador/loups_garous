@@ -80,6 +80,10 @@ class GameModel {
 
   final WitchWake? witchWake;
   final List<Lite> hunterTargets;
+  // Cibles disponibles pour la voyante lors de son réveil
+  final List<Lite> seerTargets;
+  // Historique privé des révélations de la voyante
+  final List<(String playerId, Role role)> seerLog;
   final List<Lite> cupidTargets;
   final String? loverPartnerId;
   final DayRecap? recap;
@@ -127,6 +131,8 @@ class GameModel {
     required this.confirmationsRemaining,
     required this.witchWake,
     required this.hunterTargets,
+    required this.seerTargets,
+    required this.seerLog,
     required this.cupidTargets,
     required this.loverPartnerId,
     required this.recap,
@@ -163,6 +169,8 @@ class GameModel {
         confirmationsRemaining: 0,
         witchWake: null,
         hunterTargets: [],
+        seerTargets: [],
+        seerLog: [],
         cupidTargets: [],
         loverPartnerId: null,
         recap: null,
@@ -202,6 +210,8 @@ class GameModel {
     int? confirmationsRemaining,
     Object? witchWake = _unset,
     List<Lite>? hunterTargets,
+    List<Lite>? seerTargets,
+    List<(String playerId, Role role)>? seerLog,
     List<Lite>? cupidTargets,
     Object? loverPartnerId = _unset,
     Object? recap = _unset,
@@ -238,6 +248,8 @@ class GameModel {
       confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
       witchWake: identical(witchWake, _unset) ? this.witchWake : witchWake as WitchWake?,
       hunterTargets: hunterTargets ?? this.hunterTargets,
+      seerTargets: seerTargets ?? this.seerTargets,
+      seerLog: seerLog ?? this.seerLog,
       cupidTargets: cupidTargets ?? this.cupidTargets,
       loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
