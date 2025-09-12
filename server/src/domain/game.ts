@@ -15,6 +15,7 @@ export function createGame(maxPlayers: number): Game {
     maxPlayers,
     players: [],
     roles: {},
+    center: new Array<Role>(2),
     alive: new Set<string>(),
     night: {},
     inventory: { witch: { healUsed: false, poisonUsed: false } },

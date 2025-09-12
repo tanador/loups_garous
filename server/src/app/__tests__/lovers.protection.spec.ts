@@ -22,6 +22,7 @@ describe('Lovers cannot harm each other', () => {
     const game: Game = {
       id: 'G1', state: 'NIGHT_WOLVES', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 2,
       players: [a, b], roles: { A: 'WOLF', B: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['A', 'B']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null
     };
@@ -35,6 +36,7 @@ describe('Lovers cannot harm each other', () => {
     const game: Game = {
       id: 'G2', state: 'VOTE', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 2,
       players: [a, b], roles: { A: 'VILLAGER', B: 'WOLF' } as any,
+      center: Array(2) as any,
       alive: new Set(['A', 'B']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null
     };
@@ -49,6 +51,7 @@ describe('Lovers cannot harm each other', () => {
     const game: Game = {
       id: 'G3', state: 'NIGHT_WITCH', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 2,
       players: [a, b], roles: { A: 'WITCH', B: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['A', 'B']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null
     };
@@ -63,6 +66,7 @@ describe('Lovers cannot harm each other', () => {
     const game: Game = {
       id: 'G4', state: 'MORNING', createdAt: Date.now(), updatedAt: Date.now(), round: 1, maxPlayers: 2,
       players: [a, b], roles: { A: 'HUNTER', B: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['A', 'B']), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null
     };

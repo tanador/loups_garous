@@ -5,7 +5,7 @@ import type { Game } from '../../domain/types.js';
 function makeGame(state: any = 'LOBBY'): Game {
   return {
     id: 'G', state, createdAt: Date.now(), updatedAt: Date.now(), round: 0, maxPlayers: 3,
-    players: [], roles: {}, alive: new Set(), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
+    players: [], roles: {}, center: Array(2) as any, alive: new Set(), night: {}, inventory: { witch: { healUsed: false, poisonUsed: false } },
     votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null,
   } as any;
 }

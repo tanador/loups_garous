@@ -27,6 +27,7 @@ describe('Wolves unanimous choice progresses phase', () => {
       id: 'G', state: 'CHECK_END', createdAt: Date.now(), updatedAt: Date.now(), round: 0, maxPlayers: 4,
       players: [w1, w2, v1, v2],
       roles: { W1: 'WOLF', W2: 'WOLF', V1: 'VILLAGER', V2: 'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['W1','W2','V1','V2']),
       night: {}, inventory: { witch: { healUsed:false, poisonUsed:false } },
       votes: {}, history: [], deadlines: {}, wolvesChoices: {}, morningAcks: new Set(), loversMode: null,

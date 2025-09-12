@@ -22,6 +22,7 @@ describe('Vote guards when a winner already exists', () => {
     game = {
       id:'G1', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:1,
       players:[a], roles:{ A:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['A']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null,
     } as any;
     (orch as any).store.put(game);
@@ -39,6 +40,7 @@ describe('Vote guards when a winner already exists', () => {
     game = {
       id:'G2', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:1,
       players:[w], roles:{ W:'WOLF' } as any,
+      center: Array(2) as any,
       alive: new Set(['W']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null,
     } as any;
     (orch as any).store.put(game);
@@ -58,6 +60,7 @@ describe('Vote guards when a winner already exists', () => {
     game = {
       id:'G3', state:'MORNING', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:2,
       players:[a,b], roles:{ A:'WOLF', B:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive: new Set(['A','B']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }}, votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:'MIXED_CAMPS',
     } as any;
     (orch as any).store.put(game);

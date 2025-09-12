@@ -24,6 +24,7 @@ describe('Wolves tie mechanics', () => {
     game = {
       id:'G', state:'NIGHT_WOLVES', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:4,
       players:[w1,w2,v1,v2], roles:{ WOLF_A:'WOLF', WOLF_B:'WOLF', CIBLE_A:'VILLAGER', CIBLE_B:'VILLAGER' } as any,
+      center: Array(2) as any,
       alive:new Set(['WOLF_A','WOLF_B','CIBLE_A','CIBLE_B']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
       votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null,
     } as any;
