@@ -77,6 +77,7 @@ class GameController extends StateNotifier<GameModel> {
       confirmationsRemaining: 0,
       witchWake: null,
       hunterTargets: [],
+      thiefCenter: [],
       seerTargets: [],
       seerLog: [],
       recap: null,
@@ -246,6 +247,23 @@ class GameController extends StateNotifier<GameModel> {
       _resetGameState();
       await _clearSession();
       log('[evt] game:cancelled');
+    });
+
+    // --- Phase de nuit : rôle Voleur ---
+    // Le serveur envoie les deux rôles du centre visibles par le voleur.
+    s.on('thief:wake', (data) async {
+      final list = ((data['center'] as List?) ?? [])
+          .map((e) => roleFromStr(e.toString()))
+          .toList();
+      state = state.copy(thiefCenter: list);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] thief:wake center=${list.length}');
+    });
+
+    // Fin de phase pour le voleur.
+    s.on('thief:sleep', (_) {
+      state = state.copy(thiefCenter: []);
+      log('[evt] thief:sleep');
     });
 
     // --- Phase de nuit : rôle Voyante ---
@@ -676,6 +694,12 @@ class GameController extends StateNotifier<GameModel> {
       default:
         return err.isEmpty ? 'action_failed' : err;
     }
+  }
+
+  // ------------- Thief -------------
+  Future<void> thiefChoose(String choice) async {
+    final ack = await _socketSvc.emitAck('thief:choose', {'choice': choice});
+    log('[ack] thief:choose $ack');
   }
 
   // ------------- Witch -------------
