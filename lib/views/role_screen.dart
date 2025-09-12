@@ -31,6 +31,9 @@ class RoleScreen extends ConsumerWidget {
         case Role.SEER:
           roleLabel = 'Voyante';
           break;
+        case Role.PETITE_FILLE:
+          roleLabel = 'Petite fille';
+          break;
         case Role.THIEF:
           roleLabel = 'Voleur';
           break;

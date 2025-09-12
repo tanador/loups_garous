@@ -8,5 +8,5 @@ GamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => e.name ==
 
 // Keep in sync with server/roles.config.json registry keys
 
-enum Role { CUPID, HUNTER, SEER, THIEF, VILLAGER, WITCH, WOLF }
+enum Role { CUPID, HUNTER, PETITE_FILLE, SEER, THIEF, VILLAGER, WITCH, WOLF }
 Role roleFromStr(String s) => Role.values.firstWhere((e) => e.name == s);

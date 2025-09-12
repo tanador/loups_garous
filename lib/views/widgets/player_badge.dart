@@ -23,6 +23,7 @@ class _PlayerBadgeState extends ConsumerState<PlayerBadge> {
         Role.WITCH => 'Sorcière',
         Role.HUNTER => 'Chasseur',
         Role.SEER => 'Voyante',
+        Role.PETITE_FILLE => 'Petite fille',
         Role.THIEF => 'Voleur',
         Role.VILLAGER => 'Villageois',
         Role.CUPID => 'Cupidon',

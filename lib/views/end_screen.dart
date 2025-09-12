@@ -24,6 +24,7 @@ class EndScreen extends ConsumerWidget {
           Role.WITCH => 'Sorcière',
           Role.HUNTER => 'Chasseur',
           Role.SEER => 'Voyante',
+          Role.PETITE_FILLE => 'Petite fille',
           Role.THIEF => 'Voleur',
           Role.VILLAGER => 'Villageois',
           Role.CUPID => 'Cupidon',

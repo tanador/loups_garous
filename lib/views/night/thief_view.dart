@@ -120,6 +120,8 @@ String _roleLabel(Role? r) {
       return 'Chasseur';
     case Role.SEER:
       return 'Voyante';
+    case Role.PETITE_FILLE:
+      return 'Petite fille';
     case Role.THIEF:
       return 'Voleur';
     case Role.VILLAGER:
@@ -139,6 +141,8 @@ IconData _roleIcon(Role? r) {
       return Icons.gps_fixed;
     case Role.SEER:
       return Icons.visibility;
+    case Role.PETITE_FILLE:
+      return Icons.child_care;
     case Role.THIEF:
       return Icons.change_circle;
     case Role.VILLAGER:
@@ -161,6 +165,8 @@ Color _roleColor(BuildContext context, Role? r) {
       return Colors.brown;
     case Role.SEER:
       return Colors.indigo;
+    case Role.PETITE_FILLE:
+      return Colors.orangeAccent;
     case Role.THIEF:
       return Colors.teal;
     case Role.VILLAGER:
