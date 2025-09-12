@@ -29,4 +29,14 @@ describe('THIEF role', () => {
     expect(center.sort()).toEqual(['THIEF', 'VILLAGER'].sort());
     expect(center).toEqual([...g.center]);
   });
+
+  it('prevents two wolves from being placed in the center', () => {
+    const g = createGame(3);
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
+    const { center } = assignRoles(g, () => 5);
+    expect(center.length).toBe(2);
+    expect(center.filter((r) => r === 'WOLF').length).toBeLessThan(2);
+  });
 });
