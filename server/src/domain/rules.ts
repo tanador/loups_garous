@@ -199,6 +199,32 @@ export function targetsForWitch(game: Game): string[] {
   return alivePlayers(game).filter(pid => pid !== wid && pid !== lover);
 }
 
+/**
+ * Logs a seer's peek at a target's role and returns the revealed role.
+ */
+export function recordSeerPeek(game: Game, seerId: string, targetId: string): Role {
+  const role = game.roles[targetId];
+  if (!role) throw new Error('target_has_no_role');
+  const seer = game.players.find(p => p.id === seerId);
+  if (!seer) throw new Error('seer_not_found');
+  seer.privateLog.push({
+    type: 'SEER_PEEK',
+    targetId,
+    role,
+    night: game.round,
+  });
+  // Optional audit trail in game history
+  let h = game.history.find((ev) => ev.round === game.round);
+  if (!h) {
+    h = { round: game.round, night: { deaths: [] }, events: [] };
+    game.history.push(h);
+  } else if (!h.events) {
+    h.events = [];
+  }
+  h.events!.push({ type: 'SEER_PEEK', seerId, targetId, role });
+  return role;
+}
+
 /// Indique si un joueur peut être sauvé par la potion de vie.
 export function canBeSaved(game: Game, pid: string): boolean {
   return (
