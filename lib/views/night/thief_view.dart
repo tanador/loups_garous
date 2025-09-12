@@ -34,35 +34,12 @@ class ThiefView extends ConsumerWidget {
                   : 'Choisissez une des trois options:',
             ),
             const SizedBox(height: 12),
-            // Trois choix présentés sous forme de "cartes" cliquables
+            // Choix A et B (sur une ligne)
             Row(
               children: [
                 Expanded(
                   child: _ChoiceTile(
-                    title: 'Garder',
-                    subtitle: _roleLabel(Role.THIEF),
-                    icon: _roleIcon(Role.THIEF),
-                    color: _roleColor(context, Role.THIEF),
-                    enabled: !mustTakeWolf,
-                    onTap: !mustTakeWolf
-                        ? () async {
-                            final err = await ctl.thiefKeep();
-                            if (err != null) {
-                              messenger.showSnackBar(SnackBar(content: Text(err)));
-                            } else {
-                              if (s.vibrations) await HapticFeedback.selectionClick();
-                              messenger.showSnackBar(
-                                const SnackBar(content: Text('Vous gardez votre carte.')),
-                              );
-                            }
-                          }
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _ChoiceTile(
-                    title: 'Prendre A',
+                    title: 'Prendre :',
                     subtitle: _roleLabel(center.isNotEmpty ? center[0] : null),
                     icon: _roleIcon(center.isNotEmpty ? center[0] : null),
                     color: _roleColor(context, center.isNotEmpty ? center[0] : null),
@@ -75,7 +52,7 @@ class ThiefView extends ConsumerWidget {
                             } else {
                               if (s.vibrations) await HapticFeedback.selectionClick();
                               messenger.showSnackBar(
-                                SnackBar(content: Text('Vous prenez ${_roleLabel(center[0])}.')),
+                                SnackBar(content: Text('Prendre : ${_roleLabel(center[0])}')),
                               );
                             }
                           }
@@ -85,7 +62,7 @@ class ThiefView extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ChoiceTile(
-                    title: 'Prendre B',
+                    title: 'Prendre :',
                     subtitle: _roleLabel(center.length > 1 ? center[1] : null),
                     icon: _roleIcon(center.length > 1 ? center[1] : null),
                     color: _roleColor(context, center.length > 1 ? center[1] : null),
@@ -98,7 +75,7 @@ class ThiefView extends ConsumerWidget {
                             } else {
                               if (s.vibrations) await HapticFeedback.selectionClick();
                               messenger.showSnackBar(
-                                SnackBar(content: Text('Vous prenez ${_roleLabel(center[1])}.')),
+                                SnackBar(content: Text('Prendre : ${_roleLabel(center[1])}')),
                               );
                             }
                           }
@@ -106,6 +83,28 @@ class ThiefView extends ConsumerWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            // Garder le voleur (sur une ligne en dessous)
+            _ChoiceTile(
+              title: 'Garder le voleur',
+              subtitle: _roleLabel(Role.THIEF),
+              icon: _roleIcon(Role.THIEF),
+              color: _roleColor(context, Role.THIEF),
+              enabled: !mustTakeWolf,
+              onTap: !mustTakeWolf
+                  ? () async {
+                      final err = await ctl.thiefKeep();
+                      if (err != null) {
+                        messenger.showSnackBar(SnackBar(content: Text(err)));
+                      } else {
+                        if (s.vibrations) await HapticFeedback.selectionClick();
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Vous gardez votre carte.')),
+                        );
+                      }
+                    }
+                  : null,
             ),
           ],
         ),
