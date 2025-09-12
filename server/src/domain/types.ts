@@ -31,6 +31,11 @@ export interface Player {
   lastSeen: number;
   // Lover link (Cupidon). If set, must be symmetric with the partner's loverId
   loverId?: string;
+  /**
+   * Per-player private event log.
+   * Stores audit events visible only to that player (e.g., seer peeks).
+   */
+  privateLog: { type: string; [k: string]: unknown }[];
 }
 
 export interface NightState {
@@ -43,6 +48,8 @@ export interface HistoryEvent {
   round: number;
   night: { attacked?: string; saved?: string; poisoned?: string; deaths: string[] };
   day?: { eliminated?: string | null; tally: Record<string, number> };
+  /** Optional list of audit events for the round (e.g., seer peeks). */
+  events?: { type: string; [k: string]: unknown }[];
 }
 
 // Coarse game phase (independent from fine-grained GameState)
