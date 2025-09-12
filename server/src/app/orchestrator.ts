@@ -17,6 +17,7 @@ import {
   witchId,
   isConsensus,
   activeWolves,
+  recordSeerPeek,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
 import { DURATION, CONFIG } from "./timers.js";
@@ -348,20 +349,30 @@ export class Orchestrator {
   }
 
 
+  /**
+   * Révèle immédiatement le rôle de `targetId` à la voyante `playerId`.
+   * Utilitaire surtout employé dans les tests unitaires sans passer par
+   * la phase complète de réveil/dormir. Les validations miment
+   * exactement celles de {@link seerPeek}.
+   */
   seerProbe(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
     if ((game.roles[playerId] as any) !== "SEER") throw new Error("forbidden");
     if (playerId === targetId) throw new Error("cannot_probe_self");
     if (!game.alive.has(targetId)) throw new Error("invalid_probe_target");
-    const role = game.roles[targetId];
+    const role = recordSeerPeek(game, playerId, targetId);
     const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
     if (s) s.emit("seer:reveal", { playerId: targetId, role });
-    (game as any).privateLog = (game as any).privateLog ?? {};
-    ((game as any).privateLog[playerId] =
-      (game as any).privateLog[playerId] ?? []).push({ playerId: targetId, role });
     this.log(game.id, game.state, playerId, "seer.probe", { targetId });
-=======
+  }
+
+  /**
+   * Démarre la phase `NIGHT_SEER`.
+   * La voyante se réveille, reçoit la liste des joueurs vivants
+   * (hors elle-même) et dispose de quelques secondes pour choisir
+   * une cible à sonder.
+   */
   private beginNightSeer(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_SEER")) return;
     setState(game, "NIGHT_SEER");
@@ -379,12 +390,18 @@ export class Orchestrator {
       .filter((p) => p.id !== sid && game.alive.has(p.id))
       .map((p) => this.playerLite(game, p.id));
     const s = this.io.sockets.sockets.get(this.playerSocket(game, sid));
+    // Réveil ciblé : seul le socket de la voyante reçoit l'évènement.
     if (s) s.emit("seer:wake", { alive });
     this.log(game.id, game.state, sid, "seer.wake", { targets: alive.length });
 
     this.schedule(game.id, DURATION.SEER_MS, () => this.endNightSeer(game.id));
   }
 
+  /**
+   * Traite la commande `seer:peek` envoyée par le client.
+   * Vérifie la validité de la cible puis révèle son rôle uniquement
+   * à la voyante avant de clôturer la phase.
+   */
   seerPeek(gameId: string, playerId: string, targetId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
@@ -392,14 +409,11 @@ export class Orchestrator {
     if (targetId === playerId) throw new Error("invalid_target");
     if (!game.alive.has(targetId)) throw new Error("invalid_target");
 
-    const role = game.roles[targetId];
+    const role = recordSeerPeek(game, playerId, targetId);
     const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    // La révélation est strictement privée.
     if (s) s.emit("seer:reveal", { targetId, role });
     this.log(game.id, game.state, playerId, "seer.peek", { targetId, role });
-
-    const logArr = ((game as any).privateLog ??= []);
-    logArr.push({ round: game.round, seer: playerId, target: targetId, role });
-
     this.endNightSeer(game.id);
   }
 
@@ -413,7 +427,6 @@ export class Orchestrator {
       if (s) s.emit("seer:sleep");
     }
     this.globalSleep(game, () => this.beginNightWolves(game));
-
   }
 
   private beginNightWolves(game: Game) {

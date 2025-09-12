@@ -1,3 +1,6 @@
+// Tests du rôle Voyante côté serveur.
+// Ils vérifient que la révélation est privée, que les cibles sont validées
+// et que la phase nocturne se déroule correctement.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Orchestrator } from '../../app/orchestrator.js';
 import type { Game, Player } from '../../domain/types.js';
@@ -24,8 +27,10 @@ const mkP = (id: string): Player => ({
   isReady: true,
   connected: true,
   lastSeen: Date.now(),
+  privateLog: [],
 } as any);
 
+// Utilisation directe de `seerProbe` sans passer par l'orchestration complète.
 describe('Seer probes', () => {
   let io: FakeServer;
   let orch: Orchestrator;
@@ -64,7 +69,6 @@ describe('Seer probes', () => {
       wolvesChoices: {},
       morningAcks: new Set(),
       loversMode: null,
-      privateLog: {} as any,
     };
     (orch as any).store.put(game);
   });
@@ -99,37 +103,43 @@ describe('Seer probes', () => {
   it('keeps reveal result in privateLog if seer later dies', () => {
     orch.seerProbe(game.id, 'SEER', 'B');
     game.alive.delete('SEER');
-    expect((game as any).privateLog.SEER).toEqual([
-      { playerId: 'B', role: 'WOLF' },
+    const seer = game.players.find(p => p.id === 'SEER')!;
+    expect(seer.privateLog).toEqual([
+      { type: 'SEER_PEEK', targetId: 'B', role: 'WOLF', night: 1 },
     ]);
-=======
+  });
+});
+
+// --- Phase complète: tests utilisant le réveil/sommeil orchestré de la voyante.
+class FakeSocket2 {
   public emits: { event: string; payload: any }[] = [];
   constructor(public id: string) {}
   join(_r: string) {}
   emit(event: string, payload: any) { this.emits.push({ event, payload }); }
 }
-class FakeServer {
+class FakeServer2 {
   public emits: { room: string | null; event: string; payload: any }[] = [];
-  public sockets = { sockets: new Map<string, FakeSocket>() };
+  public sockets = { sockets: new Map<string, FakeSocket2>() };
   to(room: string) { return { emit: (event: string, payload: any) => this.emits.push({ room, event, payload }) }; }
   emit(event: string, payload: any) { this.emits.push({ room: null, event, payload }); }
 }
-const mkP = (id: string): Player => ({ id, socketId: 's:'+id, isReady:true, connected:true, lastSeen:Date.now() } as any);
+const mkP2 = (id: string): Player => ({ id, socketId: 's:'+id, isReady:true, connected:true, lastSeen:Date.now(), privateLog: [] } as any);
 
+// Scénario complet: la voyante est réveillée, choisit une cible puis se rendort.
 describe('Seer peek flow', () => {
-  let io: FakeServer; let orch: Orchestrator; let game: Game; let seerSock: FakeSocket;
+  let io: FakeServer2; let orch: Orchestrator; let game: Game; let seerSock: FakeSocket2;
   beforeEach(() => {
-    io = new FakeServer(); orch = new Orchestrator(io as any);
-    const seer = mkP('SEER'); const a = mkP('A'); const b = mkP('B');
-    seerSock = new FakeSocket(seer.socketId);
+    io = new FakeServer2(); orch = new Orchestrator(io as any);
+    const seer = mkP2('SEER'); const a = mkP2('A'); const b = mkP2('B');
+    seerSock = new FakeSocket2(seer.socketId);
     io.sockets.sockets.set(seer.socketId, seerSock);
-    io.sockets.sockets.set(a.socketId, new FakeSocket(a.socketId));
-    io.sockets.sockets.set(b.socketId, new FakeSocket(b.socketId));
+    io.sockets.sockets.set(a.socketId, new FakeSocket2(a.socketId));
+    io.sockets.sockets.set(b.socketId, new FakeSocket2(b.socketId));
     game = {
       id:'G', state:'NIGHT_SEER', createdAt:Date.now(), updatedAt:Date.now(), round:1, maxPlayers:3,
       players:[seer,a,b], roles:{ SEER:'SEER', A:'VILLAGER', B:'WOLF' } as any,
       alive:new Set(['SEER','A','B']), night:{}, inventory:{ witch:{ healUsed:false, poisonUsed:false }},
-      votes:{}, history:[], privateLog:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
+      votes:{}, history:[], deadlines:{}, wolvesChoices:{}, morningAcks:new Set(), loversMode:null
     } as any;
     (orch as any).store.put(game);
   });
@@ -153,8 +163,8 @@ describe('Seer peek flow', () => {
     expect(reveal!.payload.role).toBe('VILLAGER');
     const sleep = seerSock.emits.find(e => e.event === 'seer:sleep');
     expect(sleep).toBeTruthy();
-    expect((game as any).privateLog.length).toBe(1);
-    expect((game as any).privateLog[0].target).toBe('A');
-
+    const seer = game.players.find(p => p.id === 'SEER')!;
+    expect(seer.privateLog.length).toBe(1);
+    expect(seer.privateLog[0].targetId).toBe('A');
   });
 });

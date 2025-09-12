@@ -7,7 +7,12 @@ import '../../state/models.dart';
 import '../widgets/common.dart';
 
 /// Écran de la voyante pendant la phase de nuit.
-/// Affiche les joueurs vivants et permet d'envoyer `seer:peek`.
+///
+/// Dans *Loup Garou*, la voyante est une villageoise qui peut
+/// chaque nuit regarder secrètement le rôle d'un autre joueur.
+/// Cette vue présente la liste des cibles vivantes et envoie
+/// l'évènement `seer:peek` au serveur lorsque l'utilisateur confirme
+/// son choix.
 class SeerView extends ConsumerStatefulWidget {
   const SeerView({super.key});
 
