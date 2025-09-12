@@ -79,12 +79,15 @@ export interface Game {
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
   votes: Record<string, string>; // nickname -> target nickname
   history: HistoryEvent[];
-  privateLog: any[]; // événements privés (ex.: visions de la voyante)
+  privateLog?: any[];
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
   morningAcks: Set<string>;
   loversMode?: LoversMode;
   pendingDeaths?: PendingDeath[]; // FIFO queue for resolution helpers
   deferredGrief?: string[]; // victims whose lovers should later die of grief
-  privateLog?: Record<string, { playerId: string; role: string }[]>;
 }
+
+
+
+

@@ -138,10 +138,8 @@ export function createSocketServer(httpServer: HttpServer) {
 
     // Voyante: reçoit la cible choisie et demande au serveur de révéler son rôle.
     handle(socket, 'seer:peek', SeerPeekSchema, (data, ack) => {
-      const { gameId, playerId } = socket.data as {
-        gameId?: string;
-        playerId?: string;
-      } | {};
+      const ctx = (socket.data ?? {}) as { gameId?: string; playerId?: string };
+      const { gameId, playerId } = ctx;
       if (!gameId || !playerId) {
         if (typeof ack === 'function') {
           ack({ ok: false, error: 'missing_context' });
