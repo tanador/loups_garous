@@ -30,6 +30,8 @@ export class Orchestrator {
   private io: Server;
   private store = new GameStore();
   private timers = new Map<string, NodeJS.Timeout>();
+  // En attente de l'ACK de la voyante après révélation
+  private pendingSeerAck = new Set<string>(); // gameId
   private rateCounters = new Map<string, { n: number; resetAt: number }>(); // per-socket simple limiter
   private hunterAwaiting = new Map<
     string,
@@ -414,13 +416,28 @@ export class Orchestrator {
     const role = game.roles[targetId];
     const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
     // La révélation est strictement privée.
-    if (s) s.emit("seer:reveal", { targetId, role });
+    if (s) s.emit("seer:reveal", { playerId: targetId, role });
     this.log(game.id, game.state, playerId, "seer.peek", { targetId, role });
 
     // Audit interne : consigne de la vision pour la fin de partie.
     const logArr = ((game as any).privateLog ??= []);
     logArr.push({ round: game.round, seer: playerId, target: targetId, role });
 
+    // Met la phase en pause jusqu'à l'ACK explicite de la voyante.
+    this.pendingSeerAck.add(game.id);
+    // Annule le timer et retire la deadline côté clients.
+    this.cancelTimer(game.id);
+    (game as any).deadlines = undefined as any;
+    this.broadcastState(game);
+  }
+
+  // ACK de lecture par la Voyante après la révélation
+  seerAck(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_SEER") return; // ignorer si mauvaise phase
+    if (game.roles[playerId] !== "SEER") return; // ignorer si pas la voyante
+    if (!this.pendingSeerAck.has(game.id)) return; // rien en attente
+    this.pendingSeerAck.delete(game.id);
     this.endNightSeer(game.id);
   }
 
@@ -985,6 +1002,14 @@ export class Orchestrator {
     if (old) clearTimeout(old);
     const t = setTimeout(cb, ms);
     this.timers.set(gameId, t);
+  }
+
+  private cancelTimer(gameId: string) {
+    const old = this.timers.get(gameId);
+    if (old) {
+      clearTimeout(old);
+      this.timers.delete(gameId);
+    }
   }
 
   private playerSocket(game: Game, playerId: string) {

@@ -272,13 +272,13 @@ class GameController extends StateNotifier<GameModel> {
         return;
       }
       final logList = [...state.seerLog, (pid, role)];
-      state = state.copy(seerLog: logList);
+      state = state.copy(seerLog: logList, seerPending: (pid, role));
       log('[evt] seer:reveal target=$pid role=$roleStr');
     });
 
     // Fin de phase : la voyante se rendort.
     s.on('seer:sleep', (_) async {
-      state = state.copy(seerTargets: []);
+      state = state.copy(seerTargets: [], seerPending: null);
       log('[evt] seer:sleep');
     });
 
@@ -696,6 +696,12 @@ class GameController extends StateNotifier<GameModel> {
   Future<void> seerPeek(String targetId) async {
     final ack = await _socketSvc.emitAck('seer:peek', {'targetId': targetId});
     log('[ack] seer:peek $ack');
+  }
+
+  /// ACK de lecture de la voyante pour passer à la phase suivante.
+  Future<void> seerAck() async {
+    final ack = await _socketSvc.emitAck('seer:ack', {});
+    log('[ack] seer:ack $ack');
   }
 
   // ------------- Hunter -------------

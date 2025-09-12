@@ -160,8 +160,13 @@ describe('Seer peek flow', () => {
     const reveal = seerSock.emits.find(e => e.event === 'seer:reveal');
     expect(reveal).toBeTruthy();
     expect(reveal!.payload.role).toBe('VILLAGER');
-    const sleep = seerSock.emits.find(e => e.event === 'seer:sleep');
-    expect(sleep).toBeTruthy();
+    // Pas de sleep tant que la voyante n'a pas ACK
+    const sleepBefore = seerSock.emits.find(e => e.event === 'seer:sleep');
+    expect(sleepBefore).toBeFalsy();
+    // Après ACK: passage à la suite et emission de sleep
+    (orch as any).seerAck(game.id, 'SEER');
+    const sleepAfter = seerSock.emits.find(e => e.event === 'seer:sleep');
+    expect(sleepAfter).toBeTruthy();
     expect((game as any).privateLog.length).toBe(1);
     expect((game as any).privateLog[0].target).toBe('A');
   });

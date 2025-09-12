@@ -85,6 +85,8 @@ class GameModel {
   final List<Lite> seerTargets;
   // Journal privé des rôles révélés par la voyante au fil des nuits.
   final List<(String playerId, Role role)> seerLog;
+  // Révélation en attente d'accusé de lecture par la voyante
+  final (String playerId, Role role)? seerPending;
   final List<Lite> cupidTargets;
   final String? loverPartnerId;
   final DayRecap? recap;
@@ -134,6 +136,7 @@ class GameModel {
     required this.hunterTargets,
     required this.seerTargets,
     required this.seerLog,
+    required this.seerPending,
     required this.cupidTargets,
     required this.loverPartnerId,
     required this.recap,
@@ -172,6 +175,7 @@ class GameModel {
         hunterTargets: [],
         seerTargets: [],
         seerLog: [],
+        seerPending: null,
         cupidTargets: [],
         loverPartnerId: null,
         recap: null,
@@ -213,6 +217,7 @@ class GameModel {
     List<Lite>? hunterTargets,
     List<Lite>? seerTargets,
     List<(String playerId, Role role)>? seerLog,
+    Object? seerPending = _unset,
     List<Lite>? cupidTargets,
     Object? loverPartnerId = _unset,
     Object? recap = _unset,
@@ -251,6 +256,7 @@ class GameModel {
       hunterTargets: hunterTargets ?? this.hunterTargets,
       seerTargets: seerTargets ?? this.seerTargets,
       seerLog: seerLog ?? this.seerLog,
+      seerPending: identical(seerPending, _unset) ? this.seerPending : seerPending as (String, Role)?,
       cupidTargets: cupidTargets ?? this.cupidTargets,
       loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,

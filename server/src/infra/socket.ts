@@ -2,7 +2,7 @@ import type { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
-import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, SeerPeekSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema, VoteAckSchema } from '../app/schemas.js';
+import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, SeerPeekSchema, SeerAckSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema, VoteAckSchema } from '../app/schemas.js';
 
 // Couche "infra": instancie le serveur Socket.IO et enregistre les handlers.
 export function createSocketServer(httpServer: HttpServer) {
@@ -147,6 +147,22 @@ export function createSocketServer(httpServer: HttpServer) {
         return;
       }
       orch.seerPeek(gameId, playerId, data.targetId);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
+    });
+
+    // Voyante: ACK de lecture pour débloquer la phase suivante
+    handle(socket, 'seer:ack', SeerAckSchema, (_data, ack) => {
+      const ctx = (socket.data ?? {}) as { gameId?: string; playerId?: string };
+      const { gameId, playerId } = ctx;
+      if (!gameId || !playerId) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'missing_context' });
+        }
+        return;
+      }
+      orch.seerAck(gameId, playerId);
       if (typeof ack === 'function') {
         ack({ ok: true });
       }
