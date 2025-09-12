@@ -62,6 +62,15 @@ export function wolvesOf(game: Game): string[] {
   return game.players.filter(p => game.roles[p.id] === 'WOLF').map(p => p.id);
 }
 
+/// Liste les loups vivants et connectés.
+export function activeWolves(game: Game): string[] {
+  return game.players
+    .filter(
+      (p) => game.roles[p.id] === 'WOLF' && game.alive.has(p.id) && p.connected,
+    )
+    .map((p) => p.id);
+}
+
 /// Identifiant de la sorcière, s'il y en a une.
 export function witchId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'WITCH')?.id;
@@ -199,6 +208,32 @@ export function targetsForWitch(game: Game): string[] {
   return alivePlayers(game).filter(pid => pid !== wid && pid !== lover);
 }
 
+/**
+ * Logs a seer's peek at a target's role and returns the revealed role.
+ */
+export function recordSeerPeek(game: Game, seerId: string, targetId: string): Role {
+  const role = game.roles[targetId];
+  if (!role) throw new Error('target_has_no_role');
+  const seer = game.players.find(p => p.id === seerId);
+  if (!seer) throw new Error('seer_not_found');
+  seer.privateLog.push({
+    type: 'SEER_PEEK',
+    targetId,
+    role,
+    night: game.round,
+  });
+  // Optional audit trail in game history
+  let h = game.history.find((ev) => ev.round === game.round);
+  if (!h) {
+    h = { round: game.round, night: { deaths: [] }, events: [] };
+    game.history.push(h);
+  } else if (!h.events) {
+    h.events = [];
+  }
+  h.events!.push({ type: 'SEER_PEEK', seerId, targetId, role });
+  return role;
+}
+
 /// Indique si un joueur peut être sauvé par la potion de vie.
 export function canBeSaved(game: Game, pid: string): boolean {
   return (
@@ -218,16 +253,14 @@ export function canBeSaved(game: Game, pid: string): boolean {
  *   ce qui pourrait bloquer la phase inutilement.
  */
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
-  // Pour déterminer le consensus, on prend en compte tous les loups déclarés.
-  // (Le calcul d'affichage côté UI peut, lui, limiter aux loups vivants/connectés.)
-  const wolves = wolvesOf(game);
+  const wolves = activeWolves(game);
   if (wolves.length <= 1) {
     const t = wolves.length === 1 ? game.wolvesChoices[wolves[0]] : null;
     return t ? { consensus: true, target: t } : { consensus: false };
   }
-  const choices = wolves.map(w => game.wolvesChoices[w]).filter(Boolean) as string[];
+  const choices = wolves.map((w) => game.wolvesChoices[w]).filter(Boolean) as string[];
   if (choices.length < wolves.length) return { consensus: false };
-  const allSame = choices.every(c => c === choices[0]);
+  const allSame = choices.every((c) => c === choices[0]);
   return allSame ? { consensus: true, target: choices[0] } : { consensus: false };
 }
 

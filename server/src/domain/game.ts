@@ -49,7 +49,8 @@ export function addPlayer(game: Game, p: { id: string; socketId: string; role?: 
     role: p.role,
     isReady: false,
     connected: true,
-    lastSeen: Date.now()
+    lastSeen: Date.now(),
+    privateLog: [],
   };
   game.players.push(player);
   game.alive.add(player.id);
