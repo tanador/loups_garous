@@ -3,6 +3,7 @@
     "CUPID": "./src/domain/roles/cupid.ts",
     "WOLF": "./src/domain/roles/wolf.ts",
     "WITCH": "./src/domain/roles/witch.ts",
+    "SEER": "./src/domain/roles/seer.ts",
     "HUNTER": "./src/domain/roles/hunter.ts",
     "VILLAGER": "./src/domain/roles/villager.ts"
   },

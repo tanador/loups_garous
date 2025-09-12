@@ -19,7 +19,7 @@ import {
   isConsensus,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
-import { DURATION, randomNextWakeMs, CONFIG } from "./timers.js";
+import { DURATION, CONFIG } from "./timers.js";
 import { logger } from "../logger.js";
 
 function now() {
