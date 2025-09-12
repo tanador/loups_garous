@@ -17,6 +17,27 @@ Projet d'apprentissage autour du jeu du **Loup-Garou**.  Il contient :
 Ce dépôt peut servir de base pour comprendre l'organisation d'une petite
 application temps réel Flutter ↔ Node.js.
 
+## Rôle « Voleur » et Deck (Nuit 0)
+
+Le serveur construit un deck réel à partir de `server/roles.config.json` (nouveau format):
+
+- `registry`: rôles disponibles et leur module.
+- `setups[N]`: pour chaque nombre de joueurs N, la COMPOSITION EXACTE du deck `{ ROLE: nombre }` (il n’y a plus de min/max).
+
+Attribution et centre:
+- Si le deck contient au moins une carte `THIEF`, le serveur ajoute automatiquement 2 cartes `VILLAGER` au deck; ces 2 cartes sont placées « au centre » (face cachée) après distribution.
+- Mélange du deck complet, distribution de 1 carte par joueur (N cartes), puis les cartes restantes (0 ou 2) deviennent `game.centerCards`.
+
+Nuit 0 — Voleur (`NIGHT_THIEF`):
+- Le Voleur reçoit un réveil privé `thief:wake { center: [{role},{role}] }`.
+- Il envoie `thief:choose { action: 'keep' | 'swap', index?: 0|1 }`.
+- Contrainte officielle: si les 2 cartes du centre sont `WOLF`, le Voleur ne peut pas « garder » et doit échanger.
+- Après échange, son rôle change immédiatement (rooms Socket.IO mises à jour), et la nuit continue vers Cupidon (`NIGHT_CUPID`).
+
+Timers: `THIEF_MS` (configurable via `server/timer.config.json`).
+
+Plus de détails et des exemples de configuration: voir `server/ROLES.md`.
+
 ## Intégration Continue (CI)
 
 - Server CI (Node/TypeScript)

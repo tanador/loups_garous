@@ -88,6 +88,8 @@ class GameModel {
   // Révélation en attente d'accusé de lecture par la voyante
   final (String playerId, Role role)? seerPending;
   final List<Lite> cupidTargets;
+  // Rôles des deux cartes du centre visibles uniquement par le Voleur pendant NIGHT_THIEF
+  final List<Role> thiefCenter;
   final String? loverPartnerId;
   final DayRecap? recap;
   final List<Lite> voteAlive;
@@ -138,6 +140,7 @@ class GameModel {
     required this.seerLog,
     required this.seerPending,
     required this.cupidTargets,
+    required this.thiefCenter,
     required this.loverPartnerId,
     required this.recap,
     required this.voteAlive,
@@ -177,6 +180,7 @@ class GameModel {
         seerLog: [],
         seerPending: null,
         cupidTargets: [],
+        thiefCenter: [],
         loverPartnerId: null,
         recap: null,
         voteAlive: [],
@@ -219,6 +223,7 @@ class GameModel {
     List<(String playerId, Role role)>? seerLog,
     Object? seerPending = _unset,
     List<Lite>? cupidTargets,
+    List<Role>? thiefCenter,
     Object? loverPartnerId = _unset,
     Object? recap = _unset,
     List<Lite>? voteAlive,
@@ -258,6 +263,7 @@ class GameModel {
       seerLog: seerLog ?? this.seerLog,
       seerPending: identical(seerPending, _unset) ? this.seerPending : seerPending as (String, Role)?,
       cupidTargets: cupidTargets ?? this.cupidTargets,
+      thiefCenter: thiefCenter ?? this.thiefCenter,
       loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
       voteAlive: voteAlive ?? this.voteAlive,

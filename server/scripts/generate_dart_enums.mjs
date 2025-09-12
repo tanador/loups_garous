@@ -9,6 +9,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 function readRoles() {
   const cfgPath = path.resolve(repoRoot, 'server', 'roles.config.json');
   const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+  // Export roles as Dart enum from the server registry (keys).
   const roles = Object.keys(raw.registry);
   roles.sort();
   return roles;
@@ -17,6 +18,7 @@ function readRoles() {
 function readPhases() {
   const fsmPath = path.resolve(repoRoot, 'server', 'src', 'domain', 'fsm.ts');
   const src = fs.readFileSync(fsmPath, 'utf-8');
+  // Export phases from FSM transitions keys (left-hand side entries).
   const phases = new Set();
   const start = src.indexOf('const transitions:');
   if (start >= 0) {
@@ -38,7 +40,7 @@ function toDartEnum(name) {
 function genDart(roles, phases) {
   const enumRoles = roles.map(toDartEnum).join(', ');
   const enumPhases = phases.map(toDartEnum).join(', ');
-  return `// GENERATED FILE - DO NOT EDIT MANUALLY\n// Source: server roles.config.json and domain FSM\n\nimport 'package:flutter/foundation.dart';\n\n// Keep in sync with server/src/domain/fsm.ts transitions keys\nenum GamePhase { ${enumPhases} }\nGamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => describeEnum(e) == s);\n\n// Keep in sync with server/roles.config.json registry keys\nenum Role { ${enumRoles} }\nRole roleFromStr(String s) => Role.values.firstWhere((e) => describeEnum(e) == s);\n`;
+  return `// GENERATED FILE - DO NOT EDIT MANUALLY\n// Source: server roles.config.json and domain FSM\n\n// Keep in sync with server/src/domain/fsm.ts transitions keys\n\nenum GamePhase { ${enumPhases} }\nGamePhase phaseFromStr(String s) => GamePhase.values.firstWhere((e) => e.name == s);\n\n// Keep in sync with server/roles.config.json registry keys\n\nenum Role { ${enumRoles} }\nRole roleFromStr(String s) => Role.values.firstWhere((e) => e.name == s);\n`;
 }
 
 function main() {
@@ -52,4 +54,3 @@ function main() {
 }
 
 main();
-

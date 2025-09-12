@@ -71,3 +71,9 @@ export const LoversAckSchema = z.object({});
 // ACK de fin de vote (diurne): aucune donnée utile côté client,
 // la présence de l'ACK suffit à débloquer la transition.
 export const VoteAckSchema = z.object({});
+
+// Thief (Voleur)
+export const ThiefChooseSchema = z.object({
+  action: z.union([z.literal('keep'), z.literal('swap')]),
+  index: z.number().int().min(0).max(1).optional(),
+});

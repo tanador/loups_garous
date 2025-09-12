@@ -153,6 +153,15 @@ Strong rule for new business logic
 - Client: run `dart analyze`/`flutter analyze` and ensure 0 warnings. Fix all analyzer warnings (unused imports, dead code, null-safety issues, etc.).
 - If a third‑party dependency triggers warnings, add minimal, well‑scoped suppressions with justification in the PR, or upgrade/adjust code to remove them. Never ignore warnings by default.
 
+### Flutter-specific no-warning rules (hard requirements)
+- Do not use deprecated Flutter APIs:
+  - Replace `describeEnum(e)` with `e.name` for enums.
+  - Do not set `groupValue`/`onChanged` on `RadioListTile`. Always wrap options in a `RadioGroup<T>` and set `groupValue`/`onChanged` on the group only.
+  - Replace `color.withOpacity(x)` with `color.withValues(alpha: x)`.
+- Do not use `BuildContext` after `await`. Capture `ScaffoldMessenger` or check `mounted` and avoid using `context` across async gaps.
+- Remove unused imports. Analyzer warnings must be zero before merge.
+- When roles/FSM change, re-run `cd server && npm run export:dart` to update enums in `lib/state/generated/enums.dart` (uses `.name`).
+
 ## Security & Configuration Tips
 - Socket.IO CORS is permissive for dev; restrict in production.
 - Keep ACK contract stable: server acks `{ ok: true, data? } | { ok: false, error }`.

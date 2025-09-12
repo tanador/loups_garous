@@ -430,6 +430,24 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
 
+    // --- Thief (Voleur)
+    // --- Thief (Voleur) — Nuit 0
+    // Reçoit les 2 rôles des cartes du centre (privé pour le voleur).
+    s.on('thief:wake', (data) async {
+      final center = ((data['center'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => roleFromStr(j['role'] as String))
+          .toList();
+      state = state.copy(thiefCenter: center);
+      if (state.vibrations) await HapticFeedback.vibrate();
+      log('[evt] thief:wake center=${center.map((r)=>r.name).join("/")}');
+    });
+    // Fin de l'étape Voleur: efface l'aperçu local
+    s.on('thief:sleep', (_) async {
+      state = state.copy(thiefCenter: []);
+      log('[evt] thief:sleep');
+    });
+
     // Initiate connection after all listeners are registered to avoid missing early events
     s.connect();
   }
@@ -760,6 +778,28 @@ class GameController extends StateNotifier<GameModel> {
   Future<void> voteAck() async {
     final ack = await _socketSvc.emitAck('vote:ack', {});
     log('[ack] vote:ack $ack');
+  }
+
+  // ------------- Thief -------------
+  Future<String?> thiefKeep() async {
+    final ack = await _socketSvc.emitAck('thief:choose', {'action': 'keep'});
+    log('[ack] thief:choose keep -> $ack');
+    if (ack['ok'] != true) {
+      final err = (ack['error']?.toString() ?? 'unknown_error');
+      if (err == 'must_take_wolf') return 'Deux Loups au centre: vous devez en prendre un.';
+      return err;
+    }
+    return null;
+  }
+  Future<String?> thiefSwap(int index) async {
+    final ack = await _socketSvc.emitAck('thief:choose', {'action': 'swap', 'index': index});
+    log('[ack] thief:choose swap($index) -> $ack');
+    if (ack['ok'] != true) {
+      final err = (ack['error']?.toString() ?? 'unknown_error');
+      if (err == 'invalid_index') return 'Choix invalide (carte inconnue).';
+      return err;
+    }
+    return null;
   }
 
   // ------------- Reset -------------

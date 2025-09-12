@@ -181,6 +181,10 @@ export class Orchestrator {
   }
 
   // -------------------- Autostart and Roles --------------------
+  /**
+   * Autostart once lobby is full: assign roles (deck-based) and notify players.
+   * The next wake sequence is triggered after everyone clicks "ready".
+   */
   private tryAutostart(game: Game) {
     if (game.players.length === game.maxPlayers && game.state === "LOBBY") {
       setState(game, "ROLES");
@@ -209,6 +213,12 @@ export class Orchestrator {
     }
   }
 
+  /**
+   * When all players have confirmed "ready" after role assignment,
+   * start the Night 0 sequence. If a THIEF exists and is alive/connected,
+   * we begin with NIGHT_THIEF; otherwise, we go to CUPID (if any), then
+   * the normal night order.
+   */
   playerReady(gameId: string, playerId: string) {
     const game = this.mustGet(gameId);
     const p = game.players.find((x) => x.id === playerId);
@@ -219,9 +229,12 @@ export class Orchestrator {
     for (const pl of game.players) this.sendSnapshot(game, pl.id);
     const allReady = game.players.every((x) => x.isReady);
     if (allReady && game.state === "ROLES") {
+      const thief = game.players.find((p) => game.roles[p.id] === "THIEF");
       const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
       this.globalSleep(game, () => {
-        if (cupid && game.alive.has(cupid.id) && cupid.connected) {
+        if (thief && game.alive.has(thief.id) && thief.connected) {
+          this.beginNightThief(game);
+        } else if (cupid && game.alive.has(cupid.id) && cupid.connected) {
           this.beginNightCupid(game);
         } else {
           this.beginNightSeer(game);
@@ -241,6 +254,95 @@ export class Orchestrator {
   }
 
   // -------------------- Phases --------------------
+  /**
+   * NIGHT_THIEF (Nuit 0): wake the thief privately with the two center cards.
+   * The client can either KEEP or SWAP with center[0|1]. If both center cards
+   * are WOLF, the server enforces a swap (keep is rejected).
+   */
+  private beginNightThief(game: Game) {
+    if (!canTransition(game, game.state, "NIGHT_THIEF")) return;
+    setState(game, "NIGHT_THIEF");
+    const thief = game.players.find((p) => game.roles[p.id] === "THIEF");
+    const tid = thief?.id;
+    if (!tid || !game.alive.has(tid) || !thief?.connected) {
+      this.broadcastState(game);
+      return this.beginNightCupid(game);
+    }
+    if (!game.centerCards || game.centerCards.length === 0) {
+      this.broadcastState(game);
+      return this.beginNightCupid(game);
+    }
+    this.setDeadline(game, DURATION.THIEF_MS);
+    this.broadcastState(game);
+    (game as any).currentThiefId = tid;
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, tid));
+    if (s) {
+      s.emit("thief:wake", {
+        center: game.centerCards.map((r) => ({ role: r })),
+      });
+    }
+    this.log(game.id, game.state, tid, "thief.wake");
+    this.schedule(game.id, DURATION.THIEF_MS, () => this.endNightThief(game.id));
+  }
+
+  /**
+   * Handle the THIEF choice. Updates player's role and centerCards atomically
+   * when swapping, and adjusts Socket.IO rooms (wolves/witch) accordingly.
+   */
+  thiefChoose(gameId: string, playerId: string, action: 'keep' | 'swap', index?: number) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'NIGHT_THIEF') throw new Error('bad_state');
+    if (game.roles[playerId] !== 'THIEF') throw new Error('forbidden');
+    if (!game.centerCards || game.centerCards.length !== 2) throw new Error('no_center');
+    const [c0, c1] = game.centerCards;
+    const mustTakeWolf = c0 === 'WOLF' && c1 === 'WOLF';
+    if (mustTakeWolf && action === 'keep') throw new Error('must_take_wolf');
+    if (action === 'swap') {
+      if (index !== 0 && index !== 1) throw new Error('invalid_index');
+      const oldRole = game.roles[playerId];
+      const newRole = index === 0 ? c0 : c1;
+      // Swap card with chosen center index
+      if (index === 0) game.centerCards = [oldRole, c1];
+      else game.centerCards = [c0, oldRole];
+      // Update player role
+      game.roles[playerId] = newRole as any;
+      const p = game.players.find((x) => x.id === playerId)!;
+      p.role = newRole as any;
+      // Update rooms membership
+      this.updateRoleRooms(game, playerId, oldRole as any, newRole as any);
+      this.log(game.id, game.state, playerId, 'thief.swap', { newRole });
+    } else {
+      this.log(game.id, game.state, playerId, 'thief.keep');
+    }
+    this.endNightThief(game.id);
+  }
+
+  /**
+   * End of NIGHT_THIEF: put the thief back to sleep, then proceed to CUPID.
+   */
+  private endNightThief(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'NIGHT_THIEF') return;
+    const tid = (game as any).currentThiefId as string | undefined;
+    if (tid) {
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, tid));
+      if (s) s.emit('thief:sleep');
+    }
+    (game as any).currentThiefId = undefined;
+    this.globalSleep(game, () => this.beginNightCupid(game));
+  }
+
+  /**
+   * Maintain per-role Socket.IO rooms after a role change (e.g., THIEF → WOLF).
+   */
+  private updateRoleRooms(game: Game, playerId: string, oldRole: string, newRole: string) {
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    if (!s) return;
+    if (oldRole === 'WOLF') s.leave(`room:${game.id}:wolves`);
+    if (newRole === 'WOLF') s.join(`room:${game.id}:wolves`);
+    if (oldRole === 'WITCH') s.leave(`room:${game.id}:witch`);
+    if (newRole === 'WITCH') s.join(`room:${game.id}:witch`);
+  }
   private beginNightCupid(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_CUPID")) return;
     setState(game, "NIGHT_CUPID");

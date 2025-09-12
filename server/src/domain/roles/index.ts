@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.resolve(__dirname, '../../../roles.config.json');
 const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
   registry: Record<string, string>;
-  setups: Record<number, Record<string, { min: number; max: number }>>;
+  setups: Record<number, Record<string, number>>;
 };
 
 const isTs = fileURLToPath(import.meta.url).endsWith('.ts');
@@ -31,4 +31,5 @@ export const ROLE_REGISTRY_READY: Promise<void> = (async () => {
   ROLE_REGISTRY = Object.fromEntries(entries) as Record<Role, RoleBehavior>;
 })();
 
-export const ROLE_SETUPS = raw.setups as Record<number, Record<Role, { min: number; max: number }>>;
+// New format: setups define the deck composition as exact counts per role
+export const ROLE_SETUPS = raw.setups as Record<number, Record<Role, number>>;

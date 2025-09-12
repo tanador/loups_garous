@@ -17,6 +17,7 @@ export type TimerConfig = Partial<{
   SEER_MS: number;
   WOLVES_MS: number;
   WITCH_MS: number;
+  THIEF_MS: number;
   HUNTER_MS: number;
   MORNING_MS: number;
   VOTE_MS: number;
@@ -33,6 +34,8 @@ const defaultConfig: Required<TimerConfig> = {
   SEER_MS: 80_000,
   WOLVES_MS: 80_000,
   WITCH_MS: 80_000,
+  // Night 0: time window for the THIEF to decide (keep/swap)
+  THIEF_MS: 60_000,
   HUNTER_MS: 80_000,
   MORNING_MS: 20_000,
   VOTE_MS: 80_000,
@@ -67,6 +70,7 @@ export const DURATION = {
   SEER_MS: CONFIG.SEER_MS,
   WOLVES_MS: CONFIG.WOLVES_MS,
   WITCH_MS: CONFIG.WITCH_MS,
+  THIEF_MS: CONFIG.THIEF_MS,
   HUNTER_MS: CONFIG.HUNTER_MS,
   MORNING_MS: CONFIG.MORNING_MS,
   VOTE_MS: CONFIG.VOTE_MS,

@@ -1,0 +1,18 @@
+{
+  "registry": {
+    "CUPID": "./src/domain/roles/cupid.ts",
+    "WOLF": "./src/domain/roles/wolf.ts",
+    "WITCH": "./src/domain/roles/witch.ts",
+    "SEER": "./src/domain/roles/seer.ts",
+    "HUNTER": "./src/domain/roles/hunter.ts",
+    "VILLAGER": "./src/domain/roles/villager.ts",
+    "THIEF": "./src/domain/roles/thief.ts"
+  },
+  "setups": {
+    "3": { "WOLF": 1, "WITCH": 1, "VILLAGER": 1 },
+    "4": { "WOLF": 1, "SEER": 1, "WITCH": 1, "VILLAGER": 1 },
+    "5": { "WOLF": 1, "CUPID": 1, "WITCH": 1, "HUNTER": 1, "VILLAGER": 1 },
+    "6": { "WOLF": 1, "CUPID": 1, "WITCH": 1, "HUNTER": 1, "SEER": 1, "THIEF": 1 }
+  }
+}
+

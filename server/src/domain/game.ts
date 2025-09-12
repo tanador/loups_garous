@@ -27,6 +27,7 @@ export function createGame(maxPlayers: number): Game {
     loversMode: null,
     pendingDeaths: [],
     deferredGrief: [],
+    centerCards: [],
   };
 }
 

@@ -8,54 +8,64 @@ import { bus, HunterShot } from './events.js';
 /// Attribue aléatoirement les rôles aux joueurs selon la configuration.
 /// La fonction génère toutes les distributions possibles respectant les
 /// contraintes min/max puis en choisit une au hasard.
+/**
+ * Deal roles to players from a real deck described by roles.config.json.
+ *
+ * Deck model (Option 1 with THIEF):
+ * - The JSON setups now define exact counts per role for N players.
+ * - If the deck contains at least one THIEF card, we append 2 VILLAGER cards
+ *   to the deck. These two extra cards become the face-down center cards used
+ *   by the THIEF during NIGHT_THIEF (Nuit 0).
+ * - We then shuffle the deck, deal 1 card per player, and keep the remaining
+ *   (0 or 2) as game.centerCards.
+ * - Public snapshots never expose centerCards; only the THIEF receives them
+ *   privately in `thief:wake`.
+ */
 export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
-  const players = secureShuffle(game.players.map(p => p.id));
+  const players = secureShuffle(game.players.map((p) => p.id));
   const cfg = ROLE_SETUPS[game.maxPlayers];
   if (!cfg) throw new Error('no_config_for_player_count');
 
-  const roleNames = Object.keys(cfg) as Role[];
-  roleNames.sort();
-
-  // Énumère toutes les répartitions de rôles possibles respectant la configuration
-  const distributions: Record<Role, number>[] = [];
-  const total = game.maxPlayers;
-
-  function backtrack(
-    idx: number,
-    remaining: number,
-    current: Partial<Record<Role, number>>
-  ) {
-    if (idx === roleNames.length) {
-      if (remaining === 0)
-        distributions.push({ ...current } as Record<Role, number>);
-      return;
-    }
-    const role = roleNames[idx];
-    const { min, max } = cfg[role];
-    for (let c = min; c <= max; c++) {
-      if (c > remaining) break;
-      current[role] = c;
-      backtrack(idx + 1, remaining - c, current);
-      delete current[role];
-    }
+  // Build deck from exact counts per role (e.g., { WOLF:1, SEER:1, ... })
+  const deck: Role[] = [];
+  for (const [role, count] of Object.entries(cfg) as [Role, number][]) {
+    for (let i = 0; i < count; i++) deck.push(role);
+  }
+  // If THIEF is present in the deck at least once, add 2 extra villagers to the deck
+  // (official rule). These are NOT dealt to players; they form the center.
+  const thiefInDeck = deck.includes('THIEF' as Role);
+  const deckPlus: Role[] = deck.slice();
+  if (thiefInDeck) {
+    deckPlus.push('VILLAGER' as Role, 'VILLAGER' as Role);
+  }
+  // Validate deck size: must be N + (2 if thief present else 0)
+  const expected = game.maxPlayers + (thiefInDeck ? 2 : 0);
+  if (deckPlus.length !== expected) {
+    throw new Error(`invalid_deck_size: got=${deckPlus.length} expected=${expected}`);
   }
 
-  backtrack(0, total, {});
-  if (distributions.length === 0) throw new Error('invalid_role_config');
-
-  const counts = distributions[rng(distributions.length)];
-
-  const roles: Role[] = [];
-  for (const r of roleNames) {
-    roles.push(...Array(counts[r]).fill(r));
+  // Shuffle the full deck (players + maybe 2 center cards)
+  const shuffled = secureShuffle(deckPlus);
+  let hand = shuffled.slice(0, game.maxPlayers);
+  let center = shuffled.slice(game.maxPlayers);
+  // Guarantee: if THIEF is part of the deck, ensure a player actually has THIEF.
+  // Shuffle can otherwise leave THIEF among the 2 center cards. If that happens,
+  // swap THIEF from center into the hand (replace the last card of the hand).
+  if (thiefInDeck && !hand.includes('THIEF' as Role)) {
+    const idxCenter = center.findIndex((r) => r === ('THIEF' as Role));
+    if (idxCenter >= 0) {
+      const lastIdx = hand.length - 1;
+      const tmp = hand[lastIdx];
+      hand[lastIdx] = center[idxCenter];
+      center[idxCenter] = tmp;
+    }
   }
-
-  // Mélange la liste pour ne pas attribuer toujours les mêmes rôles aux mêmes joueurs
-  const shuffledRoles = secureShuffle(roles);
+  game.centerCards = center; // [] or [Role, Role]
   const assigned: Record<string, Role> = {};
-  players.forEach((pid, idx) => (assigned[pid] = shuffledRoles[idx]));
+  players.forEach((pid, idx) => (assigned[pid] = hand[idx]));
   game.roles = assigned;
-  game.players.forEach(p => (p.role = assigned[p.id]));
+  // Mirror assigned roles into Player objects for convenience
+  game.players.forEach((p) => (p.role = assigned[p.id]));
 }
 /// Retourne la liste des loups encore en jeu.
 export function wolvesOf(game: Game): string[] {

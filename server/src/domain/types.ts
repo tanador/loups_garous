@@ -86,6 +86,8 @@ export interface Game {
   loversMode?: LoversMode;
   pendingDeaths?: PendingDeath[]; // FIFO queue for resolution helpers
   deferredGrief?: string[]; // victims whose lovers should later die of grief
+  // Two face-down center cards (roles) used when THIEF is in the deck
+  centerCards?: Role[];
 }
 
 
