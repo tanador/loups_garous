@@ -190,8 +190,17 @@ class _HomeRouter extends ConsumerWidget {
       case GamePhase.VOTE:
         return const VoteScreen();
       case GamePhase.LOBBY:
+        return const WaitingLobby();
       case GamePhase.RESOLVE:
+        // MISE À JOUR (ack vote jour)
+        // Pendant la résolution (après un vote diurne), on conserve l'écran
+        // de vote avec le résultat visible pour tous, jusqu'à l'ACK "J'ai vu"
+        // du joueur éliminé (ou sa déconnexion qui compte comme ACK).
+        return const VoteScreen();
       case GamePhase.CHECK_END:
+        // Courte phase de vérification des conditions de victoire, avant soit
+        // la fin de partie (END), soit le retour à la nuit si personne n'a gagné.
+        return const SleepingPlaceholder(title: 'Transition', subtitle: 'Patientez...');
       default:
         return const WaitingLobby();
     }

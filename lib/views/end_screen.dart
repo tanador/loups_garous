@@ -41,10 +41,13 @@ class EndScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Fin de partie')),
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(text,
-              style:
-                  const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text(text, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
+          // Pour chaque joueur, on affiche une icône d'état en plus du rôle:
+          // - coche verte = vivant
+          // - tête de mort = mort
+          // Cela permet à quelqu'un ne connaissant pas le déroulé d'identifier
+          // visuellement qui a survécu sans devoir interpréter d'autres écrans.
           for (final (playerId, role) in roles)
             Builder(builder: (context) {
               final alive = s.players.firstWhere(
@@ -71,14 +74,14 @@ class EndScreen extends ConsumerWidget {
                   log('leaveToHome exception: $e', stackTrace: st);
                 } finally {
                   if (context.mounted) {
-                    Navigator.of(context)
-                        .popUntil((route) => route.isFirst);
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   }
                 }
               },
-              child: const Text('Retour à l’accueil'))
+              child: const Text('Retour à l\'accueil'))
         ]),
       ),
     );
   }
 }
+

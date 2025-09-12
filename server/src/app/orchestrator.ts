@@ -44,6 +44,8 @@ export class Orchestrator {
     string,
     { deaths: { playerId: string; role: string }[]; hunterKills: string[] }
   >();
+  // Attente d'un accusé de réception du joueur éliminé en journée (après vote)
+  private pendingDayElimAck = new Map<string, string>(); // gameId -> playerId
 
   constructor(io: Server) {
     this.io = io;
@@ -388,19 +390,55 @@ export class Orchestrator {
     const lover = game.players.find((p) => p.id === playerId)?.loverId;
     if (lover && targetId === lover) throw new Error("cannot_target_lover");
 
-    game.wolvesChoices[playerId] = targetId;
+    // Autorise le revote: on enregistre simplement le dernier choix du loup.\n    // Côté client, le bouton peut se déverrouiller pour changer d'avis tant\n    // que le consensus n'est pas atteint.\n    game.wolvesChoices[playerId] = targetId;
     const { consensus, target } = isConsensus(game);
-    const wolves = wolvesOf(game);
-    const confirmations = wolves.filter(
-      (w) => game.wolvesChoices[w] === target,
+    // Compte les confirmations uniquement parmi les loups vivants et connectés
+    const wolvesActive = wolvesOf(game).filter(
+      (pid) => game.alive.has(pid) && game.players.find((p) => p.id === pid)?.connected,
+    );
+
+    // Si, après ce choix, tous les loups vivants/connexes ont choisi "targetId",
+    // verrouiller immédiatement avec cette cible explicite (pour éviter tout "null").
+    const unanimousNow = wolvesActive.length > 0 && wolvesActive.every((w) => game.wolvesChoices[w] === targetId);
+    if (unanimousNow) {
+      this.io.to(`room:${game.id}:wolves`).emit("wolves:targetLocked", {
+        targetId,
+        confirmationsRemaining: 0,
+      });
+      this.log(game.id, game.state, playerId, "wolves.choose", { targetId });
+      game.night.attacked = targetId;
+      this.endNightWolves(game.id);
+      return;
+    }
+
+    const confirmations = wolvesActive.filter(
+      (w) => target && game.wolvesChoices[w] === target,
     ).length;
-    const confirmationsRemaining = Math.max(wolves.length - confirmations, 0);
+    const confirmationsRemaining = Math.max(wolvesActive.length - confirmations, 1);
 
     this.io.to(`room:${game.id}:wolves`).emit("wolves:targetLocked", {
       targetId: target ?? null,
       confirmationsRemaining,
     });
     this.log(game.id, game.state, playerId, "wolves.choose", { targetId });
+
+    // Tous les loups vivants et connectés ont voté mais pas de consensus:\n    // on émet un petit récap (wolves:results) pour indiquer l'égalité.\n    // Les loups peuvent alors revoter jusqu'au consensus ou au timeout
+    const wolvesActive2 = wolvesOf(game).filter(
+      (pid) => game.alive.has(pid) && game.players.find((p) => p.id === pid)?.connected,
+    );
+    const allChosen = wolvesActive2.every((w) => !!game.wolvesChoices[w]);
+    if (allChosen && !consensus) {
+      const tally: Record<string, number> = {};
+      for (const w of wolvesActive2) {
+        const t = game.wolvesChoices[w];
+        if (!t) continue;
+        if (!game.alive.has(t)) continue;
+        if (game.roles[t] === "WOLF") continue; // sécurité côté serveur
+        tally[t] = (tally[t] ?? 0) + 1;
+      }
+      this.io.to(`room:${game.id}:wolves`).emit("wolves:results", { tally });
+      this.log(game.id, game.state, undefined, "wolves.results", { tie: true });
+    }
 
     if (consensus && target) {
       game.night.attacked = target;
@@ -580,7 +618,8 @@ export class Orchestrator {
         playerId: p.id,
         role: game.roles[p.id],
       }));
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
+      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
+      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
       this.log(game.id, "END", undefined, "game.end", { winner: win });
       return;
     }
@@ -680,9 +719,10 @@ export class Orchestrator {
 
   private beginVote(game: Game) {
     if (!canTransition(game, game.state, "VOTE")) return;
-    // Guard: if a winner is already determined (e.g., last survivor
-    // or exactly two mixed-camps lovers), conclude immediately instead
-    // of opening a vote.
+    // Garde pédagogique:
+    // Si un vainqueur est déjà déterminé (ex.: dernier survivant, ou 2 amoureux
+    // de camps différents encore en vie), on conclut immédiatement au lieu
+    // d'ouvrir un vote inutile.
     const win = winner(game);
     if (win) {
       setState(game, "END");
@@ -691,7 +731,8 @@ export class Orchestrator {
         playerId: p.id,
         role: game.roles[p.id],
       }));
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
+      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
+      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
       this.log(game.id, "END", undefined, "game.end", { winner: win });
       return;
     }
@@ -751,6 +792,9 @@ export class Orchestrator {
     const { eliminated, tally } = computeVoteResult(game);
     const tie = !eliminated && Object.keys(tally).length > 0;
     if (tie) {
+      // Égalité: on affiche le résultat sans élimination, puis on relance
+      // un nouveau tour de vote après un court délai (3s) pour la lisibilité.
+      // L'UI reste en phase VOTE et reçoit un nouvel événement vote:options.
       this.io.to(`room:${game.id}`).emit("vote:results", {
         eliminatedId: null,
         role: null,
@@ -775,6 +819,8 @@ export class Orchestrator {
       return;
     }
 
+    // Passage en phase RESOLVE: résolution des effets de l'élimination
+    // (ex.: tir du chasseur, chagrin d'amour), puis vérification de fin.
     setState(game, "RESOLVE");
     if (eliminated) {
       onPlayerDeath(game, eliminated, 'VOTE');
@@ -797,12 +843,29 @@ export class Orchestrator {
     this.log(game.id, "RESOLVE", undefined, "vote.results", {
       eliminated: eliminated ?? null,
     });
+    // Si pas de gagnant immédiat et une élimination a eu lieu,
+    // attendre l'ACK du joueur éliminé avant de poursuivre vers la nuit.
+    const winNow = winner(game);
+    if (!winNow && eliminated) {
+      this.pendingDayElimAck.set(game.id, eliminated);
+      return;
+    }
+    this.beginCheckEnd(game);
+  }
 
+  voteAck(gameId: string, playerId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== 'RESOLVE') return;
+    const pending = this.pendingDayElimAck.get(game.id);
+    if (!pending || pending !== playerId) return;
+    this.pendingDayElimAck.delete(game.id);
     this.beginCheckEnd(game);
   }
 
   private beginCheckEnd(game: Game) {
     setState(game, "CHECK_END");
+    // Vérifie si une condition de victoire est atteinte. Si oui, phase END
+    // (et publication des rôles); sinon, retour à la nuit.
     const win = winner(game);
     if (win) {
       setState(game, "END");
@@ -811,7 +874,8 @@ export class Orchestrator {
         playerId: p.id,
         role: game.roles[p.id],
       }));
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
+      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
+      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
       this.log(game.id, "END", undefined, "game.end", { winner: win });
     } else {
       this.globalSleep(game, () => this.beginNightWolves(game));
@@ -925,6 +989,12 @@ export class Orchestrator {
         p.connected = false;
         p.lastSeen = now();
         this.log(g.id, g.state, p.id, "player.disconnected");
+        // Si un ACK d'élimination de jour est en attente pour ce joueur,
+        // considérer la déconnexion comme un ACK explicite.
+        if (g.state === 'RESOLVE' && this.pendingDayElimAck.get(g.id) === p.id) {
+          this.pendingDayElimAck.delete(g.id);
+          this.beginCheckEnd(g);
+        }
       }
     }
   }
@@ -954,3 +1024,4 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
+

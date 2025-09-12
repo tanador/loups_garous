@@ -20,13 +20,12 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
-    // Règle métier (explication):
-    // Pendant la phase des loups, un loup ne peut pas cibler son/sa partenaire amoureux·se.
-    // Pour éviter un rejet côté serveur, on filtre cette cible dans la liste proposée.
-    //
-    // Note: s.loverPartnerId est connu uniquement par les amoureux.
-    // Par sécurité UX, si le local connaît les deux ids (heuristique loversKnown),
-    // on filtre également le partenaire.
+    // Règle métier (revote + cible interdite):
+    // - Tant que le consensus n'est pas atteint entre plusieurs loups, chacun
+    //   peut modifier son choix (revoter). L'UI permet donc de déverrouiller
+    //   après une validation pour changer la sélection, puis revalider.
+    // - Un loup ne peut pas cibler son/sa partenaire amoureux·se: on filtre
+    //   localement cette cible pour éviter un rejet serveur.
     String? forbidId;
     if (s.role == Role.WOLF) {
       forbidId = s.loverPartnerId;
@@ -40,7 +39,7 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
     final canValidate = selectedId != null && selectedId != forbidId;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuit — Loups')),
+      appBar: AppBar(title: const Text('Nuit - Loups')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -50,7 +49,9 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
           const SizedBox(height: 8),
           RadioGroup<String?>(
             groupValue: selectedId,
-            onChanged: (v) { if(!_locked) setState(() => selectedId = v); },
+            onChanged: (v) {
+              if (!_locked) setState(() => selectedId = v);
+            },
             child: ListView(
               shrinkWrap: true,
               children: shownTargets
@@ -64,24 +65,31 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            // IMPORTANT: ne « locke » l’UI qu’après un ACK serveur réussi.
-            // En cas d’erreur (ex. cible interdite), on affiche un message.
-            onPressed: !canValidate
-                ? null
-                : () async {
-                    final err = await ctl.wolvesChoose(selectedId!);
-                    if (err == null) {
-                      if (mounted) setState(() => _locked = true);
-                    } else if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(err)),
-                      );
-                    }
-                  },
+            // Comportement du bouton:
+            // - Non verrouillé: on envoie le vote au serveur; on ne verrouille
+            //   l'UI qu'après ACK positif pour éviter les faux positifs.
+            // - Déjà verrouillé: on propose "Modifier le choix" tant que le
+            //   consensus n'est pas atteint, ce qui permet aux loups de revoter.
+            onPressed: _locked
+                ? () {
+                    if (mounted) setState(() => _locked = false);
+                  }
+                : (!canValidate
+                    ? null
+                    : () async {
+                        final err = await ctl.wolvesChoose(selectedId!);
+                        if (err == null) {
+                          if (mounted) setState(() => _locked = true);
+                        } else if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(err)),
+                          );
+                        }
+                      }),
             style: ElevatedButton.styleFrom(
               backgroundColor: _locked ? Colors.green : null,
             ),
-            child: const Text('Valider la cible'),
+            child: Text(_locked ? 'Modifier le choix' : 'Valider la cible'),
           ),
           if (s.wolvesLockedTargetId != null)
             Builder(builder: (_) {
@@ -92,6 +100,25 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
               return Text(
                   'Cible verrouillée: $locked • confirmations restantes: ${s.confirmationsRemaining}');
             }),
+          // En cas d'égalité entre loups (tous ont voté sans consensus),
+          // le serveur envoie un récap wolves:results. Affichez un message
+          // d'égalité et le comptage pour inviter à revoter.
+          if (s.wolvesLastTally != null) ...[
+            const Divider(),
+            const Text('Égalité, veuillez revoter.'),
+            const SizedBox(height: 8),
+            Builder(builder: (_) {
+              final entries = s.wolvesLastTally!.entries
+                  .map((e) {
+                    String name = e.key;
+                    final match = s.players.where((p) => p.id == e.key).toList();
+                    if (match.isNotEmpty) name = match.first.id;
+                    return '$name: ${e.value}';
+                  })
+                  .join(', ');
+              return Text('Comptage: $entries');
+            }),
+          ],
         ]),
       ),
     );

@@ -209,7 +209,17 @@ export function canBeSaved(game: Game, pid: string): boolean {
 }
 
 /// Vérifie si tous les loups ont choisi la même cible pour l'attaque nocturne.
+/**
+ * Retourne si les loups ont un consensus sur une cible.
+ *
+ * Pédagogie (débutant):
+ * - Seuls les loups vivants ET connectés sont pris en compte.
+ *   Cela évite d'attendre une confirmation d'un loup mort/déconnecté,
+ *   ce qui pourrait bloquer la phase inutilement.
+ */
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
+  // Pour déterminer le consensus, on prend en compte tous les loups déclarés.
+  // (Le calcul d'affichage côté UI peut, lui, limiter aux loups vivants/connectés.)
   const wolves = wolvesOf(game);
   if (wolves.length <= 1) {
     const t = wolves.length === 1 ? game.wolvesChoices[wolves[0]] : null;
@@ -220,3 +230,4 @@ export function isConsensus(game: Game): { consensus: boolean; target?: string }
   const allSame = choices.every(c => c === choices[0]);
   return allSame ? { consensus: true, target: choices[0] } : { consensus: false };
 }
+

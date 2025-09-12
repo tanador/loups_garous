@@ -85,6 +85,8 @@ class GameModel {
   final DayRecap? recap;
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
+  // Dernier comptage côté loups en cas d'égalité (revote)
+  final Map<String, int>? wolvesLastTally;
   final String? winner; // 'WOLVES' | 'VILLAGE'
   final List<(String playerId, Role role)> finalRoles;
 
@@ -130,6 +132,7 @@ class GameModel {
     required this.recap,
     required this.voteAlive,
     required this.lastVote,
+    required this.wolvesLastTally,
     required this.winner,
     required this.finalRoles,
     required this.vibrations,
@@ -165,6 +168,7 @@ class GameModel {
         recap: null,
         voteAlive: [],
         lastVote: null,
+      wolvesLastTally: null,
         winner: null,
       finalRoles: [],
       vibrations: true,
@@ -203,6 +207,7 @@ class GameModel {
     Object? recap = _unset,
     List<Lite>? voteAlive,
     Object? lastVote = _unset,
+    Object? wolvesLastTally = _unset,
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
     bool? vibrations,
@@ -238,6 +243,7 @@ class GameModel {
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote: identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,
+      wolvesLastTally: identical(wolvesLastTally, _unset) ? this.wolvesLastTally : wolvesLastTally as Map<String,int>?,
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
       vibrations: vibrations ?? this.vibrations,

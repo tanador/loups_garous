@@ -1,0 +1,264 @@
+<#
+  build_and_run_5.ps1 - Multi-run helper (server + 5 clients)
+
+  Ce script:
+  - Démarre le serveur dans une nouvelle fenêtre via start_server.cmd (logs visibles)
+  - Lance la compilation Windows du client Flutter en parallèle
+  - Ouvre 5 instances du client, en mosaïque 3x2 sur l'écran choisi
+  - Force la taille de chaque fenêtre à 300x600 px et la positionne sans chevauchement
+  - Avant de lancer, ferme toute instance serveur (port choisi) et toute instance
+    Windows du client déjà en cours d'exécution
+
+  Paramètres:
+    -Port <int>         Port HTTP du serveur (défaut 3000)
+    -ScreenIndex <int>  Écran cible (0 = principal, 1 = second, ... ; défaut 0)
+    -NoAuto             Si présent, n'envoie pas _paramNick/_autoCreate/_maxPlayers aux clients
+    -FirstX <int>       Décalage X (px) de la 1ère fenêtre dans la zone utile de l'écran
+    -FirstY <int>       Décalage Y (px) de la 1ère fenêtre dans la zone utile de l'écran
+
+  Comportement par défaut (sans -NoAuto):
+    - 1ère instance:  _paramNick=fabrice_serveur, _autoCreate=true, _maxPlayers=5 (crée une partie 5 joueurs)
+    - 2ème instance:  _paramNick=fabrice_2,      _autoCreate=false (se connecte et rejoint auto)
+    - 3ème instance:  _paramNick=fabrice_3,      _autoCreate=false
+    - 4ème instance:  _paramNick=fabrice_4,      _autoCreate=false
+    - 5ème instance:  _paramNick=fabrice_5,      _autoCreate=false
+
+  Exemples:
+    .\build_and_run_5.ps1                          # écran principal, auto on
+    .\build_and_run_5.ps1 -ScreenIndex 1           # écran secondaire
+    .\build_and_run_5.ps1 -Port 3001               # serveur sur 3001
+    .\build_and_run_5.ps1 -NoAuto                  # sans _paramNick/_autoCreate/_maxPlayers
+
+  Notes:
+    - Le build Windows se fait en parallèle du démarrage du serveur pour gagner du temps.
+    - Les tailles/positions sont imposées via Win32 et côté app (plugin window_manager)
+      afin d'être stables sur les écrans à DPI élevés.
+#>
+
+param(
+  [int]$Port = 3000,
+  [int]$ScreenIndex = 0,
+  [switch]$NoAuto,
+  [int]$FirstX = 0,
+  [int]$FirstY = 0
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+Write-Host "[INFO] Repo path: $repoRoot"
+
+# --- Ctrl+C handler: on interruption, close server console and clients ---
+try { Unregister-Event -SourceIdentifier 'LG_CtrlC' -ErrorAction SilentlyContinue } catch { }
+$serverTitle = "LG_SERVER_$Port"
+$env:LG_SERVER_TITLE = $serverTitle
+$env:LG_SERVER_PORT = "$Port"
+try {
+  Register-ObjectEvent -InputObject ([console]) -EventName CancelKeyPress -SourceIdentifier 'LG_CtrlC' -Action {
+    param($sender, $eventArgs)
+    try { if ($eventArgs) { $eventArgs.Cancel = $true } } catch { }
+    try {
+      $title = $env:LG_SERVER_TITLE
+      if ($title) {
+        Get-Process -Name cmd -ErrorAction SilentlyContinue |
+          Where-Object { $_.MainWindowTitle -eq $title } |
+          ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
+      }
+    } catch { }
+    try {
+      $p = $env:LG_SERVER_PORT
+      if ($p) {
+        try {
+          $list = Get-NetTCPConnection -LocalPort ([int]$p) -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique
+          foreach ($procId in $list) { & taskkill /PID $procId /T /F 2>$null | Out-Null }
+        } catch { }
+        try {
+          netstat -ano -p tcp | Select-String -SimpleMatch (":" + $p) |
+            ForEach-Object { ($_ -split '\s+')[-1] } |
+            Where-Object { $_ -match '^\d+$' } | Sort-Object -Unique |
+            ForEach-Object { & taskkill /PID $_ /T /F 2>$null | Out-Null }
+        } catch { }
+      }
+    } catch { }
+    try {
+      Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'start_server\.cmd' } |
+        ForEach-Object { & taskkill /PID $_.ProcessId /T /F 2>$null | Out-Null }
+    } catch { }
+    try {
+      Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue |
+        ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
+    } catch { }
+  } | Out-Null
+  Write-Host "[INFO] Ctrl+C handler registered (will close server/clients)."
+} catch { }
+
+# --- 0) Cleanup
+function Stop-ProcessTree { param([int]$Pid) if ($Pid) { try { & taskkill /PID $Pid /T /F 2>$null | Out-Null } catch { } } }
+
+Write-Host "[INFO] Cleaning up previous instances (server + clients)..."
+try {
+  $srvCmds = Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'start_server\.cmd' }
+  foreach ($c in $srvCmds) { Stop-ProcessTree -Pid $c.ProcessId }
+  $srvByTitle = Get-Process -Name cmd -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'LG_SERVER_*' }
+  foreach ($p in $srvByTitle) { Stop-ProcessTree -Pid $p.Id }
+} catch { }
+try {
+  Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue | ForEach-Object { Stop-ProcessTree -Pid $_.Id }
+} catch { }
+Start-Sleep -Milliseconds 400
+
+# --- 1) Start server
+$serverCmd = Join-Path $repoRoot 'start_server.cmd'
+if (-not (Test-Path $serverCmd)) { throw "start_server.cmd not found at $serverCmd" }
+Write-Host "[INFO] Launching server (port $Port) in a new window..."
+$serverTitle = "LG_SERVER_$Port"
+$cmdInner = "title $serverTitle & `"$serverCmd`" $Port"
+$script:serverProc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal -PassThru
+
+# --- 2) Build Flutter Windows in background
+if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) { throw 'Flutter not found in PATH. Install Flutter and retry.' }
+try { & flutter config --enable-windows-desktop | Out-Null } catch { }
+$logDir = Join-Path $repoRoot 'logs'
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory | Out-Null }
+$pubLog = Join-Path $logDir 'flutter_pub_get.log'
+$pubErrLog = Join-Path $logDir 'flutter_pub_get.err.log'
+$pubProc = Start-Process -FilePath 'flutter' -ArgumentList @('pub','get') -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $pubLog -RedirectStandardError $pubErrLog -PassThru
+while (-not $pubProc.HasExited) { Start-Sleep -Milliseconds 250 }
+$pubExit = $pubProc.ExitCode
+if ($null -eq $pubExit) {
+  try {
+    $ok = Select-String -Path $pubLog -SimpleMatch 'Got dependencies!' -Quiet
+    if ($ok) { $pubExit = 0 } else { $pubExit = 1 }
+  } catch { $pubExit = 1 }
+}
+if ($pubExit -ne 0) {
+  Write-Host "[ERROR] flutter pub get failed. Showing last lines:" -ForegroundColor Red
+  try { Get-Content -Path $pubLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  try { Get-Content -Path $pubErrLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  throw "flutter pub get failed (see $pubLog / $pubErrLog)"
+}
+
+$buildArgs = @('build','windows','--release','-v')
+$buildLog = Join-Path $logDir 'flutter_build_windows.log'
+$buildErrLog = Join-Path $logDir 'flutter_build_windows.err.log'
+$buildProc = Start-Process -FilePath 'flutter' -ArgumentList $buildArgs -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $buildLog -RedirectStandardError $buildErrLog -PassThru
+
+Write-Host "[INFO] Waiting for Windows build to finish (pid $($buildProc.Id))..."
+while (-not $buildProc.HasExited) { Start-Sleep -Milliseconds 500 }
+$buildExit = $buildProc.ExitCode
+if ($null -eq $buildExit) {
+  try {
+    $candidate = Join-Path $repoRoot 'build\windows\x64\runner\Release\loup_garou_client.exe'
+    if (Test-Path $candidate) { $buildExit = 0 } else { $buildExit = 1 }
+  } catch { $buildExit = 1 }
+}
+if ($buildExit -ne 0) {
+  Write-Host "[ERROR] Flutter build failed. Showing last lines:" -ForegroundColor Red
+  try { Get-Content -Path $buildLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  try { Get-Content -Path $buildErrLog -Tail 80 | ForEach-Object { Write-Host $_ } } catch { }
+  throw "Flutter build failed (see $buildLog / $buildErrLog)"
+}
+
+# --- 3) Resolve exe path
+$candidate = Join-Path $repoRoot 'build\windows\x64\runner\Release\loup_garou_client.exe'
+if (-not (Test-Path $candidate)) {
+  $exe = Get-ChildItem -Path (Join-Path $repoRoot 'build\windows') -Recurse -Filter '*.exe' -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match '\\runner\\(Release|Debug)\\' } |
+    Select-Object -First 1
+  if (-not $exe) { throw 'Windows executable not found after build.' }
+  $exePath = $exe.FullName
+} else { $exePath = $candidate }
+Write-Host "[INFO] Client executable: $exePath"
+
+# --- 4) Window tiling and launching 5 clients (3x2 grid)
+if (-not ([System.Management.Automation.PSTypeName] 'Native.Win32').Type) {
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; namespace Native { public static class Win32 { [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); } }
+'@
+}
+if (-not ([System.Management.Automation.PSTypeName] 'Native2.Win32Ex').Type) {
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; namespace Native2 { public static class Win32Ex { [DllImport("user32.dll", SetLastError=true)] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags); } }
+'@
+}
+if (-not ([System.Management.Automation.PSTypeName] 'NativeUtil.Win32Helpers').Type) {
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; namespace NativeUtil { [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; } public static class Win32Helpers { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect); } }
+'@
+}
+if (-not ([System.Management.Automation.PSTypeName] 'NativePlacements.Win32Place').Type) {
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; namespace NativePlacements { [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; } [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; } [StructLayout(LayoutKind.Sequential)] public struct WINDOWPLACEMENT { public int length; public int flags; public int showCmd; public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition; } public static class Win32Place { [DllImport("user32.dll", SetLastError=true)] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl); } }
+'@
+}
+
+Add-Type -AssemblyName System.Windows.Forms
+$screens = [System.Windows.Forms.Screen]::AllScreens
+if ($screens.Length -eq 0) { throw 'No screens detected.' }
+$target = $null
+if ($ScreenIndex -ge 0 -and $ScreenIndex -lt $screens.Length) {
+  $target = $screens[$ScreenIndex]
+} else {
+  $target = [System.Windows.Forms.Screen]::PrimaryScreen
+}
+$wa = $target.WorkingArea
+Write-Host "[INFO] Using screen index $([array]::IndexOf($screens, $target)) ($($target.DeviceName)) area: X=$($wa.X) Y=$($wa.Y) W=$($wa.Width) H=$($wa.Height)"
+
+$tileW = 300; $tileH = 600
+$cols = 3; $rows = 2
+$maxRelX = [int]([math]::Max(0, $wa.Width - ($tileW * $cols)))
+$maxRelY = [int]([math]::Max(0, $wa.Height - ($tileH * $rows)))
+$baseRelX = [int]([math]::Max(0, [math]::Min($maxRelX, $FirstX)))
+$baseRelY = [int]([math]::Max(0, [math]::Min($maxRelY, $FirstY)))
+$baseX = $wa.X + $baseRelX; $baseY = $wa.Y + $baseRelY
+
+$positions = @(
+  @{ X = $baseX + ($tileW * 0); Y = $baseY + ($tileH * 0) },
+  @{ X = $baseX + ($tileW * 1); Y = $baseY + ($tileH * 0) },
+  @{ X = $baseX + ($tileW * 2); Y = $baseY + ($tileH * 0) },
+  @{ X = $baseX + ($tileW * 0); Y = $baseY + ($tileH * 1) },
+  @{ X = $baseX + ($tileW * 1); Y = $baseY + ($tileH * 1) }
+)
+
+function Set-WindowBounds { param([System.Diagnostics.Process]$Process,[int]$X,[int]$Y,[int]$W,[int]$H)
+  if (-not $Process) { return } try { $null = $Process.WaitForInputIdle(1500) } catch { }
+  for ($i=0; $i -lt 60; $i++) { $Process.Refresh(); $h=$Process.MainWindowHandle; if ($h -ne [IntPtr]::Zero) {
+      [Native.Win32]::ShowWindow($h, 9) | Out-Null
+      try { $wp = New-Object 'NativePlacements.WINDOWPLACEMENT'; $wp.length=[System.Runtime.InteropServices.Marshal]::SizeOf([type]'NativePlacements.WINDOWPLACEMENT'); $wp.showCmd=1; $rect=New-Object 'NativePlacements.RECT'; $rect.Left=$X; $rect.Top=$Y; $rect.Right=$X+$W; $rect.Bottom=$Y+$H; $wp.rcNormalPosition=$rect; [NativePlacements.Win32Place]::SetWindowPlacement($h, [ref]$wp) | Out-Null } catch {}
+      $SWP_NOZORDER=0x0004; $SWP_NOOWNERZORDER=0x0200; $SWP_FRAMECHANGED=0x0020
+      for ($j=0; $j -lt 12; $j++) { if ($j -gt 0) { Start-Sleep -Milliseconds 150 }
+        $ok = $false
+        if (([System.Management.Automation.PSTypeName] 'Native2.Win32Ex').Type) { $ok=[Native2.Win32Ex]::SetWindowPos($h,[IntPtr]::Zero,$X,$Y,$W,$H,($SWP_NOZORDER -bor $SWP_NOOWNERZORDER -bor $SWP_FRAMECHANGED)) } else { [Native.Win32]::MoveWindow($h,$X,$Y,$W,$H,$true) | Out-Null }
+      }
+      return; }
+    Start-Sleep -Milliseconds 100 }
+}
+
+function Spawn-Client {
+  param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[int]$X,[int]$Y,[int]$W,[int]$H,[switch]$NoAuto)
+  if ($NoAuto) {
+    Remove-Item Env:_paramNick -ErrorAction SilentlyContinue
+    Remove-Item Env:_autoCreate -ErrorAction SilentlyContinue
+    Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
+  } else {
+    $env:_paramNick = $Nick
+    if ($AutoCreate) { $env:_autoCreate = 'true'; if ($AutoMaxPlayers -gt 0) { $env:_maxPlayers = "$AutoMaxPlayers" } } else { $env:_autoCreate = 'false'; Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue }
+  }
+  $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
+  return (Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru)
+}
+
+$procs = @(); $p=0
+$procs += Spawn-Client -Nick 'fabrice_serveur' -AutoCreate $true  -AutoMaxPlayers 5 -X $positions[$p].X -Y $positions[$p].Y -W $tileW -H $tileH -NoAuto:$NoAuto; $p++
+$procs += Spawn-Client -Nick 'fabrice_2'      -AutoCreate $false -AutoMaxPlayers 0 -X $positions[$p].X -Y $positions[$p].Y -W $tileW -H $tileH -NoAuto:$NoAuto; $p++
+$procs += Spawn-Client -Nick 'fabrice_3'      -AutoCreate $false -AutoMaxPlayers 0 -X $positions[$p].X -Y $positions[$p].Y -W $tileW -H $tileH -NoAuto:$NoAuto; $p++
+$procs += Spawn-Client -Nick 'fabrice_4'      -AutoCreate $false -AutoMaxPlayers 0 -X $positions[$p].X -Y $positions[$p].Y -W $tileW -H $tileH -NoAuto:$NoAuto; $p++
+$procs += Spawn-Client -Nick 'fabrice_5'      -AutoCreate $false -AutoMaxPlayers 0 -X $positions[$p].X -Y $positions[$p].Y -W $tileW -H $tileH -NoAuto:$NoAuto
+
+for ($i=0; $i -lt $procs.Count; $i++) { Set-WindowBounds -Process $procs[$i] -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH }
+
+Write-Host "[OK] Server and 5 clients launched."
+Write-Host "[INFO] Press Ctrl+C in this console to stop server and clients (or close the server window)."
+if ($script:serverProc) { try { Wait-Process -Id $script:serverProc.Id } catch { } } else { try { Wait-Event -SourceIdentifier 'LG_CtrlC' } catch { while ($true) { Start-Sleep -Seconds 60 } } }

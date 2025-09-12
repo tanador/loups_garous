@@ -217,6 +217,8 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
+    // Fin de partie: inclut désormais la liste des amoureux pour marquer
+    // (amoureux) côté client chez tout le monde, même sans info locale.
     s.on('game:ended', (data) {
       final win = data['winner'] as String?;
       final roles = ((data['roles'] as List?) ?? [])
@@ -226,8 +228,16 @@ class GameController extends StateNotifier<GameModel> {
                 roleFromStr(j['role'] as String),
               ))
           .toList();
-      state = state.copy(winner: win, phase: GamePhase.END, finalRoles: roles);
-      log('[evt] game:ended winner=$win roles=${roles.length}');
+      final lovers = ((data['lovers'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toSet();
+      state = state.copy(
+        winner: win,
+        phase: GamePhase.END,
+        finalRoles: roles,
+        loversKnown: lovers.isNotEmpty ? lovers : state.loversKnown,
+      );
+      log('[evt] game:ended winner=$win roles=${roles.length} lovers=${lovers.length}');
     });
 
     s.on('game:cancelled', (_) async {
@@ -242,7 +252,8 @@ class GameController extends StateNotifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => Lite(id: j['id']))
           .toList();
-      state = state.copy(wolvesTargets: list, wolvesLockedTargetId: null, confirmationsRemaining: 0);
+      // Réinitialise le dernier comptage (égalité) à chaque réveil des loups
+      state = state.copy(wolvesTargets: list, wolvesLockedTargetId: null, confirmationsRemaining: 0, wolvesLastTally: null);
       if (state.vibrations) await HapticFeedback.vibrate();
       log('[evt] wolves:wake targets=${list.length}');
     });
@@ -253,6 +264,15 @@ class GameController extends StateNotifier<GameModel> {
         confirmationsRemaining: (data['confirmationsRemaining'] ?? 0) as int,
       );
       log('[evt] wolves:targetLocked ${state.wolvesLockedTargetId} confLeft=${state.confirmationsRemaining}');
+    });
+
+    // Wolves: tie results (re-vote like village)
+    // Egalité côté loups: affiche un comptage détaillé et invite à revoter
+    s.on('wolves:results', (data) {
+      final tallyMap = <String, int>{};
+      (data['tally'] as Map?)?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
+      state = state.copy(wolvesLastTally: tallyMap);
+      log('[evt] wolves:results tie tally=${tallyMap.length}');
     });
 
     // --- Night: witch
@@ -656,6 +676,13 @@ class GameController extends StateNotifier<GameModel> {
   Future<void> voteCancel() async {
     final ack = await _socketSvc.emitAck('vote:cancel', {});
     log('[ack] vote:cancel $ack');
+  }
+
+  // ------------- Vote resolve ack (day elimination) -------------
+  // Envoie l'ACK "J'ai vu" après un vote diurne (phase RESOLVE)
+  Future<void> voteAck() async {
+    final ack = await _socketSvc.emitAck('vote:ack', {});
+    log('[ack] vote:ack $ack');
   }
 
   // ------------- Reset -------------

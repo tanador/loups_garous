@@ -42,8 +42,37 @@ final bool _autoCreate = (() {
     }
   } catch (_) {}
   const byKey = bool.fromEnvironment('_autoCreate', defaultValue: false);
-  const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
-  return byKey || legacy;
+const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
+return byKey || legacy;
+})();
+
+
+// Nombre de joueurs pour l'auto-création (si _autoCreate est activé).
+// Sources prises en compte, par ordre de priorité :
+// 1) Variables d'environnement (_maxPlayers, _AUTOMAXPLAYERS, AUTOMAXPLAYERS, AUTO_MAX_PLAYERS)
+// 2) Dart-define (compat: _maxPlayers / AUTO_MAX_PLAYERS)
+// Valeur par défaut: 4
+final int _autoMaxPlayers = (() {
+  int parseInt(dynamic v) {
+    try {
+      if (v == null) return -1;
+      final s = v.toString().trim();
+      if (s.isEmpty) return -1;
+      return int.parse(s);
+    } catch (_) { return -1; }
+  }
+  try {
+    if (!kIsWeb) {
+      final env = Platform.environment;
+      final raw = env['_maxPlayers'] ?? env['_AUTOMAXPLAYERS'] ?? env['AUTOMAXPLAYERS'] ?? env['AUTO_MAX_PLAYERS'];
+      final n = parseInt(raw);
+      if (n > 0) return n;
+    }
+  } catch (_) {}
+  const byKey = int.fromEnvironment('_maxPlayers', defaultValue: 4);
+  const legacy = int.fromEnvironment('AUTO_MAX_PLAYERS', defaultValue: 4);
+  final n = byKey != 4 ? byKey : legacy;
+  return n > 0 ? n : 4;
 })();
 
 
@@ -142,7 +171,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
 
     await _saveNick();
-    await ctl.createGame(_nick.text.trim(), 4);
+    await ctl.createGame(_nick.text.trim(), _autoMaxPlayers);
     _autoRan = true; // marque l'auto démarrage comme effectué
   }
 

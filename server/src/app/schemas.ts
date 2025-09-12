@@ -4,9 +4,15 @@ import { z } from 'zod';
 export const zNickname = z.string().min(1).max(20);
 export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 
+// Autorise désormais la création de parties à 3, 4, 5 ou 6 joueurs.
+// Note pour contributeur débutant:
+// - Le serveur valide ici les entrées Socket.IO. Étendre ce schéma
+//   permet immédiatement au client de demander 5/6 joueurs.
+// - La répartition des rôles dépend ensuite de roles.config.json.
 export const CreateGameSchema = z.object({
   nickname: zNickname,
-  maxPlayers: z.union([z.literal(3), z.literal(4)]).default(3)
+  // Autorise 3, 4, 5 ou 6 joueurs. La valeur par défaut reste 3 pour la compatibilité.
+  maxPlayers: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).default(3)
 });
 
 export const JoinGameSchema = z.object({
@@ -57,3 +63,6 @@ export const VoteCastSchema = z.object({
 
 export const VoteCancelSchema = z.object({});
 export const LoversAckSchema = z.object({});
+// ACK de fin de vote (diurne): aucune donnée utile côté client,
+// la présence de l'ACK suffit à débloquer la transition.
+export const VoteAckSchema = z.object({});

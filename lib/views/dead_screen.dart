@@ -13,12 +13,17 @@ class DeadScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
+    final me = s.players.firstWhere(
+      (p) => p.id == s.playerId,
+      orElse: () => const PlayerView(id: '', connected: true, alive: false),
+    );
+    final isEliminatedThisVote = s.phase == GamePhase.RESOLVE && s.lastVote?.eliminatedId == me.id;
     // Spécificité du rôle « Chasseur »:
     // Lorsqu’il meurt, il peut tirer une dernière balle. Cet « éveil » arrive
     // pendant la phase MORNING via l’événement serveur hunter:wake.
     // Pour éviter que le joueur quitte avant d’exercer ce pouvoir, on masque
     // temporairement le bouton « Quitter » quand la phase est MORNING.
-    final bool blockQuit = s.role == Role.HUNTER && s.phase == GamePhase.MORNING;
+    final bool blockQuit = (s.role == Role.HUNTER && s.phase == GamePhase.MORNING) || isEliminatedThisVote;
     return Scaffold(
       appBar: AppBar(title: const Text('Vous êtes mort')),
       body: Center(
@@ -38,7 +43,18 @@ class DeadScreen extends ConsumerWidget {
                     const Text('Vous êtes mort',
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 24),
-                    if (!blockQuit)
+                    if (isEliminatedThisVote)
+                      ElevatedButton(
+                        onPressed: () async {
+                          try {
+                            await ctl.voteAck();
+                          } catch (e, st) {
+                            log('voteAck exception: $e', stackTrace: st);
+                          }
+                        },
+                        child: const Text("J'ai vu"),
+                      )
+                    else if (!blockQuit)
                       ElevatedButton(
                         onPressed: () async {
                           try {
