@@ -211,14 +211,20 @@ export function targetsForWitch(game: Game): string[] {
 /**
  * Consigne la vision de la voyante et renvoie le rôle révélé.
  *
- * La voyante (camp du village) peut, chaque nuit, regarder en secret
- * le rôle exact d'un joueur encore vivant. Cette fonction stocke
- * l'information dans son journal privé et dans l'historique de la partie
- * afin de pouvoir être consultée en fin de partie ou pour audit.
+ * Dans *Loup Garou*, la voyante est l'un des rares rôles disposant
+ * d'une information "parfaite". Chaque nuit elle choisit un joueur
+ * encore en vie et apprend immédiatement son rôle secret. L'objectif
+ * principal est de guider les villageois pendant la phase de vote.
+ *
+ * Techniquement, on conserve une trace de cette vision à deux endroits :
+ *  - dans le journal privé de la voyante (affiché côté client pour elle seule)
+ *  - dans l'historique complet de la partie pour un éventuel audit ou
+ *    un écran de récap final.
  */
 export function recordSeerPeek(game: Game, seerId: string, targetId: string): Role {
   const role = game.roles[targetId];
   if (!role) throw new Error('target_has_no_role');
+  // Ajoute l'information dans le journal individuel de la voyante.
   const seer = game.players.find(p => p.id === seerId);
   if (!seer) throw new Error('seer_not_found');
   seer.privateLog.push({
@@ -235,6 +241,7 @@ export function recordSeerPeek(game: Game, seerId: string, targetId: string): Ro
   } else if (!h.events) {
     h.events = [];
   }
+  // Enrichit l'historique global de la partie pour consultation ultérieure.
   h.events!.push({ type: 'SEER_PEEK', seerId, targetId, role });
   return role;
 }

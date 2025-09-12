@@ -7,7 +7,9 @@
  * l'orchestrateur d'application pilote son réveil, reçoit sa
  * cible et lui révèle le résultat.
  *
- * Ce fichier existe surtout pour garder une entrée claire dans
- * le registre des rôles. Le comportement est donc vide.
+ * Pour un développeur : ce module sert surtout de documentation et
+ * d'ancrage dans le registre des rôles. Il n'expose aucun comportement
+ * particulier car toute la logique est gérée par l'orchestrateur et
+ * les règles de domaine associées.
  */
 export default {};
