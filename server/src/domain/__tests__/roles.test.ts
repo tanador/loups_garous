@@ -24,9 +24,11 @@ describe('assign roles (config-agnostic)', () => {
       expect(Object.values(cnt).reduce((a, b) => a + b, 0)).toBe(3);
       // Each count within declared min/max for this player count
       const cfg = ROLE_SETUPS[3];
+      const hasThief = g.center.includes('THIEF');
       for (const [role, { min, max }] of Object.entries(cfg)) {
         const n = cnt[role] ?? 0;
-        expect(n >= min && n <= max).toBe(true);
+        const bonus = hasThief && role === 'VILLAGER' ? 1 : 0;
+        expect(n >= min && n <= max + bonus).toBe(true);
       }
     }
   });
@@ -43,9 +45,11 @@ describe('assign roles (config-agnostic)', () => {
       expect(Object.keys(g.roles).length).toBe(4);
       expect(Object.values(cnt).reduce((a, b) => a + b, 0)).toBe(4);
       const cfg = ROLE_SETUPS[4];
+      const hasThief = g.center.includes('THIEF');
       for (const [role, { min, max }] of Object.entries(cfg)) {
         const n = cnt[role] ?? 0;
-        expect(n >= min && n <= max).toBe(true);
+        const bonus = hasThief && role === 'VILLAGER' ? 1 : 0;
+        expect(n >= min && n <= max + bonus).toBe(true);
       }
     }
   });

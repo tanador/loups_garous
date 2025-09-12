@@ -8,7 +8,10 @@ import { bus, HunterShot } from './events.js';
 /// Attribue aléatoirement les rôles aux joueurs selon la configuration.
 /// La fonction génère toutes les distributions possibles respectant les
 /// contraintes min/max puis en choisit une au hasard.
-export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
+export function assignRoles(
+  game: Game,
+  rng: (max: number) => number = randomInt,
+): { roles: Record<string, Role>; center: Role[] } {
   const players = secureShuffle(game.players.map(p => p.id));
   const cfg = ROLE_SETUPS[game.maxPlayers];
   if (!cfg) throw new Error('no_config_for_player_count');
@@ -55,7 +58,21 @@ export function assignRoles(game: Game, rng: (max: number) => number = randomInt
   const assigned: Record<string, Role> = {};
   players.forEach((pid, idx) => (assigned[pid] = shuffledRoles[idx]));
   game.roles = assigned;
-  game.players.forEach(p => (p.role = assigned[p.id]));
+  game.players.forEach((p) => (p.role = assigned[p.id]));
+
+  // Gestion spécifique du Voleur : s'il est tiré, il devient Villageois
+  // et les cartes Voleur + Villageois supplémentaires vont au centre.
+  const thiefEntry = Object.entries(assigned).find(([, r]) => r === 'THIEF');
+  if (thiefEntry) {
+    const [thiefId] = thiefEntry;
+    assigned[thiefId] = 'VILLAGER';
+    const thief = game.players.find((p) => p.id === thiefId);
+    if (thief) thief.role = 'VILLAGER';
+    game.center[0] = 'THIEF';
+    game.center[1] = 'VILLAGER';
+  }
+
+  return { roles: game.roles, center: game.center };
 }
 /// Retourne la liste des loups encore en jeu.
 export function wolvesOf(game: Game): string[] {
