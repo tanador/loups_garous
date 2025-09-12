@@ -17,7 +17,7 @@ const transitions: Record<string, GameState[]> = {
   MORNING: ['VOTE', 'END'],
   VOTE: ['RESOLVE', 'END'],
   RESOLVE: ['CHECK_END', 'END'],
-  CHECK_END: ['END', 'NIGHT_WOLVES'],
+  CHECK_END: ['END', 'NIGHT_SEER', 'NIGHT_WOLVES'],
   END: [],
 };
 

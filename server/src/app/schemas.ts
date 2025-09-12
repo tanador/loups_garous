@@ -41,6 +41,10 @@ export const WolvesChooseSchema = z.object({
   targetId: zNickname
 });
 
+export const SeerPeekSchema = z.object({
+  targetId: zNickname,
+});
+
 export const CupidChooseSchema = z.object({
   targetA: zNickname,
   targetB: zNickname,
