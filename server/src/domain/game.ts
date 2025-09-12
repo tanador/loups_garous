@@ -20,6 +20,7 @@ export function createGame(maxPlayers: number): Game {
     inventory: { witch: { healUsed: false, poisonUsed: false } },
     votes: {},
     history: [],
+    privateLog: [],
     deadlines: {},
     wolvesChoices: {},
     morningAcks: new Set<string>(),

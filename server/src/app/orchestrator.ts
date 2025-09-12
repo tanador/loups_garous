@@ -19,7 +19,7 @@ import {
   isConsensus,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
-import { DURATION, randomNextWakeMs, CONFIG } from "./timers.js";
+import { DURATION, CONFIG } from "./timers.js";
 import { logger } from "../logger.js";
 
 function now() {
@@ -220,7 +220,7 @@ export class Orchestrator {
         if (cupid && game.alive.has(cupid.id) && cupid.connected) {
           this.beginNightCupid(game);
         } else {
-          this.beginNightWolves(game);
+          this.beginNightSeer(game);
         }
       });
     }
@@ -245,7 +245,7 @@ export class Orchestrator {
     const cid = cupid?.id;
     if (!cid || !game.alive.has(cid) || !cupid?.connected) {
       this.broadcastState(game);
-      return this.beginNightWolves(game);
+      return this.beginNightSeer(game);
     }
     this.setDeadline(game, DURATION.CUPID_MS);
     this.broadcastState(game);
@@ -301,7 +301,7 @@ export class Orchestrator {
     );
     if (lovers.length === 0) {
       this.broadcastState(game);
-      return this.globalSleep(game, () => this.beginNightWolves(game));
+      return this.globalSleep(game, () => this.beginNightSeer(game));
     }
     // Reset per-phase acknowledgements for lovers
     (game as any).loversAcks = new Set<string>();
@@ -319,7 +319,7 @@ export class Orchestrator {
   private endNightLovers(gameId: string) {
     const game = this.mustGet(gameId);
     if (game.state !== "NIGHT_LOVERS") return;
-    this.globalSleep(game, () => this.beginNightWolves(game));
+    this.globalSleep(game, () => this.beginNightSeer(game));
   }
 
   loversAck(gameId: string, playerId: string) {
@@ -345,6 +345,59 @@ export class Orchestrator {
       }
       this.endNightLovers(game.id);
     }
+  }
+
+  private beginNightSeer(game: Game) {
+    if (!canTransition(game, game.state, "NIGHT_SEER")) return;
+    setState(game, "NIGHT_SEER");
+    const seer = game.players.find((p) => game.roles[p.id] === "SEER");
+    const sid = seer?.id;
+    if (!sid || !game.alive.has(sid) || !seer?.connected) {
+      this.broadcastState(game);
+      return this.globalSleep(game, () => this.beginNightWolves(game));
+    }
+
+    this.setDeadline(game, DURATION.SEER_MS);
+    this.broadcastState(game);
+
+    const alive = game.players
+      .filter((p) => p.id !== sid && game.alive.has(p.id))
+      .map((p) => this.playerLite(game, p.id));
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, sid));
+    if (s) s.emit("seer:wake", { alive });
+    this.log(game.id, game.state, sid, "seer.wake", { targets: alive.length });
+
+    this.schedule(game.id, DURATION.SEER_MS, () => this.endNightSeer(game.id));
+  }
+
+  seerPeek(gameId: string, playerId: string, targetId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
+    if (game.roles[playerId] !== "SEER") throw new Error("forbidden");
+    if (targetId === playerId) throw new Error("invalid_target");
+    if (!game.alive.has(targetId)) throw new Error("invalid_target");
+
+    const role = game.roles[targetId];
+    const s = this.io.sockets.sockets.get(this.playerSocket(game, playerId));
+    if (s) s.emit("seer:reveal", { targetId, role });
+    this.log(game.id, game.state, playerId, "seer.peek", { targetId, role });
+
+    const logArr = ((game as any).privateLog ??= []);
+    logArr.push({ round: game.round, seer: playerId, target: targetId, role });
+
+    this.endNightSeer(game.id);
+  }
+
+  private endNightSeer(gameId: string) {
+    const game = this.mustGet(gameId);
+    if (game.state !== "NIGHT_SEER") return;
+    const seer = game.players.find((p) => game.roles[p.id] === "SEER");
+    const sid = seer?.id;
+    if (sid && game.alive.has(sid)) {
+      const s = this.io.sockets.sockets.get(this.playerSocket(game, sid));
+      if (s) s.emit("seer:sleep");
+    }
+    this.globalSleep(game, () => this.beginNightWolves(game));
   }
 
   private beginNightWolves(game: Game) {
@@ -878,7 +931,7 @@ export class Orchestrator {
       this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
       this.log(game.id, "END", undefined, "game.end", { winner: win });
     } else {
-      this.globalSleep(game, () => this.beginNightWolves(game));
+      this.globalSleep(game, () => this.beginNightSeer(game));
     }
   }
 

@@ -4,12 +4,14 @@
     "WOLF": "./src/domain/roles/wolf.ts",
     "WITCH": "./src/domain/roles/witch.ts",
     "HUNTER": "./src/domain/roles/hunter.ts",
+    "SEER": "./src/domain/roles/seer.ts",
     "VILLAGER": "./src/domain/roles/villager.ts"
   },
   "setups": {
     "3": {
       "CUPID": { "min": 0, "max": 1 },
       "HUNTER": { "min": 0, "max": 1 },
+      "SEER": { "min": 0, "max": 1 },
       "VILLAGER": { "min": 0, "max": 1 },
       "WITCH": { "min": 0, "max": 1 },
       "WOLF": { "min": 1, "max": 2 }
@@ -18,6 +20,7 @@
       "CUPID": { "min": 0, "max": 1 },
       "WITCH": { "min": 0, "max": 1 },
       "HUNTER": { "min": 0, "max": 1 },
+      "SEER": { "min": 0, "max": 1 },
       "WOLF": { "min": 2, "max": 2 },
       "VILLAGER": { "min": 0, "max": 1 }
     },
@@ -25,6 +28,7 @@
       "CUPID": { "min": 1, "max": 1 },
       "WITCH": { "min": 1, "max": 1 },
       "HUNTER": { "min": 1, "max": 1 },
+      "SEER": { "min": 0, "max": 1 },
       "WOLF": { "min": 1, "max": 2 },
       "VILLAGER": { "min": 1, "max": 2 }
     },
@@ -32,6 +36,7 @@
       "CUPID": { "min": 1, "max": 1 },
       "WITCH": { "min": 1, "max": 1 },
       "HUNTER": { "min": 1, "max": 1 },
+      "SEER": { "min": 0, "max": 1 },
       "WOLF": { "min": 1, "max": 2 },
       "VILLAGER": { "min": 1, "max": 3 }
     }

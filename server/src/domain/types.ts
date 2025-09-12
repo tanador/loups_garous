@@ -6,6 +6,7 @@ export type CoreGameState =
   | 'ROLES'
   | 'NIGHT_CUPID'
   | 'NIGHT_LOVERS'
+  | 'NIGHT_SEER'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'
   | 'MORNING'
@@ -70,6 +71,7 @@ export interface Game {
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
   votes: Record<string, string>; // nickname -> target nickname
   history: HistoryEvent[];
+  privateLog: any[]; // événements privés (ex.: visions de la voyante)
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
   morningAcks: Set<string>;
