@@ -60,8 +60,14 @@ export function assignRoles(
   game.roles = assigned;
   game.players.forEach((p) => (p.role = assigned[p.id]));
 
-  // Gestion spécifique du Voleur : s'il est tiré, il devient Villageois
-  // et les cartes Voleur + Villageois supplémentaires vont au centre.
+  // Réinitialise le centre pour éviter de conserver d'anciennes cartes entre
+  // plusieurs tirages (tests ou parties annulées).
+  game.center[0] = undefined as any;
+  game.center[1] = undefined as any;
+
+  // Gestion spécifique du Voleur : s'il est tiré, on ajoute deux cartes
+  // Villageois, on en donne une au Voleur et on place les deux restantes
+  // (Voleur + Villageois) au centre.
   const thiefEntry = Object.entries(assigned).find(([, r]) => r === 'THIEF');
   if (thiefEntry) {
     const [thiefId] = thiefEntry;
@@ -72,7 +78,9 @@ export function assignRoles(
     game.center[1] = 'VILLAGER';
   }
 
-  return { roles: game.roles, center: game.center };
+  // Retourne une copie des rôles attribués ainsi que l'état du centre pour
+  // faciliter les tests et appels côté orchestrateur.
+  return { roles: { ...game.roles }, center: [...game.center] };
 }
 /// Retourne la liste des loups encore en jeu.
 export function wolvesOf(game: Game): string[] {
