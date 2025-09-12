@@ -17,15 +17,16 @@ describe('THIEF role', () => {
     }
   });
 
-  it('replaces thief with villager and populates center', () => {
+  it('replaces thief with villager, populates center and returns state', () => {
     const g = createGame(3);
     addPlayer(g, { id: 'A', socketId: 'sA' });
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
-    assignRoles(g, () => 5);
-    const values = Object.values(g.roles);
+    const { roles, center } = assignRoles(g, () => 5);
+    const values = Object.values(roles);
     expect(values.filter((r) => r === 'THIEF').length).toBe(0);
     expect(values.filter((r) => r === 'VILLAGER').length).toBe(2);
-    expect([...g.center].sort()).toEqual(['THIEF', 'VILLAGER'].sort());
+    expect(center.sort()).toEqual(['THIEF', 'VILLAGER'].sort());
+    expect(center).toEqual([...g.center]);
   });
 });
