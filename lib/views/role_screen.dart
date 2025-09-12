@@ -114,7 +114,7 @@ class _ReadyTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: scheme.surface,
-          border: Border.all(color: scheme.outline.withOpacity(0.25)),
+          border: Border.all(color: scheme.outline.withValues(alpha: 0.25)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(

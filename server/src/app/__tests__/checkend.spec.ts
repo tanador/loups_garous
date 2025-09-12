@@ -31,6 +31,8 @@ describe('CHECK_END after RESOLVE', () => {
     (orch as any).beginVote(game);
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'C', 'B');
+    // Option A: attendre que tous votent
+    orch.voteCast(game.id, 'B', 'A');
     const ended = io.emits.find(e => e.event === 'game:ended');
     if (ended) {
       expect(ended.payload?.winner).toBe('VILLAGE');
@@ -54,6 +56,8 @@ describe('CHECK_END after RESOLVE', () => {
     // A et W votent contre B -> B meurt, 1 loup contre 1 village : loups gagnent
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'W', 'B');
+    // Option A: attendre que tous votent
+    orch.voteCast(game.id, 'B', 'A');
     const ended = io.emits.find(e => e.event === 'game:ended');
     if (ended) {
       expect(ended.payload?.winner).toBe('WOLVES');
@@ -81,6 +85,8 @@ describe('CHECK_END after RESOLVE', () => {
     // A et B sont lovers, on élimine X -> il ne reste que A et B -> lovers gagnent
     orch.voteCast(game.id, 'A', 'X');
     orch.voteCast(game.id, 'B', 'X');
+    // Option A: attendre que tous votent
+    orch.voteCast(game.id, 'X', 'A');
     const ended = io.emits.find(e => e.event === 'game:ended');
     if (ended) {
       expect(ended.payload?.winner).toBe('LOVERS');

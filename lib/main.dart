@@ -162,9 +162,17 @@ class _HomeRouter extends ConsumerWidget {
       return const HunterScreen();
     }
 
-    // Les joueurs morts voient l'écran des défunts.
+    // Les joueurs morts voient l'écran des défunts, sauf cas spécial:
+    // pendant RESOLVE après un vote de jour, le joueur éliminé doit
+    // confirmer le résultat (ACK). On le laisse donc sur l'écran de vote.
     if (!me.alive) {
-      return const DeadScreen();
+      final isResolve = phase == GamePhase.RESOLVE;
+      final you = s.playerId;
+      final eliminated = s.lastVote?.eliminatedId;
+      final youMustAck = isResolve && you != null && eliminated == you;
+      if (!youMustAck) {
+        return const DeadScreen();
+      }
     }
 
     // Aucune partie jointe: afficher l'écran de connexion.

@@ -69,9 +69,11 @@ describe('Vote flow', () => {
     const revote = io.emits.find(e => e.event === 'vote:options');
     expect(revote).toBeTruthy();
 
-    // Second tour: A et C votent B -> élimination de B (loup), village gagne
+    // Second tour (Option A: pas de clôture anticipée) :
+    // A et C votent B, puis B vote (peu importe la cible) -> clôture
     orch.voteCast(game.id, 'A', 'B');
     orch.voteCast(game.id, 'C', 'B');
+    orch.voteCast(game.id, 'B', 'A');
     // Le serveur doit pouvoir déclarer la fin (plus de loup): 'game:ended' émis
     const ended = io.emits.find(e => e.event === 'game:ended');
     if (ended) {

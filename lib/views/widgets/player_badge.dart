@@ -39,9 +39,9 @@ class _PlayerBadgeState extends ConsumerState<PlayerBadge> {
 
     final theme = Theme.of(context);
     final textStyle = theme.textTheme.bodyMedium;
-    final bg = theme.colorScheme.surface.withOpacity(0.9);
+    final bg = theme.colorScheme.surface.withValues(alpha: 0.9);
     final fg = theme.colorScheme.onSurface;
-    final border = theme.colorScheme.outline.withOpacity(0.3);
+    final border = theme.colorScheme.outline.withValues(alpha: 0.3);
 
     final showRole = _revealed && s.role != null;
     final label = showRole ? 'Rôle: ${_roleLabel(s.role!)}' : 'Vous: $nick';

@@ -399,6 +399,17 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] vote:options ${alive.length}');
     });
 
+    // Statut de vote (nombre de bulletins déposés / en attente)
+    s.on('vote:status', (data) {
+      final voted = (data['voted'] as num?)?.toInt() ?? 0;
+      final total = (data['total'] as num?)?.toInt() ?? 0;
+      final pending = ((data['pending'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((j) => j['id'] as String)
+          .join(', ');
+      log('[evt] vote:status $voted/$total pending=[$pending]');
+    });
+
     s.on('vote:results', (data) {
       final tallyMap = <String, int>{};
       (data['tally'] as Map?)?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
@@ -718,9 +729,25 @@ class GameController extends StateNotifier<GameModel> {
   }
 
   // ------------- Vote -------------
-  Future<void> voteCast(String targetId) async {
+  Future<String?> voteCast(String targetId) async {
     final ack = await _socketSvc.emitAck('vote:cast', {'targetId': targetId});
     log('[ack] vote:cast $ack');
+    if (ack['ok'] != true) {
+      final err = ack['error']?.toString() ?? 'unknown_error';
+      switch (err) {
+        case 'cannot_target_lover':
+          return "Vous ne pouvez pas voter contre votre amoureux·se.";
+        case 'invalid_target':
+          return "Cible invalide ou morte.";
+        case 'dead_cannot_vote':
+          return "Vous ne pouvez pas voter (mort).";
+        case 'bad_state':
+          return "Le vote n'est plus ouvert.";
+        default:
+          return err;
+      }
+    }
+    return null;
   }
 
   Future<void> voteCancel() async {

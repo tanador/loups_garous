@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/game_provider.dart';
-import '../../state/models.dart';
 import '../widgets/common.dart';
 
 /// Écran de la voyante pendant la phase de nuit.
@@ -34,7 +32,7 @@ class _SeerViewState extends ConsumerState<SeerView> {
     // Si une révélation est en attente d'ACK, afficher un écran bloquant
     if (pending != null) {
       final name = pending.$1;
-      final roleName = describeEnum(pending.$2);
+      final roleName = pending.$2.name;
       return Scaffold(
         appBar: AppBar(title: const Text('Révélation — Voyante')),
         body: Padding(
@@ -75,22 +73,38 @@ class _SeerViewState extends ConsumerState<SeerView> {
           if (targets.isEmpty) ...[
             const Center(child: Text('En attente...')),
           ] else ...[
-            ...targets
-                .where((t) => t.id != s.playerId)
-                .map(
-                  (t) => RadioListTile<String?>(
-                    title: Text(t.id),
-                    value: t.id,
-                    groupValue: _selected,
-                    onChanged: _sent ? null : (v) => setState(() => _selected = v),
-                  ),
-                ),
+            RadioGroup<String?>(
+              groupValue: _selected,
+              onChanged: (v) {
+                if (_sent) return;
+                setState(() => _selected = v);
+              },
+              child: Column(
+                children: [
+                  ...targets
+                      .where((t) => t.id != s.playerId)
+                      .map(
+                        (t) => RadioListTile<String?>(
+                          title: Text(t.id),
+                          value: t.id,
+                        ),
+                      ),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: !_sent && _selected != null
                   ? () async {
-                      await ctl.seerPeek(_selected!);
-                      if (mounted) setState(() => _sent = true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ctl.seerPeek(_selected!);
+                        if (mounted) setState(() => _sent = true);
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Erreur: $e')),
+                        );
+                      }
                     }
                   : null,
               child: const Text('Révéler'),
@@ -103,7 +117,7 @@ class _SeerViewState extends ConsumerState<SeerView> {
             ...s.seerLog.map(
               (e) {
                 final name = e.$1;
-                final roleName = describeEnum(e.$2);
+                final roleName = e.$2.name;
                 return Text('$name est $roleName');
               },
             ),
@@ -113,4 +127,3 @@ class _SeerViewState extends ConsumerState<SeerView> {
     );
   }
 }
-

@@ -880,22 +880,16 @@ export class Orchestrator {
     this.log(game.id, game.state, playerId, "vote.cast", { targetId });
 
     const aliveIds = alivePlayers(game);
-    // Early resolution: if any target has an absolute majority of alive players,
-    // finalize the vote immediately without waiting for remaining ballots.
-    const majority = Math.floor(aliveIds.length / 2) + 1;
-    const tally: Record<string, number> = {};
-    for (const pid of aliveIds) {
-      const t = game.votes[pid];
-      if (!t) continue;
-      if (!game.alive.has(t)) continue;
-      tally[t] = (tally[t] ?? 0) + 1;
-      if (tally[t] >= majority) {
-        this.endVote(game.id);
-        return;
-      }
-    }
-
-    // Otherwise, if all alive have voted, close the round
+    // Broadcast vote status (non-sensitive): how many voted / pending ids
+    try {
+      const pending = aliveIds.filter((pid) => !(pid in game.votes));
+      this.io.to(`room:${game.id}`).emit("vote:status", {
+        voted: aliveIds.length - pending.length,
+        total: aliveIds.length,
+        pending: pending.map((pid) => this.playerLite(game, pid)),
+      });
+    } catch {}
+    // Option A: no early finish. Close only when all alive have voted.
     const allVoted = aliveIds.every((pid) => pid in game.votes);
     if (allVoted) this.endVote(game.id);
   }
@@ -905,6 +899,14 @@ export class Orchestrator {
     if (game.state !== "VOTE") throw new Error("bad_state");
     delete game.votes[playerId];
     this.log(game.id, game.state, playerId, "vote.cancel");
+    // Update vote status after cancellation
+    const aliveIds = alivePlayers(game);
+    const pending = aliveIds.filter((pid) => !(pid in game.votes));
+    this.io.to(`room:${game.id}`).emit("vote:status", {
+      voted: aliveIds.length - pending.length,
+      total: aliveIds.length,
+      pending: pending.map((pid) => this.playerLite(game, pid)),
+    });
   }
 
   private async endVote(gameId: string) {

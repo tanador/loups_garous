@@ -31,6 +31,13 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
 
+    final isResolve = s.phase == GamePhase.RESOLVE;
+    final you = s.playerId;
+    final eliminated = s.lastVote?.eliminatedId;
+    final youMustAck = isResolve && you != null && eliminated == you;
+
+    final messenger = ScaffoldMessenger.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Vote du village')),
       body: Padding(
@@ -43,14 +50,14 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             const SizedBox(height: 8),
             RadioGroup<String?>(
               groupValue: targetId,
-              onChanged: (v) { if(!_voted) setState(() => targetId = v); },
+              onChanged: (v) { if(!_voted && !youMustAck) setState(() => targetId = v); },
               child: Column(
                 children: [
                   ...s.voteAlive.map(
                     (p) => RadioListTile<String?>(
                       title: Text(p.id),
                       value: p.id,
-                      enabled: !_voted,
+                      enabled: !_voted && !youMustAck,
                     ),
                   ),
                 ],
@@ -59,24 +66,43 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: targetId == null && !_voted
-                    ? null
-                    : () {
-                        if (_voted) {
-                          ctl.voteCancel();
-                          setState(() {
-                            _voted = false;
-                            targetId = null;
-                          });
+                onPressed: youMustAck
+                    ? () {
+                        ctl.voteAck();
+                      }
+                    : (targetId == null && !_voted
+                        ? null
+                        : () {
+                            if (_voted) {
+                              ctl.voteCancel();
+                              setState(() {
+                                _voted = false;
+                                targetId = null;
+                              });
                         } else if (targetId != null) {
-                          ctl.voteCast(targetId!);
-                          setState(() => _voted = true);
+                          () async {
+                            final err = await ctl.voteCast(targetId!);
+                            if (!mounted) return;
+                            if (err == null) {
+                              setState(() => _voted = true);
+                            } else {
+                              messenger.showSnackBar(
+                                SnackBar(content: Text(err)),
+                              );
+                            }
+                          }();
                         }
-                      },
+                      }),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _voted ? Colors.green : null,
+                  backgroundColor: youMustAck
+                      ? Colors.orange
+                      : (_voted ? Colors.green : null),
                 ),
-                child: const Text('Voter'),
+                child: Text(
+                  youMustAck
+                      ? "J'ai vu"
+                      : (_voted ? 'Annuler mon vote' : 'Voter'),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -93,6 +119,8 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                 return Text('Éliminé: $name • rôle: ${s.lastVote!.role}');
               }),
               const SizedBox(height: 8),
+              if (youMustAck)
+                const Text('Appuyez sur « J\'ai vu » pour continuer.'),
               Builder(builder: (_) {
                 final entries = s.lastVote!.tally.entries
                     .map((e) {
