@@ -34,6 +34,7 @@ import 'views/night/seer_view.dart';
 import 'views/night/thief_view.dart';
 import 'views/morning_screen.dart';
 import 'views/vote_screen.dart';
+import 'views/day_recap_screen.dart';
 import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'views/hunter_screen.dart';
@@ -131,11 +132,6 @@ class _HomeRouter extends ConsumerWidget {
     // - Pas de chronomètre : l'affichage reste calme et identique pour tous.
     // - Responsabilités claires : le routeur choisit l'écran à afficher ;
     //   l'enveloppe globale (_WithGlobalOverlay) ne gère plus ce cas.
-    // Pendant les transitions globales (closingEyes), afficher un écran simple
-    // dans le flux principal plutôt qu'un overlay.
-    if (s.closingEyes) {
-      return const SleepingPlaceholder(title: ' ', subtitle: 'Fermez les yeux');
-    }
     final youRole = s.role;
     final phase = s.phase;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -163,9 +159,11 @@ class _HomeRouter extends ConsumerWidget {
       return const HunterScreen();
     }
 
-    // Les joueurs morts voient l'écran des défunts, sauf cas spécial:
-    // pendant RESOLVE après un vote de jour, le joueur éliminé doit
-    // confirmer le résultat (ACK). On le laisse donc sur l'écran de vote.
+    // (géré plus haut pour éviter l'écran « Fermez les yeux » sur les morts)
+
+    // IMPORTANT: Les joueurs morts ne doivent pas voir l'écran « Fermez les yeux »
+    // pendant les transitions globales. On gère donc leur cas avant `closingEyes`.
+    // Ils restent sur l'écran des défunts (sauf ACK de résolution de vote).
     if (!me.alive) {
       final isResolve = phase == GamePhase.RESOLVE;
       final you = s.playerId;
@@ -174,6 +172,12 @@ class _HomeRouter extends ConsumerWidget {
       if (!youMustAck) {
         return const DeadScreen();
       }
+    }
+
+    // Pendant les transitions globales (closingEyes), afficher un écran simple
+    // dans le flux principal plutôt qu'un overlay — uniquement pour les vivants.
+    if (s.closingEyes) {
+      return const SleepingPlaceholder(title: ' ', subtitle: 'Fermez les yeux');
     }
 
     // Aucune partie jointe: afficher l'écran de connexion.
@@ -208,10 +212,10 @@ class _HomeRouter extends ConsumerWidget {
       case GamePhase.LOBBY:
         return const WaitingLobby();
       case GamePhase.RESOLVE:
-        // MISE À JOUR (ack vote jour)
-        // Pendant la résolution (après un vote diurne), on conserve l'écran
-        // de vote avec le résultat visible pour tous, jusqu'à l'ACK "J'ai vu"
-        // du joueur éliminé (ou sa déconnexion qui compte comme ACK).
+        // Pendant la résolution (après un vote diurne), afficher un écran
+        // récapitulatif listant l'élimination et les votes. Cela remplace
+        // l'ancien flux qui restait sur l'écran de vote.
+        if (s.dayVoteRecap != null) return const DayRecapScreen();
         return const VoteScreen();
       case GamePhase.CHECK_END:
         // Courte phase de vérification des conditions de victoire, avant soit

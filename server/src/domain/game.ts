@@ -23,6 +23,7 @@ export function createGame(maxPlayers: number): Game {
     privateLog: [],
     deadlines: {},
     wolvesChoices: {},
+    dayAcks: new Set<string>(),
     morningAcks: new Set<string>(),
     loversMode: null,
     pendingDeaths: [],
@@ -67,6 +68,7 @@ export function removePlayer(game: Game, playerId: string): void {
   delete game.roles[playerId];
   delete game.wolvesChoices[playerId];
   delete game.votes[playerId];
+  game.dayAcks?.delete(playerId);
   game.morningAcks.delete(playerId);
   game.updatedAt = Date.now();
 }

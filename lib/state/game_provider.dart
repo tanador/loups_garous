@@ -163,7 +163,15 @@ class GameController extends StateNotifier<GameModel> {
       final closing = data['closingEyes'] == true;
       // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
       final loverPartnerId = phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
-      state = state.copy(phase: phase, deadlineMs: deadline, loverPartnerId: loverPartnerId, closingEyes: closing);
+      // Clear the day recap when leaving RESOLVE phase
+      final clearDayRecap = phase != GamePhase.RESOLVE ? null : state.dayVoteRecap;
+      state = state.copy(
+        phase: phase,
+        deadlineMs: deadline,
+        loverPartnerId: loverPartnerId,
+        closingEyes: closing,
+        dayVoteRecap: clearDayRecap,
+      );
       if (wasClosing && !closing) {
         try { await _vibrateWakeIfAlive(); } catch (_) {}
       }
@@ -368,13 +376,35 @@ class GameController extends StateNotifier<GameModel> {
       log('[evt] hunter:wake targets=${alive.length}');
     });
 
-    // --- Morning
+    // --- Morning & Day recap (shared event name)
     s.on('day:recap', (data) async {
-      final deaths = ((data['deaths'] as List?) ?? [])
+      final map = Map<String, dynamic>.from(data ?? {});
+      if (map.containsKey('votes')) {
+        // Daytime recap after vote
+        final eliminated = ((map['eliminated'] as List?) ?? []).map((e) => e.toString()).toList();
+        final votes = ((map['votes'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e))
+            .map<(String, String?)>((j) => (j['voterId'] as String, j['targetId'] as String?))
+            .toList();
+        final recap = DayVoteRecap(eliminated: eliminated, votes: votes);
+        // Reflect locally the eliminated alive=false if present
+        final deadIds = eliminated.toSet();
+        final updatedPlayers = state.players
+            .map((p) => deadIds.contains(p.id)
+                ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
+                : p)
+            .toList();
+        state = state.copy(dayVoteRecap: recap, players: updatedPlayers);
+        if (state.vibrations) await HapticFeedback.vibrate();
+        log('[evt] day:recap (day) eliminated=${eliminated.length} votes=${votes.length}');
+        return;
+      }
+      // Morning recap
+      final deaths = ((map['deaths'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
           .toList();
-      final hunterKills = ((data['hunterKills'] as List?) ?? [])
+      final hunterKills = ((map['hunterKills'] as List?) ?? [])
           .map((e) => e.toString())
           .toList();
       final recap = DayRecap(deaths: deaths, hunterKills: hunterKills);
@@ -386,7 +416,7 @@ class GameController extends StateNotifier<GameModel> {
           .toList();
       state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
       if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] day:recap deaths=${deaths.length} hunterKills=${hunterKills.length}');
+      log('[evt] day:recap (morning) deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
 
     // --- Vote

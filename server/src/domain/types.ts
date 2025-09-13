@@ -79,6 +79,11 @@ export interface Game {
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
   votes: Record<string, string>; // nickname -> target nickname
   /**
+   * Set of acknowledgements for the daytime recap (after village vote).
+   * Cleared when the recap is emitted and used only during RESOLVE.
+   */
+  dayAcks?: Set<string>;
+  /**
    * If a first vote ends in a tie, store the eligible player ids for the
    * subsequent revote. Only these players can be targeted while this array
    * is defined.

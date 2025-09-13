@@ -47,6 +47,13 @@ class DayRecap {
   const DayRecap({required this.deaths, required this.hunterKills});
 }
 
+/// Récapitulatif de journée après le vote: qui est éliminé et qui a voté pour qui.
+class DayVoteRecap {
+  final List<String> eliminated;
+  final List<(String voterId, String? targetId)> votes;
+  const DayVoteRecap({required this.eliminated, required this.votes});
+}
+
 /// Résultat d'un vote du village.
 class VoteResult {
   final String? eliminatedId;
@@ -92,6 +99,7 @@ class GameModel {
   final List<Role> thiefCenter;
   final String? loverPartnerId;
   final DayRecap? recap;
+  final DayVoteRecap? dayVoteRecap;
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
   // Dernier comptage côté loups en cas d'égalité (revote)
@@ -143,6 +151,7 @@ class GameModel {
     required this.thiefCenter,
     required this.loverPartnerId,
     required this.recap,
+    required this.dayVoteRecap,
     required this.voteAlive,
     required this.lastVote,
     required this.wolvesLastTally,
@@ -183,6 +192,7 @@ class GameModel {
         thiefCenter: [],
         loverPartnerId: null,
         recap: null,
+        dayVoteRecap: null,
         voteAlive: [],
         lastVote: null,
       wolvesLastTally: null,
@@ -226,6 +236,7 @@ class GameModel {
     List<Role>? thiefCenter,
     Object? loverPartnerId = _unset,
     Object? recap = _unset,
+    Object? dayVoteRecap = _unset,
     List<Lite>? voteAlive,
     Object? lastVote = _unset,
     Object? wolvesLastTally = _unset,
@@ -266,6 +277,7 @@ class GameModel {
       thiefCenter: thiefCenter ?? this.thiefCenter,
       loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
+      dayVoteRecap: identical(dayVoteRecap, _unset) ? this.dayVoteRecap : dayVoteRecap as DayVoteRecap?,
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote: identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,
       wolvesLastTally: identical(wolvesLastTally, _unset) ? this.wolvesLastTally : wolvesLastTally as Map<String,int>?,

@@ -62,10 +62,11 @@ describe('CHECK_END after RESOLVE', () => {
     // Dernier vote fictif pour clôturer la phase
     orch.voteCast(game.id, 'B', 'A');
     // L'appel d'endVote est asynchrone; on attend le tick suivant pour
-    // s'assurer que l'état RESOLVE est bien en place avant l'ACK.
+    // s'assurer que l'état RESOLVE est bien en place avant les ACKs.
     await new Promise((r) => setTimeout(r, 0));
-    // Le joueur éliminé accuse réception pour que l'orchestrateur poursuive
-    orch.voteAck(game.id, 'B');
+    // Tous les survivants doivent désormais accuser réception (nouvelle règle)
+    orch.dayAck(game.id, 'A');
+    orch.dayAck(game.id, 'W');
     // Simule la transition planifiée vers la nuit
     (orch as any).beginNightWolves(game);
 

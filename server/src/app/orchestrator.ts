@@ -50,6 +50,9 @@ export class Orchestrator {
   >();
   // Attente d'un accusé de réception du joueur éliminé en journée (après vote)
   private pendingDayElimAck = new Map<string, string>(); // gameId -> playerId
+  // Attente d'un accusé de lecture de TOUS les survivants après le récapitulatif
+  // de journée (résultats du vote + qui a voté qui). Active uniquement pendant RESOLVE.
+  private pendingDayAcks = new Set<string>(); // gameId
 
   constructor(io: Server) {
     this.io = io;
@@ -859,13 +862,28 @@ export class Orchestrator {
 
   dayAck(gameId: string, playerId: string) {
     const game = this.mustGet(gameId);
-    if (game.state !== "MORNING") throw new Error("bad_state");
-    game.morningAcks.add(playerId);
-    this.log(game.id, game.state, playerId, "day.ack");
-    const needed = game.alive.size;
-    if (game.morningAcks.size >= needed) {
-      this.handleMorningEnd(game);
+    if (game.state === "MORNING") {
+      game.morningAcks.add(playerId);
+      this.log(game.id, game.state, playerId, "day.ack");
+      const needed = game.alive.size;
+      if (game.morningAcks.size >= needed) {
+        this.handleMorningEnd(game);
+      }
+      return;
     }
+    if (game.state === 'RESOLVE' && this.pendingDayAcks.has(game.id)) {
+      // Accusé de lecture post-vote (tous les survivants doivent confirmer).
+      if (!game.dayAcks) game.dayAcks = new Set<string>();
+      game.dayAcks.add(playerId);
+      this.log(game.id, game.state, playerId, 'day.ack');
+      const needed = game.alive.size;
+      if (game.dayAcks.size >= needed) {
+        this.pendingDayAcks.delete(game.id);
+        this.beginCheckEnd(game);
+      }
+      return;
+    }
+    throw new Error('bad_state');
   }
 
   private async handleMorningEnd(game: Game) {
@@ -1057,8 +1075,8 @@ export class Orchestrator {
         }, 3_000);
         return;
       }
-
-      // Deuxième égalité consécutive : abandonne l'élimination et passe à la résolution.
+      // Deuxième égalité consécutive : pas d'élimination. Afficher un récapitulatif
+      // des votes et attendre l'ACK de tous les survivants avant de poursuivre.
       game.revoteTargets = undefined;
       game.revoteRound = undefined;
       this.io.to(`room:${game.id}`).emit("vote:results", {
@@ -1071,7 +1089,16 @@ export class Orchestrator {
         tie: true,
       });
       setState(game, "RESOLVE");
-      this.beginCheckEnd(game);
+      // Emettre le récapitulatif de journée (votes) sans mort
+      try {
+        const votes = Object.entries(game.votes).map(([voterId, targetId]) => ({ voterId, targetId: targetId ?? null }));
+        this.io.to(`room:${game.id}`).emit('day:recap', { kind: 'DAY', eliminated: [], votes });
+        this.log(game.id, 'RESOLVE', undefined, 'day.recap', { deaths: 0, votes: votes.length });
+      } catch {}
+      // Initialiser l'attente d'ACKs de tous les survivants
+      game.dayAcks = new Set<string>();
+      this.pendingDayAcks.add(game.id);
+      this.broadcastState(game);
       return;
     }
 
@@ -1102,11 +1129,19 @@ export class Orchestrator {
     this.log(game.id, "RESOLVE", undefined, "vote.results", {
       eliminated: eliminated ?? null,
     });
-    // Si pas de gagnant immédiat et une élimination a eu lieu,
-    // attendre l'ACK du joueur éliminé avant de poursuivre vers la nuit.
+    // Emettre le récapitulatif de journée (votes + éliminé éventuel)
+    try {
+      const votes = Object.entries(game.votes).map(([voterId, targetId]) => ({ voterId, targetId: targetId ?? null }));
+      const eliminatedArr = eliminated ? [eliminated] : [];
+      this.io.to(`room:${game.id}`).emit('day:recap', { kind: 'DAY', eliminated: eliminatedArr, votes });
+      this.log(game.id, 'RESOLVE', undefined, 'day.recap', { deaths: eliminatedArr.length, votes: votes.length });
+    } catch {}
+    // Si pas de gagnant immédiat, attendre l'ACK de tous les survivants
     const winNow = winner(game);
-    if (!winNow && eliminated) {
-      this.pendingDayElimAck.set(game.id, eliminated);
+    if (!winNow) {
+      game.dayAcks = new Set<string>();
+      this.pendingDayAcks.add(game.id);
+      this.broadcastState(game);
       return;
     }
     this.beginCheckEnd(game);
@@ -1261,6 +1296,18 @@ export class Orchestrator {
         if (g.state === 'RESOLVE' && this.pendingDayElimAck.get(g.id) === p.id) {
           this.pendingDayElimAck.delete(g.id);
           this.beginCheckEnd(g);
+        }
+        // Si un récapitulatif de journée est en attente d'ACKs de tous
+        // les survivants, considérer cette déconnexion comme un ACK si le
+        // joueur est encore vivant (ou simplement ignorer si mort).
+        if (g.state === 'RESOLVE' && this.pendingDayAcks.has(g.id)) {
+          if (!g.dayAcks) g.dayAcks = new Set<string>();
+          g.dayAcks.add(p.id);
+          const needed = g.alive.size;
+          if (g.dayAcks.size >= needed) {
+            this.pendingDayAcks.delete(g.id);
+            this.beginCheckEnd(g);
+          }
         }
       }
     }
