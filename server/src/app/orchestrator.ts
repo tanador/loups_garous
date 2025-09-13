@@ -962,6 +962,9 @@ export class Orchestrator {
     setState(game, "VOTE");
     game.votes = {};
     game.deadlines = {};
+    // Nettoyer tout éventuel état de revote précédent avant d'ouvrir un nouveau tour.
+    game.revoteTargets = undefined;
+    game.revoteRound = undefined;
     this.broadcastState(game);
 
     const alive = alivePlayers(game).map((pid) => this.playerLite(game, pid));
@@ -976,6 +979,10 @@ export class Orchestrator {
     if (game.state !== "VOTE") throw new Error("bad_state");
     if (!game.alive.has(playerId)) throw new Error("dead_cannot_vote");
     if (!game.alive.has(targetId)) throw new Error("invalid_target");
+    // En cas de revote, seules les cibles ex æquo au tour précédent sont valides.
+    if (game.revoteTargets && !game.revoteTargets.includes(targetId)) {
+      throw new Error("invalid_target");
+    }
     const lover = game.players.find((p) => p.id === playerId)?.loverId;
     if (lover && lover === targetId) throw new Error("cannot_target_lover");
     game.votes[playerId] = targetId;
@@ -1015,11 +1022,43 @@ export class Orchestrator {
     const game = this.mustGet(gameId);
     if (game.state !== "VOTE") return;
     const { eliminated, tally } = computeVoteResult(game);
-    const tie = !eliminated && Object.keys(tally).length > 0;
+    const max = Math.max(0, ...Object.values(tally));
+    const tied = Object.entries(tally)
+      .filter(([, v]) => v === max)
+      .map(([pid]) => pid);
+    const tie = !eliminated && tied.length > 1;
     if (tie) {
-      // Égalité: on affiche le résultat sans élimination, puis on relance
-      // un nouveau tour de vote après un court délai (3s) pour la lisibilité.
-      // L'UI reste en phase VOTE et reçoit un nouvel événement vote:options.
+      if (!game.revoteRound) {
+        // Premier tour: annoncer l'égalité sans élimination puis préparer un revote.
+        this.io.to(`room:${game.id}`).emit("vote:results", {
+          eliminatedId: null,
+          role: null,
+          tally,
+        });
+        this.log(game.id, "VOTE", undefined, "vote.results", {
+          eliminated: null,
+          tie: true,
+        });
+        // Mémorise les joueurs ex æquo et note que l'on passe en revote.
+        game.revoteTargets = tied;
+        game.revoteRound = 1;
+        setTimeout(() => {
+          // Après une courte pause, relance un vote limité aux joueurs ex æquo.
+          game.votes = {};
+          game.deadlines = {};
+          const alive = tied.map((pid) => this.playerLite(game, pid));
+          this.io.to(`room:${game.id}`).emit("vote:options", { alive });
+          this.log(game.id, "VOTE", undefined, "vote.revote", {
+            alive: alive.length,
+          });
+          this.broadcastState(game);
+        }, 3_000);
+        return;
+      }
+
+      // Deuxième égalité consécutive : abandonne l'élimination et passe à la résolution.
+      game.revoteTargets = undefined;
+      game.revoteRound = undefined;
       this.io.to(`room:${game.id}`).emit("vote:results", {
         eliminatedId: null,
         role: null,
@@ -1029,21 +1068,14 @@ export class Orchestrator {
         eliminated: null,
         tie: true,
       });
-      setTimeout(() => {
-        game.votes = {};
-        game.deadlines = {};
-        const alive = alivePlayers(game).map((pid) =>
-          this.playerLite(game, pid),
-        );
-        this.io.to(`room:${game.id}`).emit("vote:options", { alive });
-        this.log(game.id, "VOTE", undefined, "vote.revote", {
-          alive: alive.length,
-        });
-        this.broadcastState(game);
-      }, 3_000);
+      setState(game, "RESOLVE");
+      this.beginCheckEnd(game);
       return;
     }
 
+    // Aucun cas d'égalité : nettoyer l'état de revote éventuel et résoudre normalement.
+    game.revoteTargets = undefined;
+    game.revoteRound = undefined;
     // Passage en phase RESOLVE: résolution des effets de l'élimination
     // (ex.: tir du chasseur, chagrin d'amour), puis vérification de fin.
     setState(game, "RESOLVE");
