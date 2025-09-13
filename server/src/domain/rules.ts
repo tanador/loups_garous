@@ -203,10 +203,21 @@ export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
     const pb = game.players.find((p) => p.id === b);
     if (pa?.loverId === b && pb?.loverId === a) return 'LOVERS';
   }
+  // Compter séparément les loups et les non‑loups encore en vie.
+  // Cela permet d'appliquer clairement les conditions de victoire.
   const wolves = alive.filter(pid => game.roles[pid] === 'WOLF').length;
   const nonWolves = alive.length - wolves;
+
+  // Aucun loup en vie ⇒ les villageois ont éradiqué la menace.
   if (wolves === 0) return 'VILLAGE';
-  if (wolves >= nonWolves) return 'WOLVES';
+
+  // Les loups ne gagnent que lorsqu'il ne reste plus aucun villageois.
+  // La simple parité (même nombre de loups et de non‑loups) ne suffit
+  // pas à clore la partie : on continue jusqu'à éliminer le dernier
+  // villageois.
+  if (nonWolves === 0) return 'WOLVES';
+
+  // Sinon, aucune condition de victoire n'est encore atteinte.
   return null;
 }
 
