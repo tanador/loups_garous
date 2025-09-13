@@ -108,6 +108,9 @@ class GameModel {
   final List<(String playerId, Role role)> finalRoles;
 
   final bool vibrations;
+  // Déclencheur local: joue l'animation de mort exactement une fois
+  // lorsqu'on vient de mourir. Reset à false après affichage.
+  final bool showDeathAnim;
   // Global transition: tout le monde garde les yeux fermés jusqu'à la deadline
   final bool closingEyes;
   // Indicateur local pour l'écran ROLES: mémorise le clic "Je suis prêt"
@@ -158,6 +161,7 @@ class GameModel {
     required this.winner,
     required this.finalRoles,
     required this.vibrations,
+    required this.showDeathAnim,
     required this.closingEyes,
     required this.youReadyLocal,
     required this.roleRevealUntilMs,
@@ -199,6 +203,7 @@ class GameModel {
         winner: null,
       finalRoles: [],
       vibrations: true,
+      showDeathAnim: false,
       closingEyes: false,
       youReadyLocal: false,
       roleRevealUntilMs: null,
@@ -243,6 +248,7 @@ class GameModel {
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
     bool? vibrations,
+    bool? showDeathAnim,
     bool? closingEyes,
     bool? youReadyLocal,
     Object? roleRevealUntilMs = _unset,
@@ -284,6 +290,7 @@ class GameModel {
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
       vibrations: vibrations ?? this.vibrations,
+      showDeathAnim: showDeathAnim ?? this.showDeathAnim,
       closingEyes: closingEyes ?? this.closingEyes,
       youReadyLocal: youReadyLocal ?? this.youReadyLocal,
       roleRevealUntilMs: identical(roleRevealUntilMs, _unset)

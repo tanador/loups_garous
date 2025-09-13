@@ -6,11 +6,17 @@ import '../state/models.dart';
 
 // Écran affiché aux joueurs éliminés.
 
-class DeadScreen extends ConsumerWidget {
+class DeadScreen extends ConsumerStatefulWidget {
   const DeadScreen({super.key});
+  @override
+  ConsumerState<DeadScreen> createState() => _DeadScreenState();
+}
+
+class _DeadScreenState extends ConsumerState<DeadScreen> {
+  bool _animPlayed = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final me = s.players.firstWhere(
@@ -24,64 +30,78 @@ class DeadScreen extends ConsumerWidget {
     // Pour éviter que le joueur quitte avant d’exercer ce pouvoir, on masque
     // temporairement le bouton « Quitter » quand la phase est MORNING.
     final bool blockQuit = (s.role == Role.HUNTER && s.phase == GamePhase.MORNING) || isEliminatedThisVote;
+    // Détermine si on doit jouer l'animation maintenant (une seule fois)
+    final playNow = s.showDeathAnim && !_animPlayed;
+    if (playNow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _animPlayed = true);
+        ctl.markDeathAnimShown();
+      });
+    }
+
+    Widget content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('💀', style: TextStyle(fontSize: 80)),
+        const SizedBox(height: 16),
+        const Text('Vous êtes mort',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 24),
+        if (isEliminatedThisVote)
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ctl.voteAck();
+              } catch (e, st) {
+                log('voteAck exception: $e', stackTrace: st);
+              }
+            },
+            child: const Text("J'ai vu"),
+          )
+        else if (!blockQuit)
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ctl.leaveToHome();
+              } catch (e, st) {
+                log('leaveToHome exception: $e', stackTrace: st);
+              } finally {
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              }
+            },
+            child: const Text('Quitter'),
+          )
+        else
+          const Text(
+            'Attendez votre tir de chasseur...',
+            style: TextStyle(fontSize: 16),
+          )
+      ],
+    );
+
+    if (playNow) {
+      content = TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(seconds: 2),
+        builder: (context, value, child) {
+          return Opacity(
+            opacity: value,
+            child: Transform.scale(
+              scale: value,
+              child: child,
+            ),
+          );
+        },
+        child: content,
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Vous êtes mort')),
-      body: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(seconds: 2),
-          builder: (context, value, child) {
-            return Opacity(
-              opacity: value,
-              child: Transform.scale(
-                scale: value,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('💀', style: TextStyle(fontSize: 80)),
-                    const SizedBox(height: 16),
-                    const Text('Vous êtes mort',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 24),
-                    if (isEliminatedThisVote)
-                      ElevatedButton(
-                        onPressed: () async {
-                          try {
-                            await ctl.voteAck();
-                          } catch (e, st) {
-                            log('voteAck exception: $e', stackTrace: st);
-                          }
-                        },
-                        child: const Text("J'ai vu"),
-                      )
-                    else if (!blockQuit)
-                      ElevatedButton(
-                        onPressed: () async {
-                          try {
-                            await ctl.leaveToHome();
-                          } catch (e, st) {
-                            log('leaveToHome exception: $e', stackTrace: st);
-                          } finally {
-                            if (context.mounted) {
-                              Navigator.of(context)
-                                  .popUntil((route) => route.isFirst);
-                            }
-                          }
-                        },
-                        child: const Text('Quitter'),
-                      )
-                    else
-                      const Text(
-                        'Attendez votre tir de chasseur...',
-                        style: TextStyle(fontSize: 16),
-                      )
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+      body: Center(child: content),
     );
   }
 }

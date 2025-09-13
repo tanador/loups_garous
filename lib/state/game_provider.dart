@@ -264,7 +264,7 @@ class GameController extends StateNotifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(seerTargets: list);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] seer:wake targets=${list.length}');
     });
 
@@ -298,7 +298,7 @@ class GameController extends StateNotifier<GameModel> {
           .toList();
       // Réinitialise le dernier comptage (égalité) à chaque réveil des loups
       state = state.copy(wolvesTargets: list, wolvesLockedTargetId: null, confirmationsRemaining: 0, wolvesLastTally: null);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] wolves:wake targets=${list.length}');
     });
 
@@ -332,7 +332,7 @@ class GameController extends StateNotifier<GameModel> {
         alive: alive,
       );
       state = state.copy(witchWake: ww);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
     });
 
@@ -343,7 +343,7 @@ class GameController extends StateNotifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(cupidTargets: list);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] cupid:wake targets=${list.length}');
     });
 
@@ -355,7 +355,7 @@ class GameController extends StateNotifier<GameModel> {
       if (you != null) known.add(you);
       if (partnerId != null) known.add(partnerId);
       state = state.copy(loverPartnerId: partnerId, loversKnown: known);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] lovers:wake partner=$partnerId');
     });
 
@@ -372,7 +372,7 @@ class GameController extends StateNotifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(hunterTargets: alive);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] hunter:wake targets=${alive.length}');
     });
 
@@ -394,8 +394,16 @@ class GameController extends StateNotifier<GameModel> {
                 ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
                 : p)
             .toList();
-        state = state.copy(dayVoteRecap: recap, players: updatedPlayers);
-        if (state.vibrations) await HapticFeedback.vibrate();
+        final you = state.playerId;
+        final wasAlive = _youAlive();
+        final youDiedNow = you != null && eliminated.contains(you) && wasAlive;
+        state = state.copy(
+          dayVoteRecap: recap,
+          players: updatedPlayers,
+          // Ne jamais écraser un déclenchement d'animation déjà en cours
+          showDeathAnim: state.showDeathAnim || youDiedNow,
+        );
+        if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
         log('[evt] day:recap (day) eliminated=${eliminated.length} votes=${votes.length}');
         return;
       }
@@ -414,8 +422,17 @@ class GameController extends StateNotifier<GameModel> {
               ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
               : p)
           .toList();
-      state = state.copy(recap: recap, players: updatedPlayers, hunterTargets: []);
-      if (state.vibrations) await HapticFeedback.vibrate();
+      final you = state.playerId;
+      final wasAlive = _youAlive();
+      final youDiedNow = you != null && deadIds.contains(you) && wasAlive;
+      state = state.copy(
+        recap: recap,
+        players: updatedPlayers,
+        hunterTargets: [],
+        // Ne pas annuler une animation déjà déclenchée par un événement précédent
+        showDeathAnim: state.showDeathAnim || youDiedNow,
+      );
+      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       log('[evt] day:recap (morning) deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
 
@@ -456,7 +473,11 @@ class GameController extends StateNotifier<GameModel> {
                   ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
                   : p)
               .toList();
-      state = state.copy(lastVote: vr, players: updatedPlayers);
+      // Détection si je viens d'être éliminé(e) par le vote
+      final you = state.playerId;
+      final wasAlive = _youAlive();
+      final youDiedNow = you != null && elimId != null && you == elimId && wasAlive;
+      state = state.copy(lastVote: vr, players: updatedPlayers, showDeathAnim: youDiedNow);
       log('[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
 
@@ -675,6 +696,27 @@ class GameController extends StateNotifier<GameModel> {
         }
       }
     } catch (_) {}
+  }
+
+  bool _youAlive() {
+    try {
+      final meId = state.playerId;
+      if (meId == null) return false;
+      final me = state.players.firstWhere(
+        (p) => p.id == meId,
+        orElse: () => const PlayerView(id: '', connected: true, alive: true),
+      );
+      return me.alive;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Marque l'animation de mort comme jouée (empêche les replays)
+  void markDeathAnimShown() {
+    if (state.showDeathAnim) {
+      state = state.copy(showDeathAnim: false);
+    }
   }
 
   // ------------- Wolves -------------
