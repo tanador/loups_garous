@@ -78,6 +78,17 @@ export interface Game {
   night: NightState;
   inventory: { witch: { healUsed: boolean; poisonUsed: boolean } };
   votes: Record<string, string>; // nickname -> target nickname
+  /**
+   * If a first vote ends in a tie, store the eligible player ids for the
+   * subsequent revote. Only these players can be targeted while this array
+   * is defined.
+   */
+  revoteTargets?: string[];
+  /**
+   * Number of the current revote round (1 for first revote). Undefined when
+   * no revote is ongoing.
+   */
+  revoteRound?: number;
   history: HistoryEvent[];
   privateLog?: any[];
   deadlines?: { phaseEndsAt?: number };

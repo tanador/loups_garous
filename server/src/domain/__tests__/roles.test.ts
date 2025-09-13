@@ -1,13 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createGame, addPlayer } from '../game.js';
+// Tests autour de l'attribution de rôles et des mécaniques de la sorcière.
 import { assignRoles, targetsForWitch, canBeSaved } from '../rules.js';
 import { ROLE_SETUPS } from '../roles/index.js';
-
-function countsOf(roles: Record<string, string>): Record<string, number> {
-  const c: Record<string, number> = {};
-  Object.values(roles).forEach((r) => (c[r] = (c[r] ?? 0) + 1));
-  return c;
-}
 
 describe('assign roles using deck counts', () => {
   it('deals exactly one card per player and sets center when THIEF in deck', () => {
@@ -16,7 +11,6 @@ describe('assign roles using deck counts', () => {
     addPlayer(g, { id: 'B', socketId: 'sB' });
     addPlayer(g, { id: 'C', socketId: 'sC' });
     // Override ROLE_SETUPS behavior by temporarily injecting a deck config with THIEF
-    const cfg = ROLE_SETUPS[3];
     // If current config does not include THIEF, simulate by assigning explicitly
     // Compose a deck: THIEF, VILLAGER, VILLAGER (base) -> +2 VILLAGER (center)
     (g as any).maxPlayers = 3;

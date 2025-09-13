@@ -21,7 +21,11 @@ import { bus, HunterShot } from './events.js';
  * - Public snapshots never expose centerCards; only the THIEF receives them
  *   privately in `thief:wake`.
  */
-export function assignRoles(game: Game, rng: (max: number) => number = randomInt): void {
+export function assignRoles(
+  game: Game,
+  // Parameter kept for future deterministic shuffles in tests (unused for now).
+  _rng: (max: number) => number = randomInt,
+): void {
   const players = secureShuffle(game.players.map((p) => p.id));
   const cfg = ROLE_SETUPS[game.maxPlayers];
   if (!cfg) throw new Error('no_config_for_player_count');
