@@ -915,9 +915,11 @@ export class Orchestrator {
       return;
     }
 
-    // If the morning included a hunter shot recap, always proceed to a vote
-    // once survivors have acknowledged. Even if a theoretical win condition
-    // (wolves >= others) is met, finish the day flow consistently.
+    // If the morning recap contains a hunter shot, we always enchaîne with a
+    // new vote once the survivors have acknowledged the recap. Même si le
+    // tir laisse uniquement des loups en vie (condition de victoire
+    // officielle), on termine la séquence de journée avant de clore la
+    // partie pour garder un enchaînement prévisible côté client.
     const hadHunterShot = !!recap && recap.hunterKills.length > 0;
     if (hadHunterShot) {
       this.beginVote(game);

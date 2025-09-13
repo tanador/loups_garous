@@ -20,8 +20,15 @@ describe('winner()', () => {
     const g = makeGame(['A','B'], { A:'VILLAGER', B:'HUNTER' });
     expect(winner(g)).toBe('VILLAGE');
   });
-  it('wolves win when wolves >= others', () => {
+  it('returns null at parity (1 wolf vs 1 villager)', () => {
+    // À égalité numérique, la partie continue : aucune victoire immédiate.
     const g = makeGame(['W','X'], { W:'WOLF', X:'VILLAGER' });
+    expect(winner(g)).toBeNull();
+  });
+
+  it('wolves win only when no villager remains', () => {
+    // Le dernier villageois est mort : seuls les loups restent en vie -> victoire.
+    const g = makeGame(['W'], { W:'WOLF' });
     expect(winner(g)).toBe('WOLVES');
   });
   it('mixed lovers win when only the two lovers remain', () => {
