@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import 'death_skull_animation.dart';
 
 // Écran affiché aux joueurs éliminés.
 
@@ -36,6 +37,10 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _animPlayed = true);
+        // Déclenche l'animation plein écran (non bloquante)
+        // et marque le trigger comme consommé pour éviter les replays.
+        // Ne pas await pour éviter d'utiliser le contexte après un gap async.
+        showDeathSkullOverlay(context);
         ctl.markDeathAnimShown();
       });
     }

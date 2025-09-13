@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import 'widgets/common.dart';
+import 'death_skull_animation.dart';
 
 // Écran de récapitulatif après le vote de jour.
 // Affiche l'élimination éventuelle et qui a voté pour qui.
@@ -30,6 +31,8 @@ class _DayRecapScreenState extends ConsumerState<DayRecapScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _animPlayed = true);
+        // Affiche l'animation plein écran et consomme le trigger.
+        showDeathSkullOverlay(context);
         ctl.markDeathAnimShown();
       });
     }

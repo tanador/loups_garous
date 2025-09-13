@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'widgets/common.dart';
+import 'death_skull_animation.dart';
 
 // Écran du matin récapitulant les événements de la nuit.
 
@@ -15,6 +16,7 @@ class MorningScreen extends ConsumerStatefulWidget {
 
 class _MorningScreenState extends ConsumerState<MorningScreen> {
   bool _ack = false;
+  bool _animPlayed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +29,17 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final r = s.recap;
+
+    // Déclenche l'animation si le provider indique une mort récente
+    final playNow = s.showDeathAnim && !_animPlayed;
+    if (playNow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _animPlayed = true);
+        showDeathSkullOverlay(context);
+        ctl.markDeathAnimShown();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Matin')),

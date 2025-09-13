@@ -185,6 +185,7 @@ class GameController extends Notifier<GameModel> {
 
     s.on('game:snapshot', (data) async {
       final wasClosing = state.closingEyes;
+      final wasAliveBefore = _youAlive();
       // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -219,6 +220,11 @@ class GameController extends Notifier<GameModel> {
         maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
+        // Déclenche l'animation si l'on apprend via snapshot qu'on vient de mourir
+        showDeathAnim: state.showDeathAnim || (wasAliveBefore && !(players.firstWhere(
+          (p) => p.id == (nextPlayerId ?? ''),
+          orElse: () => const PlayerView(id: '', connected: true, alive: true),
+        ).alive)),
       );
       if (wasClosing && !closing) {
         try { await _vibrateWakeIfAlive(); } catch (_) {}
@@ -421,7 +427,10 @@ class GameController extends Notifier<GameModel> {
           .map((e) => e.toString())
           .toList();
       final recap = DayRecap(deaths: deaths, hunterKills: hunterKills);
-      final deadIds = deaths.map((d) => d.$1).toSet();
+      final deadIds = {
+        ...deaths.map((d) => d.$1),
+        ...hunterKills,
+      };
       final updatedPlayers = state.players
           .map((p) => deadIds.contains(p.id)
               ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
