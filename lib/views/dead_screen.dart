@@ -40,10 +40,33 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
       });
     }
 
+    // Tête de mort animée qui "avance" lorsqu'on vient de mourir.
+    Widget skull = const Text('💀', style: TextStyle(fontSize: 80));
+    if (playNow) {
+      skull = TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 2200),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, child) {
+          final w = MediaQuery.of(context).size.width;
+          final dx = (-0.35 * w) * (1.0 - t); // part de la gauche vers le centre
+          final scale = 0.85 + 0.15 * t;
+          return Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(dx, 0),
+              child: Transform.scale(scale: scale, child: child),
+            ),
+          );
+        },
+        child: skull,
+      );
+    }
+
     Widget content = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('💀', style: TextStyle(fontSize: 80)),
+        skull,
         const SizedBox(height: 16),
         const Text('Vous êtes mort',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
@@ -81,23 +104,6 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
           )
       ],
     );
-
-    if (playNow) {
-      content = TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: const Duration(seconds: 2),
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.scale(
-              scale: value,
-              child: child,
-            ),
-          );
-        },
-        child: content,
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vous êtes mort')),

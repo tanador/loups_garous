@@ -871,8 +871,11 @@ export class Orchestrator {
       }
       return;
     }
-    if (game.state === 'RESOLVE' && this.pendingDayAcks.has(game.id)) {
+    if (game.state === 'RESOLVE') {
       // Accusé de lecture post-vote (tous les survivants doivent confirmer).
+      // Rendez la logique tolérante: si, pour une raison quelconque, le flag
+      // pendingDayAcks n'est pas présent, on l'initialise à la volée.
+      if (!this.pendingDayAcks.has(game.id)) this.pendingDayAcks.add(game.id);
       if (!game.dayAcks) game.dayAcks = new Set<string>();
       game.dayAcks.add(playerId);
       this.log(game.id, game.state, playerId, 'day.ack');
@@ -883,6 +886,14 @@ export class Orchestrator {
       }
       return;
     }
+    // Diagnostic log to help identify unexpected day:ack during wrong phase
+    try {
+      this.log(game.id, game.state, playerId, 'day.ack.unexpected', {
+        pendingDayAcks: this.pendingDayAcks.has(game.id),
+        morning: game.morningAcks?.size ?? 0,
+        dayAcks: (game as any).dayAcks ? (game as any).dayAcks.size : 0,
+      });
+    } catch {}
     throw new Error('bad_state');
   }
 
@@ -1136,15 +1147,13 @@ export class Orchestrator {
       this.io.to(`room:${game.id}`).emit('day:recap', { kind: 'DAY', eliminated: eliminatedArr, votes });
       this.log(game.id, 'RESOLVE', undefined, 'day.recap', { deaths: eliminatedArr.length, votes: votes.length });
     } catch {}
-    // Si pas de gagnant immédiat, attendre l'ACK de tous les survivants
-    const winNow = winner(game);
-    if (!winNow) {
-      game.dayAcks = new Set<string>();
-      this.pendingDayAcks.add(game.id);
-      this.broadcastState(game);
-      return;
-    }
-    this.beginCheckEnd(game);
+    // Attendre l'ACK de tous les survivants, même si un vainqueur
+    // est déjà déterminé. On enchaîne vers CHECK_END/END après les ACKs
+    // via day:ack -> beginCheckEnd.
+    game.dayAcks = new Set<string>();
+    this.pendingDayAcks.add(game.id);
+    this.broadcastState(game);
+    return;
   }
 
   voteAck(gameId: string, playerId: string) {

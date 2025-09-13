@@ -11,14 +11,19 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:vibration/vibration.dart';
 
 final gameProvider =
-    StateNotifierProvider<GameController, GameModel>((ref) => GameController());
+    NotifierProvider<GameController, GameModel>(GameController.new);
 
 /// Contrôleur principal de l'application.
 /// Il maintient l'état du jeu dans [GameModel] et gère
 /// la communication avec le serveur via Socket.IO.
-class GameController extends StateNotifier<GameModel> {
-  GameController() : super(GameModel.initial()) {
+class GameController extends Notifier<GameModel> {
+  @override
+  GameModel build() {
+    // Restore persisted preferences/session on startup.
+    // This is fire-and-forget; it may update state asynchronously.
+    // ignore: discarded_futures
     _restoreSession();
+    return GameModel.initial();
   }
 
   final _socketSvc = SocketService();
@@ -676,9 +681,9 @@ class GameController extends StateNotifier<GameModel> {
       if (!me.alive) return;
       if (!state.vibrations) return;
 
-      final hasVib = await Vibration.hasVibrator() ?? false;
+      final hasVib = await Vibration.hasVibrator();
       if (hasVib) {
-        final hasAmp = await Vibration.hasCustomVibrationsSupport() ?? false;
+        final hasAmp = await Vibration.hasCustomVibrationsSupport();
         if (hasAmp) {
           await Vibration.vibrate(duration: 5000, amplitude: 128);
         } else {
