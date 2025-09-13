@@ -145,8 +145,8 @@ class _Skull extends StatelessWidget {
         fontSize: 160,
         height: 1.0,
         shadows: [
-          Shadow(color: Colors.red.withOpacity(0.35), blurRadius: glowRadius),
-          Shadow(color: Colors.red.withOpacity(0.25), blurRadius: glowRadius * 0.6),
+          Shadow(color: Colors.red.withValues(alpha: 0.35), blurRadius: glowRadius),
+          Shadow(color: Colors.red.withValues(alpha: 0.25), blurRadius: glowRadius * 0.6),
         ],
       ),
     );
@@ -179,7 +179,7 @@ class _AshParticlesPainter extends CustomPainter {
       final t = rnd.nextDouble();
       final sz = _minSize + (_maxSize - _minSize) * t;
       final opacity = (1.0 - progress).clamp(0.0, 1.0) * (0.6 + 0.4 * t);
-      paint.color = Colors.white.withOpacity(opacity * 0.35);
+      paint.color = Colors.white.withValues(alpha: opacity * 0.35);
 
       canvas.drawCircle(pos, sz, paint);
     }
@@ -196,7 +196,7 @@ class _AshParticlesPainter extends CustomPainter {
 Future<void> showDeathSkullOverlay(BuildContext context, {Duration? duration}) async {
   await Navigator.of(context).push(PageRouteBuilder<void>(
     opaque: false,
-    barrierColor: Colors.black.withOpacity(0.85),
+    barrierColor: Colors.black.withValues(alpha: 0.85),
     pageBuilder: (_, __, ___) => _DeathOverlayPage(duration: duration ?? const Duration(milliseconds: 3000)),
     transitionsBuilder: (_, anim, __, child) {
       // Quick fade-in; the widget manages most motion.
