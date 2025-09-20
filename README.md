@@ -1,5 +1,8 @@
 # Loup Garou
 
+L'application "Loup-Garou" ne collecte, ne stocke, ni ne partage aucune donnée personnelle des utilisateurs.
+Cette application est un jeu et fonctionne entièrement hors ligne.
+
 [![Server CI](https://github.com/tanador/loup_garou/actions/workflows/server.yml/badge.svg)](https://github.com/tanador/loup_garou/actions/workflows/server.yml)
 [![Flutter CI](https://github.com/tanador/loup_garou/actions/workflows/flutter.yml/badge.svg)](https://github.com/tanador/loup_garou/actions/workflows/flutter.yml)
 
