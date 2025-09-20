@@ -104,7 +104,8 @@ describe('hunter death handling', () => {
 
     const spy = vi
       .spyOn(orch as any, 'askHunterTarget')
-      .mockImplementation(async (_game: any, hunterId: string, alive: string[]) => {
+      .mockImplementation(async (...rawArgs: unknown[]) => {
+        const [, hunterId, alive] = rawArgs as [unknown, string, string[]];
         expect(hunterId).toBe('A');
         expect(alive).toEqual(['C', 'D', 'E']);
         return 'C';
@@ -148,7 +149,8 @@ describe('hunter death handling', () => {
 
     const spy = vi
       .spyOn(orch as any, 'askHunterTarget')
-      .mockImplementation(async (_game: any, hunterId: string, alive: string[]) => {
+      .mockImplementation(async (...rawArgs: unknown[]) => {
+        const [, hunterId, alive] = rawArgs as [unknown, string, string[]];
         expect(hunterId).toBe('A');
         // Lover B should still be alive until grief resolves, so she is excluded from valid targets
         expect(alive).toEqual(['B', 'C', 'D', 'E']);
