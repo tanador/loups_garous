@@ -1,10 +1,30 @@
+/**
+ * Socket.IO transport wiring for the Werewolf backend.
+ *
+ * The Flutter client talks to the server exclusively through realtime events.
+ * This module creates the Socket.IO server, registers every gameplay command
+ * (lobby, night actions, votes) and forwards them to the Orchestrator after
+ * validating payloads with Zod schemas.
+ *
+ * If you are new to Socket.IO: each `socket.on("event")` handler below maps to
+ * a message emitted by the client. We always respond with an ACK shaped as
+ * `{ ok: boolean, data?, error? }` to keep the protocol predictable for beginners.
+ */
+
 import type { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { Orchestrator } from '../app/orchestrator.js';
 import { logger } from '../logger.js';
 import { CreateGameSchema, JoinGameSchema, CancelGameSchema, LeaveGameSchema, ResumeSchema, ReadySchema, WolvesChooseSchema, SeerPeekSchema, SeerAckSchema, WitchDecisionSchema, HunterShootSchema, DayAckSchema, VoteCastSchema, VoteCancelSchema, CupidChooseSchema, LoversAckSchema, VoteAckSchema, ThiefChooseSchema } from '../app/schemas.js';
 
-// Couche "infra": instancie le serveur Socket.IO et enregistre les handlers.
+/**
+ * Create a Socket.IO server and register all gameplay handlers.
+ *
+ * The function receives the HTTP server created in src/index.ts and attaches
+ * Socket.IO so both transports share the same port. Each handler reuses the
+ * `handle` helper to validate payloads, enforce basic rate limiting and send
+ * `{ ok: false, error }` acknowledgements when something goes wrong.
+ */
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server(httpServer, {
     cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -12,6 +32,14 @@ export function createSocketServer(httpServer: HttpServer) {
   });
   const orch = new Orchestrator(io);
 
+  /**
+   * Small wrapper around Socket.IO handlers.
+   *
+   * It parses the payload with the provided Zod schema, applies the
+   * orchestrator's rate limit, and report errors through the standard
+   * `{ ok: false, error }` acknowledgement so the client can display
+   * friendly messages.
+   */
   function handle<T extends { parse: (v: unknown) => any }>(
     socket: Socket, event: string, schema: T,
     fn: (payload: ReturnType<T['parse']>, ack?: (res: any) => void) => void
@@ -136,7 +164,7 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     });
 
-    // Voyante: reçoit la cible choisie et demande au serveur de révéler son rôle.
+    // Seer: the player chooses a target and asks the server to reveal the role.
     handle(socket, 'seer:peek', SeerPeekSchema, (data, ack) => {
       const ctx = (socket.data ?? {}) as { gameId?: string; playerId?: string };
       const { gameId, playerId } = ctx;
@@ -152,7 +180,7 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     });
 
-    // Voyante: ACK de lecture pour débloquer la phase suivante
+    // Seer: ack sent once the vision is read so the night can continue.
     handle(socket, 'seer:ack', SeerAckSchema, (_data, ack) => {
       const ctx = (socket.data ?? {}) as { gameId?: string; playerId?: string };
       const { gameId, playerId } = ctx;
@@ -252,8 +280,8 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     });
 
-    // ACK du vote de jour: l'éliminé confirme avoir vu le résultat.
-    // Pas de fallback: on ne progresse pas sans cet ACK (ou déconnexion).
+    // Day vote ack: the eliminated player confirms they saw the result.
+    // No fallback: we wait for the ack (or a disconnect) before moving on.
     handle(socket, 'vote:ack', VoteAckSchema, (_data, ack) => {
       const { gameId, playerId } = socket.data as { gameId?: string; playerId?: string } || {};
       if (!gameId || !playerId) {
@@ -321,3 +349,4 @@ export function createSocketServer(httpServer: HttpServer) {
 
   return { io, orch };
 }
+

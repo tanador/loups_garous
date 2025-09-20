@@ -1,5 +1,24 @@
-// Couche "app": relie les sockets et le stockage aux règles du domaine.
-// L'orchestrateur pilote le cycle de vie d'une partie et route les évènements.
+/**
+ * High level game orchestrator for the Loup Garou backend.
+ *
+ * It glues together three concerns so beginners can follow the game loop:
+ *   1. socket layer (players connect through Socket.IO and emit commands)
+ *   2. domain rules (resolved in server/src/domain: roles, votes, FSM)
+ *   3. timers and bookkeeping (deadlines, acknowledgements, reconnections)
+ *
+ * Reading roadmap:
+ *   - The lobby section manages game creation and readiness.
+ *   - The "start" helpers assign roles, trigger the night phases and broadcast
+ *     private messages to the right role rooms (wolves, witch, lovers...).
+ *   - Each phase has a handler that validates payloads, updates the Game state,
+ *     and schedules the next phase via the finite state machine.
+ *
+ * If you have never played Werewolves: nights are secret actions, mornings
+ * reveal casualties, days end with a public vote. Wolves win when they eat
+ * every villager; villagers win when all wolves are dead; the special lovers
+ * pair can win as a team if they survive together.
+ */
+
 import { Server, Socket } from "socket.io";
 import { GameStore } from "./store.js";
 import { createGame, addPlayer, removePlayer } from "../domain/game.js";
@@ -26,6 +45,14 @@ function now() {
   return Date.now();
 }
 
+/**
+ * Orchestrates a single game instance.
+ *
+ * The class holds the in-memory Game store, registers Socket.IO handlers, and drives
+ * the finite state machine. It also handles remote-friendly niceties: rate limiting,
+ * reconnection support, timers, recap acknowledgements and private prompts (seer
+ * vision, hunter shot, lovers grief).
+ */
 export class Orchestrator {
   private io: Server;
   private store = new GameStore();

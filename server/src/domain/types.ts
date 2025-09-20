@@ -1,12 +1,23 @@
+/**
+ * Shared TypeScript types that describe the in-memory shape of a match.
+ *
+ * Reading tip for beginners:
+ *   - Loup Garou is a hidden-role game. Each player receives a secret role such
+ *     as "Wolf" or "Seer". Wolves try to eliminate villagers, villagers try to
+ *     spot and execute wolves during the day.
+ *   - The server keeps everything inside a single `Game` object so the
+ *     orchestrator can mutate it while the finite state machine advances.
+ *   - Tests use these types to build fixtures and to assert that rules behave as
+ *     expected (e.g. hunters can shoot after they die at night).
+ */
 import type { Role } from './roles/index.js';
 
-// Déclarations de types pour l'état de jeu et les entités côté serveur.
 export type CoreGameState =
   | 'LOBBY'
   | 'ROLES'
   | 'NIGHT_CUPID'
   | 'NIGHT_LOVERS'
-  // Phase où la voyante choisit une cible à sonder.
+  | 'NIGHT_THIEF'
   | 'NIGHT_SEER'
   | 'NIGHT_WOLVES'
   | 'NIGHT_WITCH'
@@ -16,58 +27,65 @@ export type CoreGameState =
   | 'CHECK_END'
   | 'END';
 
-// Allow external modules to declare additional game phases dynamically.
-// The type keeps known states for editor autocompletion but accepts any
-// string so that new phases can be registered at runtime.
+// Allow extending the FSM from role modules. Keeping `string & {}` helps TS
+// preserve literal types while still accepting unknown phases.
 export type GameState = CoreGameState | (string & {});
 
 export type { Role };
 
 export interface Player {
-  id: string; // player's nickname (unique)
+  /** Nickname chosen by the player; acts as primary identifier. */
+  id: string;
+  /** Socket.IO id (changes if the player reconnects). */
   socketId: string;
+  /** Secret role assigned during the ROLES phase. */
   role?: Role;
+  /** Ready flag used in the lobby. */
   isReady: boolean;
+  /** Connection flag, toggled when the socket disconnects/reconnects. */
   connected: boolean;
+  /** Timestamp of the last heartbeat from the client. */
   lastSeen: number;
-  // Lover link (Cupidon). If set, must be symmetric with the partner's loverId
+  /** Lover link created by Cupid. Always symmetric. */
   loverId?: string;
   /**
-   * Per-player private event log.
-   * Stores audit events visible only to that player (e.g., seer peeks).
+   * Per-player private log. We push entries that are only visible to the owner
+   * on the client (seer visions, hunter prompts, etc.).
    */
   privateLog: { type: string; [k: string]: unknown }[];
 }
 
 export interface NightState {
-  attacked?: string; // cible des loups si consensus
-  saved?: string;    // joueur sauvé par la potion de vie
-  poisoned?: string; // cible de la potion de mort
+  attacked?: string; // Target chosen by the wolves when they agree.
+  saved?: string;    // Player rescued by the witch.
+  poisoned?: string; // Player killed by the witch.
 }
 
 export interface HistoryEvent {
+  /** Incremental night number (starts at 1 after the first night). */
   round: number;
   night: { attacked?: string; saved?: string; poisoned?: string; deaths: string[] };
   day?: { eliminated?: string | null; tally: Record<string, number> };
-  /** Optional list of audit events for the round (e.g., seer peeks). */
+  /** Optional audit events (seer peeks, hunter shots, etc.). */
   events?: { type: string; [k: string]: unknown }[];
 }
 
-// Coarse game phase (independent from fine-grained GameState)
+// High-level grouping of the FSM, mostly for UI.
 export type CoarsePhase = 'SETUP' | 'NIGHT' | 'DAY' | 'VOTE' | 'RESOLUTION';
 
-// Lovers pairing mode
 export type LoversMode = 'SAME_CAMP' | 'MIXED_CAMPS' | null;
 
 export interface PendingDeath {
-  cause: string; // e.g. 'WOLVES' | 'WITCH' | 'HUNTER' | 'VOTE' | 'LOVERS'
+  /** Source of the death (WOLVES, WITCH, HUNTER, VOTE, LOVERS...). */
+  cause: string;
   victimId: string;
 }
 
 export interface Game {
   id: string;
   state: GameState;
-  phase?: CoarsePhase; // optional: derived from state, initialized in createGame
+  /** Coarse phase, useful for the UI to colour screens. */
+  phase?: CoarsePhase;
   createdAt: number;
   updatedAt: number;
   round: number;
@@ -85,27 +103,20 @@ export interface Game {
   dayAcks?: Set<string>;
   /**
    * If a first vote ends in a tie, store the eligible player ids for the
-   * subsequent revote. Only these players can be targeted while this array
-   * is defined.
+   * subsequent revote. Only these players can be targeted while this array is
+   * defined.
    */
   revoteTargets?: string[];
-  /**
-   * Number of the current revote round (1 for first revote). Undefined when
-   * no revote is ongoing.
-   */
+  /** Number of the current revote round (1 for first revote). */
   revoteRound?: number;
   history: HistoryEvent[];
   privateLog?: any[];
   deadlines?: { phaseEndsAt?: number };
-  wolvesChoices: Record<string, string | null>; // current choice per wolf (by nickname)
+  wolvesChoices: Record<string, string | null>;
   morningAcks: Set<string>;
   loversMode?: LoversMode;
-  pendingDeaths?: PendingDeath[]; // FIFO queue for resolution helpers
-  deferredGrief?: string[]; // victims whose lovers should later die of grief
-  // Two face-down center cards (roles) used when THIEF is in the deck
+  pendingDeaths?: PendingDeath[];
+  deferredGrief?: string[];
+  /** Two hidden cards when the Thief is in the deck (official rule). */
   centerCards?: Role[];
 }
-
-
-
-

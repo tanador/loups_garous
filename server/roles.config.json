@@ -30,13 +30,13 @@
     },
     "6": {
       "WOLF": 1,
-	  "PETITE_FILLE": 0,
-      "CUPID": 0,
+	  "PETITE_FILLE": 1,
+      "CUPID": 1,
       "WITCH": 0,
       "HUNTER": 0,
-      "SEER": 0,
-      "VILLAGER": 5,
-	  "THIEF" : 0
+      "SEER": 1,
+      "VILLAGER": 1,
+	  "THIEF" : 1
     }
   }
 }

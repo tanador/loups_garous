@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:loup_garou_client/main.dart';
+import 'package:les_loups_garous_de_tchernobyl/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,7 +17,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     // Monte l'application réelle
-    await tester.pumpWidget(const ProviderScope(child: App()));
+    await tester.pumpWidget(ProviderScope(child: const App()));
     await tester.pumpAndSettle();
 
     // Vérifie la présence des éléments clés de l'écran de connexion

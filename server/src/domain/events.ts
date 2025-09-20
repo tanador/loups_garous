@@ -1,6 +1,12 @@
+/**
+ * Lightweight domain event bus used to coordinate game rules.
+ *
+ * Instead of hard-coding every interaction, roles publish their effects on
+ * events such as `NightAction` or `ResolvePhase`. This makes it easy to plug new
+ * abilities without rewriting the orchestrator.
+ */
 import type { Game, PendingDeath } from './types.js';
 
-// Bus d'événements léger pour composer les règles du jeu.
 export interface HunterShot { hunterId: string; targetId: string }
 
 export interface EventPayloads {
@@ -19,6 +25,13 @@ type EventName = keyof EventPayloads;
 
 type Handler<K extends EventName> = (payload: EventPayloads[K]) => any;
 
+/**
+ * Minimal synchronous event bus.
+ *
+ * We do not depend on any external library; the API is intentionally tiny so a
+ * beginner can follow the code path: register listeners with `on` and fire them
+ * with `emit`.
+ */
 export class EventBus {
   private handlers: Partial<Record<EventName, Handler<EventName>[]>> = {};
 

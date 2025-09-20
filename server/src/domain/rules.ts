@@ -1,25 +1,33 @@
+/**
+ * Core business rules for the Werewolf (Loup Garou) game.
+ *
+ * Quick refresher for absolute beginners:
+ *   - Nights are secret: special roles act in a precise order while villagers
+ *     keep their eyes closed. Wolves agree on a victim, the Seer can peek at
+ *     a role, the Witch may heal or poison, the Hunter prepares a last shot.
+ *   - Days are public: everyone learns who died during the night, debates, and
+ *     the village votes to eliminate a suspect. The executed player leaves the
+ *     game immediately.
+ *   - Win conditions: villagers win when every wolf is dead; wolves win when
+ *     they are the only camp left. Lovers can form a neutral team that tries to
+ *     survive together whatever their original camp (official rule).
+ *
+ * Everything below mutates the `Game` structure or computes derived data so the
+ * orchestrator can drive Socket.IO events without duplicating board-game logic.
+ */
 import { randomInt } from 'crypto';
 import { Game, Role, PendingDeath } from './types.js';
 import { ROLE_SETUPS } from './roles/index.js';
 import { secureShuffle } from './utils.js';
 import { bus, HunterShot } from './events.js';
 
-// Ensemble des règles métier: attribution des rôles, résolutions des votes, etc.
-/// Attribue aléatoirement les rôles aux joueurs selon la configuration.
-/// La fonction génère toutes les distributions possibles respectant les
-/// contraintes min/max puis en choisit une au hasard.
 /**
- * Deal roles to players from a real deck described by roles.config.json.
+ * Assign a secret role to every connected player.
  *
- * Deck model (Option 1 with THIEF):
- * - The JSON setups now define exact counts per role for N players.
- * - If the deck contains at least one THIEF card, we append 2 VILLAGER cards
- *   to the deck. These two extra cards become the face-down center cards used
- *   by the THIEF during NIGHT_THIEF (Nuit 0).
- * - We then shuffle the deck, deal 1 card per player, and keep the remaining
- *   (0 or 2) as game.centerCards.
- * - Public snapshots never expose centerCards; only the THIEF receives them
- *   privately in `thief:wake`.
+ * We mirror the official deck building rules from the board game: start from
+ * the JSON configuration, shuffle securely, and if the Thief is in the deck we
+ * keep two face-down cards in the center so the Thief can swap during
+ * NIGHT_THIEF.
  */
 export function assignRoles(
   game: Game,
@@ -71,12 +79,12 @@ export function assignRoles(
   // Mirror assigned roles into Player objects for convenience
   game.players.forEach((p) => (p.role = assigned[p.id]));
 }
-/// Retourne la liste des loups encore en jeu.
+// List every player whose secret role is WOLF (dead or alive).
 export function wolvesOf(game: Game): string[] {
   return game.players.filter(p => game.roles[p.id] === 'WOLF').map(p => p.id);
 }
 
-/// Liste les loups vivants et connectés.
+// Wolves that are alive and currently connected (able to vote at night).
 export function activeWolves(game: Game): string[] {
   return game.players
     .filter(
@@ -85,38 +93,46 @@ export function activeWolves(game: Game): string[] {
     .map((p) => p.id);
 }
 
-/// Identifiant de la sorcière, s'il y en a une.
+// Helper to find the Witch player id if the role is present.
 export function witchId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'WITCH')?.id;
 }
 
-/// Identifiant de Cupidon, s'il y en a un.
+// Helper to find Cupid's player id when the role exists in this match.
 export function cupidId(game: Game): string | undefined {
   return game.players.find(p => game.roles[p.id] === 'CUPID')?.id;
 }
 
-/// Liste les joueurs toujours en vie.
+// Nicknames for every player who has not been eliminated yet.
 export function alivePlayers(game: Game): string[] {
   return game.players.filter(p => game.alive.has(p.id)).map(p => p.id);
 }
 
-/// Retourne les joueurs non loups encore en vie.
+// Alive players that are not wolves (potential night victims).
 export function nonWolvesAlive(game: Game): string[] {
   return alivePlayers(game).filter(pid => game.roles[pid] !== 'WOLF');
 }
 
-/// Calcule les décès résultant des actions nocturnes (loups, sorcière).
+/**
+ * Compute the list of players who should die during the current night.
+ *
+ * Each role publishes its action on the domain event bus (wolves, witch, guard, etc.).
+ * We aggregate their effects here and let the orchestrator apply the result in the morning.
+ */
 export async function computeNightDeaths(game: Game): Promise<string[]> {
   const deaths = new Set<string>();
-  // Délègue aux rôles via le bus d'événements
-  // pour déterminer les victimes de la nuit
+  // Let each role publish its night action on the domain event bus.
   await bus.emit('NightAction', { game, deaths });
   return Array.from(deaths);
 }
 
-/// Résout les morts en chaîne (chasseur qui tire, etc.).
-/// La fonction itère sur une file de victimes et peut demander au chasseur
-/// de choisir une cible supplémentaire.
+/**
+ * Resolve cascading deaths (hunter revenge, lover grief, chained poison).
+ *
+ * The function consumes a queue of `PendingDeath` objects so we can fairly apply
+ * deaths in the same order as the board game. When the Hunter dies we pause to
+ * ask the client for a target, then enqueue the result.
+ */
 export async function applyDeaths(
   game: Game,
   initialDeaths: string[],
@@ -174,7 +190,12 @@ async function processDeathQueue(
   return { deaths: resolved, hunterShots };
 }
 
-/// Calcule le résultat du vote du village et les voix pour chaque cible.
+/**
+ * Count daytime votes and return both the tally and the eliminated player.
+ *
+ * Ties are reported as `eliminated: null`. The orchestrator then schedules a
+ * revote between the tied players, matching the official board game rules.
+ */
 export function computeVoteResult(game: Game): { eliminated: string | null; tally: Record<string, number> } {
   const tally: Record<string, number> = {};
   for (const pid of alivePlayers(game)) {
@@ -193,7 +214,13 @@ export function computeVoteResult(game: Game): { eliminated: string | null; tall
   return { eliminated: topId, tally };
 }
 
-/// Détermine le vainqueur si toutes les conditions sont réunies.
+/**
+ * Evaluate victory conditions in priority order.
+ *
+ * 1. Mixed-camp lovers win as soon as they are the only survivors.
+ * 2. Villagers win when no wolf remains.
+ * 3. Wolves win when every non-wolf is gone.
+ */
 export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
   const alive = alivePlayers(game);
   // Lovers mixed-camps victory: exactly the two lovers survive
@@ -203,30 +230,26 @@ export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
     const pb = game.players.find((p) => p.id === b);
     if (pa?.loverId === b && pb?.loverId === a) return 'LOVERS';
   }
-  // Compter séparément les loups et les non‑loups encore en vie.
-  // Cela permet d'appliquer clairement les conditions de victoire.
+  // Count wolves versus non-wolves to evaluate the remaining camps.
   const wolves = alive.filter(pid => game.roles[pid] === 'WOLF').length;
   const nonWolves = alive.length - wolves;
 
-  // Aucun loup en vie ⇒ les villageois ont éradiqué la menace.
+  // No wolves alive? The village eradicated the threat.
   if (wolves === 0) return 'VILLAGE';
 
-  // Les loups ne gagnent que lorsqu'il ne reste plus aucun villageois.
-  // La simple parité (même nombre de loups et de non‑loups) ne suffit
-  // pas à clore la partie : on continue jusqu'à éliminer le dernier
-  // villageois.
+  // Wolves win only when every non-wolf is gone; a tie is not enough.
   if (nonWolves === 0) return 'WOLVES';
 
-  // Sinon, aucune condition de victoire n'est encore atteinte.
+  // Otherwise no win condition has been reached yet.
   return null;
 }
 
-/// Cibles possibles pour l'attaque des loups (uniquement les villageois vivants).
+// Wolves may only target alive non-wolves.
 export function targetsForWolves(game: Game): string[] {
   return nonWolvesAlive(game);
 }
 
-/// Cibles possibles de la sorcière pour la potion de mort (tous sauf elle).
+// The Witch cannot poison herself or her lover.
 export function targetsForWitch(game: Game): string[] {
   const wid = witchId(game);
   const lover = game.players.find(p => p.id === wid)?.loverId;
@@ -234,22 +257,18 @@ export function targetsForWitch(game: Game): string[] {
 }
 
 /**
- * Consigne la vision de la voyante et renvoie le rôle révélé.
+ * Record the Seer's vision and return the revealed role.
  *
- * Dans *Loup Garou*, la voyante est l'un des rares rôles disposant
- * d'une information "parfaite". Chaque nuit elle choisit un joueur
- * encore en vie et apprend immédiatement son rôle secret. L'objectif
- * principal est de guider les villageois pendant la phase de vote.
- *
- * Techniquement, on conserve une trace de cette vision à deux endroits :
- *  - dans le journal privé de la voyante (affiché côté client pour elle seule)
- *  - dans l'historique complet de la partie pour un éventuel audit ou
- *    un écran de récap final.
+ * The Seer is the investigator role: every night she selects a living player
+ * and learns the hidden role. We keep a trace of that information in two places
+ * so the client can build UX around it:
+ *   - the Seer's private log (only she can read it)
+ *   - the global game history (for recap screens or debugging).
  */
 export function recordSeerPeek(game: Game, seerId: string, targetId: string): Role {
   const role = game.roles[targetId];
   if (!role) throw new Error('target_has_no_role');
-  // Ajoute l'information dans le journal individuel de la voyante.
+  // Push the vision in the Seer's private log so only she can read it.
   const seer = game.players.find(p => p.id === seerId);
   if (!seer) throw new Error('seer_not_found');
   seer.privateLog.push({
@@ -266,12 +285,12 @@ export function recordSeerPeek(game: Game, seerId: string, targetId: string): Ro
   } else if (!h.events) {
     h.events = [];
   }
-  // Enrichit l'historique global de la partie pour consultation ultérieure.
+  // Store the vision inside the global history for recap screens.
   h.events!.push({ type: 'SEER_PEEK', seerId, targetId, role });
   return role;
 }
 
-/// Indique si un joueur peut être sauvé par la potion de vie.
+// Check whether the Witch is allowed to heal the attacked player.
 export function canBeSaved(game: Game, pid: string): boolean {
   return (
     game.night.attacked === pid &&
@@ -280,14 +299,10 @@ export function canBeSaved(game: Game, pid: string): boolean {
   );
 }
 
-/// Vérifie si tous les loups ont choisi la même cible pour l'attaque nocturne.
 /**
- * Retourne si les loups ont un consensus sur une cible.
+ * Check whether the wolves agreed on the same target.
  *
- * Pédagogie (débutant):
- * - Seuls les loups vivants ET connectés sont pris en compte.
- *   Cela évite d'attendre une confirmation d'un loup mort/déconnecté,
- *   ce qui pourrait bloquer la phase inutilement.
+ * Only connected wolves are considered so an offline teammate does not block the phase.
  */
 export function isConsensus(game: Game): { consensus: boolean; target?: string } {
   const wolves = activeWolves(game);
@@ -300,4 +315,5 @@ export function isConsensus(game: Game): { consensus: boolean; target?: string }
   const allSame = choices.every((c) => c === choices[0]);
   return allSame ? { consensus: true, target: choices[0] } : { consensus: false };
 }
+
 

@@ -1,5 +1,5 @@
-name: loup_garou_client
-description: Client Flutter pour Loup-Garou (3 joueurs) via Socket.IO
+name: les_loups_garous_de_tchernobyl
+description: les_loups_garous_de_tchernobyl
 publish_to: "none"
 
 environment:
@@ -19,6 +19,16 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+# ← AU NIVEAU RACINE (pas sous `flutter`)
+flutter_launcher_icons:
+  android: "adaptive"
+  ios: true
+  image_path: assets/icon.png
+  adaptive_icon_background: "#111111"
+  adaptive_icon_foreground: assets/icon.png
+  remove_alpha_ios: true
