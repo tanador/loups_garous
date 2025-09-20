@@ -1,0 +1,1 @@
+• Ran powershell.exe -NoLogo -Command "& 'C:/Program Files/java/jdk-21.0.1/bin/keytool.exe' -genkey -v -storetype JKS -keysize 2048 -validity 10000 -keystore upload-keystore.jks -alias upload -keyalg RSA -storepass 'N6Y3%wfpF1j#' -keypass 'qTm9!Hd7Ls@' -dname \"CN=Progreo, OU=Engineering, O=Progreo, L=Paris, S=IDF, C=FR\""
