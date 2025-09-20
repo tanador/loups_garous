@@ -867,13 +867,7 @@ export class Orchestrator {
     if (win) {
       setState(game, "END");
       this.broadcastState(game);
-      const roles = game.players.map((p) => ({
-        playerId: p.id,
-        role: game.roles[p.id],
-      }));
-      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
-      this.log(game.id, "END", undefined, "game.end", { winner: win });
+      this.emitGameEnded(game, win);
       return;
     }
 
@@ -931,25 +925,46 @@ export class Orchestrator {
     if (pending.length > 0 && recap) {
       for (const hid of pending) {
         const alive = alivePlayers(game);
-        const target = await this.askHunterTarget(game, hid, alive);
+        const loverId = game.players.find((p) => p.id === hid)?.loverId;
+        const options = alive.filter((pid) => pid !== hid && pid !== loverId);
+
+        let target: string | undefined;
+        if (options.length === 0) {
+          this.log(game.id, 'MORNING', hid, 'hunter.skip_no_targets', {
+            alive: alive.length,
+          });
+        } else {
+          target = await this.askHunterTarget(game, hid, alive);
+        }
+
         if (target && game.alive.has(target)) {
           onPlayerDeath(game, target, 'HUNTER');
-          // Après avoir planifié le tir du chasseur, traiter les chagrins d'amour différés
+        }
+
+        const hadDeferredGrief = (game.deferredGrief?.length ?? 0) > 0;
+        if (hadDeferredGrief) {
           for (const vid of game.deferredGrief ?? []) {
             const lover = game.players.find((p) => p.id === vid)?.loverId;
             if (lover && game.alive.has(lover)) onPlayerDeath(game, lover, 'GRIEF');
           }
           game.deferredGrief = [];
+        }
+
+        const hasPendingDeaths = (game.pendingDeaths?.length ?? 0) > 0;
+        if ((target && game.alive.has(target)) || hadDeferredGrief || hasPendingDeaths) {
           const { deaths, hunterShots } = await resolveDeaths(
             game,
             (h, a) => this.askHunterTarget(game, h, a),
           );
-          recap.deaths.push(
-            ...deaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
-          );
-          // Include the hunter's chosen target in the recap along with any
-          // additional kills caused by chained hunter shots.
-          recap.hunterKills.push(target, ...hunterShots.map((s) => s.targetId));
+          if (deaths.length > 0) {
+            recap.deaths.push(
+              ...deaths.map((pid) => ({ playerId: pid, role: game.roles[pid] })),
+            );
+          }
+          const kills: string[] = [];
+          if (target) kills.push(target);
+          if (hunterShots.length > 0) kills.push(...hunterShots.map((s) => s.targetId));
+          if (kills.length > 0) recap.hunterKills.push(...kills);
         }
       }
       for (const p of game.players) {
@@ -986,12 +1001,7 @@ export class Orchestrator {
     if (win) {
       setState(game, "END");
       this.broadcastState(game);
-      const roles = game.players.map((p) => ({
-        playerId: p.id,
-        role: game.roles[p.id],
-      }));
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles });
-      this.log(game.id, "END", undefined, "game.end", { winner: win });
+      this.emitGameEnded(game, win);
       return;
     }
 
@@ -1008,13 +1018,7 @@ export class Orchestrator {
     if (win) {
       setState(game, "END");
       this.broadcastState(game);
-      const roles = game.players.map((p) => ({
-        playerId: p.id,
-        role: game.roles[p.id],
-      }));
-      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
-      this.log(game.id, "END", undefined, "game.end", { winner: win });
+      this.emitGameEnded(game, win);
       return;
     }
     setState(game, "VOTE");
@@ -1200,13 +1204,7 @@ export class Orchestrator {
     if (win) {
       setState(game, "END");
       this.broadcastState(game);
-      const roles = game.players.map((p) => ({
-        playerId: p.id,
-        role: game.roles[p.id],
-      }));
-      const lovers = game.players.filter((p) => !!p.loverId).map((p) => p.id);
-      this.io.to(`room:${game.id}`).emit("game:ended", { winner: win, roles, lovers });
-      this.log(game.id, "END", undefined, "game.end", { winner: win });
+      this.emitGameEnded(game, win);
     } else {
       this.globalSleep(game, () => this.beginNightSeer(game));
     }
@@ -1278,6 +1276,33 @@ export class Orchestrator {
         options: options.length,
       });
     });
+  }
+
+  private emitGameEnded(game: Game, win: string) {
+    const roles = game.players.map((p) => ({
+      playerId: p.id,
+      role: game.roles[p.id],
+    }));
+    const loversSet = new Set<string>();
+    for (const p of game.players) {
+      if (p.loverId) {
+        loversSet.add(p.id);
+        loversSet.add(p.loverId);
+      }
+    }
+    const lovers = Array.from(loversSet);
+    const payload = { winner: win, roles, lovers };
+    const room = `room:${game.id}`;
+    this.io.to(room).emit("game:ended", payload);
+    for (const player of game.players) {
+      const socket = this.io.sockets.sockets.get(player.socketId);
+      if (!socket) continue;
+      const socketRooms = (socket as any).rooms as Set<string> | undefined;
+      if (!socketRooms || !socketRooms.has(room)) {
+        socket.emit("game:ended", payload);
+      }
+    }
+    this.log(game.id, "END", undefined, "game.end", { winner: win });
   }
 
   private broadcastState(game: Game) {
@@ -1374,4 +1399,3 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
-

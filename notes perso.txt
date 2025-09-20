@@ -1,1 +1,99 @@
 • Ran powershell.exe -NoLogo -Command "& 'C:/Program Files/java/jdk-21.0.1/bin/keytool.exe' -genkey -v -storetype JKS -keysize 2048 -validity 10000 -keystore upload-keystore.jks -alias upload -keyalg RSA -storepass 'N6Y3%wfpF1j#' -keypass 'qTm9!Hd7Ls@' -dname \"CN=Progreo, OU=Engineering, O=Progreo, L=Paris, S=IDF, C=FR\""
+
+
+
+Synthèse    
+    
+  - Globalement, le serveur implémente un déroulé de partie cohérent (nuit/jour, votes, pouvoirs) et les tests passent (83/83). Cependant, plusieurs écarts notables avec les règles “classiques” de Thiercelieux existent: condition de victoire des loups à la parité, présence d’un “Voleur” façon One Night (cartes au centre), “Petite Fille” sans pouvoir, et une
+  protection forte des amoureux (ils ne peuvent pas se nuire ni se voter) qui n’existe pas dans la règle de base. Les compositions de rôles par nombre de joueurs sont aussi non standard et risquent des déséquilibres.   
+    
+  Conformité  
+    
+  - Ordre des phases clair et explicite par FSM: ROLES → (NIGHT_THIEF?) → NIGHT_CUPID → NIGHT_LOVERS → NIGHT_SEER → NIGHT_WOLVES → NIGHT_WITCH → MORNING → VOTE → RESOLVE → CHECK_END → (END ou retour nuit) (server/src/domain/fsm.ts:22-34). 
+  - Voyante   
+ - Choisit une cible vivante et reçoit le rôle, révélation privée et ACK requis avant d’enchaîner (server/src/app/orchestrator.ts:560-590).
+  - Loups
+ - Réveil de nuit avec cibles valides (vivants non-loups), progression jusqu’au verrouillage de cible (server/src/app/orchestrator.ts:617-633, 635-676).  
+  - Sorcière  
+ - 2 potions à usage unique (soin/poison), soin autorisé si quelqu’un a bien été attaqué, poison interdit sur soi; inventaire géré côté serveur (server/src/app/orchestrator.ts:760-779).    
+  - Chasseur  
+ - Tire après sa mort (fenêtre de tir gérée le matin, options filtrées), chaîne de tirs protégée (server/src/app/orchestrator.ts:789-801, 1403-1142; server/src/domain/roles/hunter.ts:1-17).
+  - Amoureux (Cupidon)  
+ - Liés la nuit 0; deuil géré en cascade, possibilité de différer pour respecter l’ordre chasseur→deuil (server/src/app/orchestrator.ts:400-448, 800-858).
+  - Vote du village
+ - Options = vivants, annulation possible, égalité → revote limité aux ex æquo; seconde égalité → pas d’élimination (server/src/app/orchestrator.ts:990-1016, 1018-1045, 1060-1166).    
+  - Fin de partie et récap final envoyés à tous (même aux sockets hors salle) (server/src/app/orchestrator.ts:1248-1271).   
+    
+  Écarts / Problèmes vs règles “classiques” 
+    
+  - Victoire des loups à la parité non reconnue  
+ - Implémentation: “loups gagnent seulement s’il ne reste plus de non-loups”; à 1 loup vs 1 villageois, winner() renvoie null (server/src/domain/rules.ts:224-245). Règle classique: les loups l’emportent lorsque leur nombre est ≥ celui des villageois (parité).
+ - Impact: parties s’éternisent et votes inutiles à 1v1 (des tests entérinent ce choix: server/src/domain/tests/winner.spec.ts:12-20).
+  - “Voleur” façon One Night (2 cartes au centre)
+ - Dérive des règles Thiercelieux: vous introduisez 2 cartes au centre et un voleur qui choisit keep/swap avec le centre; si les deux cartes du centre sont loups, “keep” est interdit (server/src/app/orchestrator.ts:292-316, 322-338; server/src/domain/rules.ts:15-72). Ça correspond à One Night Ultimate Werewolf, pas au Voleur de Thiercelieux. 
+ - Impact: nouvelle dynamique de Nuit 0, non attendue par des joueurs “classiques”. 
+  - “Petite Fille” sans pouvoir   
+ - Le rôle est dans la config à 6 joueurs mais ne fait rien (server/src/domain/roles/petite_fille.ts:1-3). La Petite Fille classique peut espionner les loups (avec risque), ici elle est un villageois renommé. 
+ - Impact: décalage des attentes si le rôle est affiché côté client. 
+  - Amoureux “protégés” au-delà des règles  
+ - Interdictions serveur: un amoureux ne peut pas voter contre son partenaire (server/src/app/orchestrator.ts:1027-1029), un loup amoureux ne peut pas choisir son partenaire (server/src/app/orchestrator.ts:641-642), ni la sorcière ni le chasseur ne peuvent cibler leur partenaire (server/src/app/orchestrator.ts:774-776, 794-796).    
+ - Règle classique: la condition de victoire commune existe, mais il n’y a pas d’interdiction mécanique de nuire; c’est au comportement social. Ces contraintes codées sont des “house rules”.    
+  - Consensus strict des loups    
+ - Fin de phase sans attaque si pas de consensus complet (server/src/app/orchestrator.ts:705-714, 708-713). Beaucoup de tables jouent au “chef de meute” ou à la majorité implicite. Ici, l’unanimité est exigée; cela peut provoquer plus de nuits sans victime que prévu “classiquement”. 
+  - Ordonnancement chasseur la nuit    
+ - Le tir du chasseur tué la nuit est géré au matin après le récap et ACK (server/src/app/orchestrator.ts:800-858). Classiquement il tire “immédiatement” à sa mort; c’est un aménagement UX (cohérent mais à noter). 
+  - Compositions de rôles non standard et déséquilibres possibles    
+ - 6 joueurs: 1 loup, 1 voyante, 1 petite fille (sans pouvoir ici), 1 cupidon, 1 villageois, 1 voleur (+2 cartes centre) et sorcière/hunter à 0 (server/roles.config.json:31-39). Les recommandations officielles pour 6 joueurs incluent généralement 2 loups et pas forcément autant de rôles spéciaux. À 4-5 joueurs aussi, la setup est atypique et très “pouvoirs 
+  lourds”.    
+ - Impact: partie plus facile pour le village, apprentissage faussé pour des joueurs qui croient jouer la “classique”. 
+  - Règles de “rituel table” codées en protocoles
+ - ACK obligatoires (seer, matin, récap du vote) qui n’existent pas dans le physique. C’est logique pour un client réseau, mais à signaler (server/src/app/orchestrator.ts:573-591, 815-989, 1120-1166).    
+    
+  Impact en jeu    
+    
+  - Fin anticipée retardée: à 1v1 loup/villageois la partie continue au lieu d’annoncer la victoire des loups (server/src/domain/rules.ts:240-244).  
+  - Nuit sans mort plus fréquente: unanimité des loups exigée (server/src/app/orchestrator.ts:708-713, 680-696).  
+  - Rôles ressentis différemment: “Petite Fille” ne sert à rien, “Voleur” introduit un méta-réflexe One Night, Amoureux “immunisés” artificiellement contre la trahison. 
+  - Balance: setups petites tables très chargées en pouvoirs, souvent 1 seul loup à 6 joueurs.
+    
+  Recommandations (si vous visez la “classique Thiercelieux”)   
+    
+  - Victoire à la parité
+ - Modifier winner() pour que les loups gagnent à la parité: server/src/domain/rules.ts:224-245.   
+  - Revoir le “Voleur”  
+ - Soit retirer THIEF et les centerCards, soit implémenter la version Thiercelieux (échange avec un autre joueur, pas avec le centre), soit clairement marquer “variante One Night” dans l’UI.    
+ - Points touchés: server/src/domain/rules.ts:15-72 (assignRoles + center), server/src/app/orchestrator.ts:292-338, 318-338 (NIGHT_THIEF). 
+  - Implémenter la Petite Fille (optionnel) 
+ - Donner un pouvoir d’espionnage nocturne risqué (voir room loups) ou retirer ce rôle de la config si vous voulez rester simple: server/src/domain/roles/petite_fille.ts:1-3 et server/roles.config.json:33.    
+  - Amoureux  
+ - Retirer les interdictions “cannot_target_lover” si vous voulez coller à la base: server/src/app/orchestrator.ts:641-642, 774-776, 794-796, 1027-1029.  
+ - Conserver uniquement le deuil et la condition de victoire commune.
+  - Loups: assouplir le consensus 
+ - Passer à la majorité (ou au “chef de meute”) au lieu de l’unanimité stricte: server/src/app/orchestrator.ts:635-703, server/src/domain/rules.ts:307-316.    
+  - Chasseur  
+ - Si vous souhaitez “immédiat”, déclencher le tir dès l’empilement de la mort (rules/events) plutôt qu’en MORNING (server/src/domain/roles/hunter.ts:1-17, server/src/app/orchestrator.ts:815-858).   
+  - Setups par nombre de joueurs  
+ - Réviser server/roles.config.json vers des compositions plus canoniques (ex.: 6 joueurs → 2 loups, 1 voyante, 3 villageois; ajouter ou non sorcière selon goût). Éviter d’inclure des rôles non implémentés (Petite Fille) ou des variantes (Thief One Night) dans le “profil classique”. 
+    
+  Couverture de Tests   
+    
+  - Suite verte (83 tests passés, ~1s) validant les flux principaux (votes, égalités, tir du chasseur, recap fin de partie, sorcière, voyante, loups, amoureux) — ex.: vote tie/revote (server/src/app/tests/vote.spec.ts:1), chasseur matin (server/src/app/tests/hunterMorning.test.ts:1), victoire (server/src/domain/tests/winner.spec.ts:1).  
+  - Les tests explicitent certains choix non-classiques (parité loups, protections amoureux, THIEF + centre). Ils serviront de garde-fous si vous changez la règle. 
+    
+  Détails de référence (exemples précis)    
+    
+  - Parité loups non gagnante: server/src/domain/rules.ts:224-245    
+  - THIEF + centre (variante One Night): server/src/domain/rules.ts:15-72, server/src/app/orchestrator.ts:292-338 
+  - Petite Fille “vide”: server/src/domain/roles/petite_fille.ts:1   
+  - Interdictions amoureux: loups (server/src/app/orchestrator.ts:641-642), sorcière (server/src/app/orchestrator.ts:774-776), chasseur (server/src/app/orchestrator.ts:794-796), vote (server/src/app/orchestrator.ts:1027-1029)    
+  - Consensus loups/unanimité et tie recap: server/src/app/orchestrator.ts:651-666, 674-696   
+  - FSM (ordre des phases): server/src/domain/fsm.ts:21-34 
+    
+  Souhaitez‑vous que j’applique les ajustements pour: 
+    
+  - rétablir la victoire des loups à la parité,  
+  - retirer la variante One Night (THIEF + cartes au centre),   
+  - désactiver la “Petite Fille” ou lui donner un vrai pouvoir, 
+  - assouplir la sélection des loups (majorité), 
+  - alléger la protection des amoureux,
+  - et proposer des setups plus standard pour 4–6 joueurs ?

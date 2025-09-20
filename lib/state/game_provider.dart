@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
@@ -162,7 +163,7 @@ class GameController extends Notifier<GameModel> {
     });
 
     s.on('game:stateChanged', (data) async {
-      final wasClosing = state.closingEyes;
+      final previousPhase = state.phase;
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final closing = data['closingEyes'] == true;
@@ -177,7 +178,7 @@ class GameController extends Notifier<GameModel> {
         closingEyes: closing,
         dayVoteRecap: clearDayRecap,
       );
-      if (wasClosing && !closing) {
+      if (previousPhase != phase && GameController.shouldVibrateWake(state, phase)) {
         try { await _vibrateWakeIfAlive(); } catch (_) {}
       }
       log('[evt] game:stateChanged $phase deadline=$deadline');
@@ -622,6 +623,33 @@ class GameController extends Notifier<GameModel> {
 
   Future<void> toggleVibrations(bool on) async {
     state = state.copy(vibrations: on);
+  }
+
+  @visibleForTesting
+  static bool shouldVibrateWake(GameModel snapshot, GamePhase phase) {
+    final role = snapshot.role;
+    switch (phase) {
+      case GamePhase.NIGHT_THIEF:
+        return role == Role.THIEF;
+      case GamePhase.NIGHT_CUPID:
+        return role == Role.CUPID;
+      case GamePhase.NIGHT_LOVERS:
+        final me = snapshot.playerId;
+        if (me == null) return false;
+        if (snapshot.loverPartnerId != null) return true;
+        return snapshot.loversKnown.contains(me);
+      case GamePhase.NIGHT_SEER:
+        return role == Role.SEER;
+      case GamePhase.NIGHT_WOLVES:
+        return role == Role.WOLF;
+      case GamePhase.NIGHT_WITCH:
+        return role == Role.WITCH;
+      case GamePhase.MORNING:
+      case GamePhase.VOTE:
+        return true;
+      default:
+        return false;
+    }
   }
 
   // ------------- Context & ready -------------
