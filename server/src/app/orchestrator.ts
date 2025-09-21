@@ -890,7 +890,7 @@ export class Orchestrator {
       }
       game.morningAcks.add(playerId);
       this.log(game.id, game.state, playerId, "day.ack");
-      const needed = game.alive.size;
+      const needed = alivePlayers(game).length;
       if (game.morningAcks.size >= needed) {
         this.cancelTimer(game.id);
         this.handleMorningEnd(game);
@@ -909,7 +909,7 @@ export class Orchestrator {
       }
       game.dayAcks.add(playerId);
       this.log(game.id, game.state, playerId, 'day.ack');
-      const needed = game.alive.size;
+      const needed = alivePlayers(game).length;
       if (game.dayAcks.size >= needed) {
         this.pendingDayAcks.delete(game.id);
         this.beginCheckEnd(game);

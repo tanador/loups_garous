@@ -44,6 +44,75 @@ describe('hunter death handling', () => {
     expect(g.state).toBe('MORNING');
   });
 
+  it('wakes the dead hunter once only survivors acknowledge and resumes the flow', async () => {
+    const io = fakeIo();
+    const orch = new Orchestrator(io);
+    const g = createGame(5);
+
+    const sockets = new Map<string, any>();
+    (io as any).sockets.sockets = sockets;
+
+    const players = ['A', 'B', 'C', 'D', 'E'];
+    for (const id of players) {
+      addPlayer(g, { id, socketId: 's' + id });
+      const sock = {
+        events: [] as { event: string; payload: any }[],
+        emit(event: string, payload: any) {
+          this.events.push({ event, payload });
+          if (event === 'hunter:wake') {
+            setTimeout(() => orch.hunterShoot(g.id, 'A', 'B'), 0);
+          }
+        },
+        join() {},
+      };
+      sockets.set('s' + id, sock);
+    }
+
+    g.roles['A'] = 'HUNTER';
+    g.roles['B'] = 'VILLAGER';
+    g.roles['C'] = 'VILLAGER';
+    g.roles['D'] = 'VILLAGER';
+    g.roles['E'] = 'WOLF';
+    (orch as any).store.put(g);
+    g.state = 'NIGHT_WITCH';
+    g.night.attacked = 'A';
+
+    await (orch as any).beginMorning(g);
+
+    expect(g.alive.has('A')).toBe(false);
+    expect((orch as any).pendingHunters.get(g.id)).toEqual(['A']);
+
+    orch.dayAck(g.id, 'A');
+    expect(g.morningAcks.size).toBe(0);
+
+    orch.dayAck(g.id, 'B');
+    orch.dayAck(g.id, 'C');
+    orch.dayAck(g.id, 'D');
+    orch.dayAck(g.id, 'E');
+    expect(g.morningAcks.size).toBe(4);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(g.alive.has('B')).toBe(false);
+    expect(g.morningAcks.size).toBe(0);
+    expect((orch as any).pendingHunters.get(g.id)).toBeUndefined();
+
+    orch.dayAck(g.id, 'C');
+    orch.dayAck(g.id, 'D');
+    orch.dayAck(g.id, 'E');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(g.state).toBe('VOTE');
+    const recap = (orch as any).morningRecaps.get(g.id);
+    expect(recap?.hunterKills).toContain('B');
+
+    const hunterSock = sockets.get('sA');
+    const wake = hunterSock.events.find((e: any) => e.event === 'hunter:wake');
+    expect(wake).toBeDefined();
+    expect(wake.payload.alive.map((p: any) => p.id)).toEqual(['B', 'C', 'D', 'E']);
+  });
+
   it('requires new acknowledgments after hunter shot', async () => {
     const orch = new Orchestrator(fakeIo());
     const g = createGame(5);
