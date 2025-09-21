@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'death_skull_animation.dart';
+import 'hunter_prompt.dart';
 
 // Écran affiché aux joueurs éliminés.
 
@@ -24,7 +25,8 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
       (p) => p.id == s.playerId,
       orElse: () => const PlayerView(id: '', connected: true, alive: false),
     );
-    final isEliminatedThisVote = s.phase == GamePhase.RESOLVE && s.lastVote?.eliminatedId == me.id;
+    final isEliminatedThisVote =
+        s.phase == GamePhase.RESOLVE && s.lastVote?.eliminatedId == me.id;
     // Spécificité du rôle « Chasseur »:
     // Lorsqu’il meurt, il peut tirer une dernière balle. Cet « éveil » arrive
     // pendant la phase MORNING via l’événement serveur hunter:wake.
@@ -58,7 +60,8 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
         curve: Curves.easeOutCubic,
         builder: (context, t, child) {
           final w = MediaQuery.of(context).size.width;
-          final dx = (-0.35 * w) * (1.0 - t); // part de la gauche vers le centre
+          final dx =
+              (-0.35 * w) * (1.0 - t); // part de la gauche vers le centre
           final scale = 0.85 + 0.15 * t;
           return Opacity(
             opacity: t,
@@ -107,9 +110,11 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
             child: const Text('Quitter'),
           )
         else if (hasPendingHunterShot)
-          const Text(
-            'Attendez votre tir de chasseur...',
-            style: TextStyle(fontSize: 16),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            child: HunterPrompt(
+              padding: const EdgeInsets.all(16),
+            ),
           )
         else
           const SizedBox.shrink(),
