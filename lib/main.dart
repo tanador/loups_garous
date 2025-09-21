@@ -154,10 +154,10 @@ class _HomeRouter extends ConsumerWidget {
     }
 
     // Si le serveur nous envoie une liste de cibles pour le tir du chasseur,
-    // afficher immédiatement l'écran dédié. On se base uniquement sur la
-    // présence de `hunterTargets` pour être robuste aux cas où le rôle local
-    // n'est pas encore resynchronisé (reconnexion, snapshot tardif, etc.).
-    if (s.hunterTargets.isNotEmpty) {
+    // afficher immédiatement l'écran dédié, même si l'on est déjà mort.
+    // On vérifie explicitement que le rôle courant est bien HUNTER pour ne
+    // pas afficher cet écran à un joueur mal synchronisé.
+    if (youRole == Role.HUNTER && s.hunterTargets.isNotEmpty) {
       return const HunterScreen();
     }
 
