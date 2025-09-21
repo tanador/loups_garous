@@ -29,8 +29,12 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
     // Lorsqu’il meurt, il peut tirer une dernière balle. Cet « éveil » arrive
     // pendant la phase MORNING via l’événement serveur hunter:wake.
     // Pour éviter que le joueur quitte avant d’exercer ce pouvoir, on masque
-    // temporairement le bouton « Quitter » quand la phase est MORNING.
-    final bool blockQuit = (s.role == Role.HUNTER && s.phase == GamePhase.MORNING) || isEliminatedThisVote;
+    // temporairement le bouton « Quitter » tant qu'une cible est proposée
+    // (hunterTargets non vide).
+    final bool hasPendingHunterShot = s.hunterTargets.isNotEmpty;
+    // Bloque le bouton Quitter tant qu'un tir de chasseur est attendu ou que
+    // l'on doit encore accuser réception d'une élimination de jour.
+    final bool blockQuit = hasPendingHunterShot || isEliminatedThisVote;
     // Détermine si on doit jouer l'animation maintenant (une seule fois)
     final playNow = s.showDeathAnim && !_animPlayed;
     if (playNow) {
@@ -102,11 +106,13 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
             },
             child: const Text('Quitter'),
           )
-        else
+        else if (hasPendingHunterShot)
           const Text(
             'Attendez votre tir de chasseur...',
             style: TextStyle(fontSize: 16),
           )
+        else
+          const SizedBox.shrink(),
       ],
     );
 
