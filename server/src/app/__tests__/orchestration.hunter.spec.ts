@@ -7,9 +7,10 @@ class FakeSocket {
   id: string;
   rooms = new Set<string>();
   data: any = {};
+  events: { event: string; payload: any }[] = [];
   constructor(id: string) { this.id = id; }
   join(room: string) { this.rooms.add(room); }
-  emit(_event: string, _payload?: any) { /* client-directed emits ignored in tests */ }
+  emit(event: string, payload?: any) { this.events.push({ event, payload }); }
 }
 
 class FakeServer {
@@ -116,7 +117,58 @@ describe('Orchestrator – hunter death should not end game before shot', () => 
     const beganVote = io.emits.find(e => e.event === 'vote:options');
     expect(!!ended || !!beganVote).toBeTruthy();
   });
-  
+
+  it('wakes the hunter once every survivor acknowledges the morning recap', async () => {
+    const game: Game = {
+      id: 'G_WAKE',
+      state: 'NIGHT_WITCH',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      round: 1,
+      maxPlayers: 5,
+      players: [
+        makePlayer('HUNTER'),
+        makePlayer('WOLF'),
+        makePlayer('VILLAGER'),
+        makePlayer('SEER'),
+        makePlayer('WITCH'),
+      ],
+      roles: {
+        HUNTER: 'HUNTER',
+        WOLF: 'WOLF',
+        VILLAGER: 'VILLAGER',
+        SEER: 'SEER',
+        WITCH: 'WITCH',
+      } as any,
+      alive: new Set(['HUNTER', 'WOLF', 'VILLAGER', 'SEER', 'WITCH']),
+      night: {},
+      inventory: { witch: { healUsed: false, poisonUsed: false } },
+      votes: {},
+      history: [],
+      deadlines: {},
+      wolvesChoices: {},
+      morningAcks: new Set<string>(),
+      loversMode: null,
+    };
+
+    (orch as any).store.put(game);
+    await (orch as any).beginMorning(game);
+
+    expect(game.alive.has('HUNTER')).toBe(false);
+    const survivors = Array.from(game.alive.values());
+    for (const pid of survivors) {
+      orch.dayAck(game.id, pid);
+    }
+
+    const hunterSocket = io.sockets.sockets.get('sock:HUNTER') as FakeSocket;
+    const wakeEvents = hunterSocket.events.filter(e => e.event === 'hunter:wake');
+    expect(wakeEvents.length).toBe(1);
+    expect(wakeEvents[0].payload.alive.length).toBe(survivors.length);
+    expect(wakeEvents[0].payload.alive.every((p: any) => p.id !== 'HUNTER')).toBe(true);
+    expect(game.morningAcks.size).toBe(survivors.length);
+    expect(game.morningAcks.has('HUNTER')).toBe(false);
+  });
+
   it('ends NIGHT_LOVERS early when both lovers acknowledge', async () => {
     const { vi } = await import('vitest');
     vi.useFakeTimers();

@@ -185,16 +185,12 @@ class _HomeRouter extends ConsumerWidget {
     if (phase == GamePhase.END) return const EndScreen();
 
     // Si le serveur nous envoie une liste de cibles pour le tir du chasseur,
-    // afficher immédiatement l'écran dédié, même si l'on est déjà mort.
-    // On vérifie explicitement que le rôle courant est bien HUNTER pour ne
-    // pas afficher cet écran à un joueur mal synchronisé.
-    if (youRole == Role.HUNTER && s.hunterTargets.isNotEmpty) {
+    // afficher immediatement l'ecran dedie, meme si l'on est deja mort.
+    // L'evenement `hunter:wake` est emis uniquement pour le chasseur concerne,
+    // inutile donc de verifier le role local pour eviter un mauvais affichage.
+    if (s.hunterTargets.isNotEmpty) {
       return const HunterScreen();
     }
-
-    // Si la révélation des rôles vient d'être déclenchée, forcer l'affichage
-    // du compte à rebours local, puis de l'écran de rôle même si le serveur
-    // est déjà passé à la phase suivante.
     if (s.roleRevealUntilMs != null) {
       if (nowMs <= s.roleRevealUntilMs!) {
         return const CountdownScreen();

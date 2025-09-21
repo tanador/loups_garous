@@ -890,8 +890,8 @@ export class Orchestrator {
       }
       game.morningAcks.add(playerId);
       this.log(game.id, game.state, playerId, "day.ack");
-      const needed = alivePlayers(game).length;
-      if (game.morningAcks.size >= needed) {
+      const { acked, needed } = this.livingAckProgress(game, game.morningAcks);
+      if (needed === 0 || acked >= needed) {
         this.cancelTimer(game.id);
         this.handleMorningEnd(game);
       }
@@ -909,8 +909,8 @@ export class Orchestrator {
       }
       game.dayAcks.add(playerId);
       this.log(game.id, game.state, playerId, 'day.ack');
-      const needed = alivePlayers(game).length;
-      if (game.dayAcks.size >= needed) {
+      const { acked, needed } = this.livingAckProgress(game, game.dayAcks);
+      if (needed === 0 || acked >= needed) {
         this.pendingDayAcks.delete(game.id);
         this.beginCheckEnd(game);
       }
@@ -925,6 +925,17 @@ export class Orchestrator {
       });
     } catch {}
     throw new Error('bad_state');
+  }
+
+  private livingAckProgress(game: Game, ackSet: Set<string>): { acked: number; needed: number } {
+    for (const pid of Array.from(ackSet)) {
+      if (!game.alive.has(pid)) ackSet.delete(pid);
+    }
+    let acked = 0;
+    for (const pid of game.alive.values()) {
+      if (ackSet.has(pid)) acked += 1;
+    }
+    return { acked, needed: game.alive.size };
   }
 
   private async handleMorningEnd(game: Game) {
@@ -1410,4 +1421,5 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
+
 
