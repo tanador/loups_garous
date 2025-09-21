@@ -1,4 +1,4 @@
-import 'dart:developer';
+import '../utils/app_logger.dart';
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -28,10 +28,14 @@ class SocketService {
           .setReconnectionDelay(500)
           .build(),
     );
-    socket.onConnect((_) => log('[socket] connected ${socket.id}'));
-    socket.onDisconnect((_) => log('[socket] disconnected'));
-    socket.onReconnect((n) => log('[socket] reconnect $n'));
-    socket.onReconnectAttempt((_) => log('[socket] reconnect_attempt'));
+    socket.onConnect((_) => AppLogger.log('[socket] connected ${socket.id}',
+        name: 'SocketService'));
+    socket.onDisconnect(
+        (_) => AppLogger.log('[socket] disconnected', name: 'SocketService'));
+    socket.onReconnect(
+        (n) => AppLogger.log('[socket] reconnect $n', name: 'SocketService'));
+    socket.onReconnectAttempt((_) =>
+        AppLogger.log('[socket] reconnect_attempt', name: 'SocketService'));
     // Do not connect yet; caller will initiate connection after registering listeners
     _socket = socket;
     return socket;
@@ -54,7 +58,8 @@ class SocketService {
     Duration timeout = const Duration(seconds: 8),
   }) async {
     try {
-      final res = await socket.emitWithAckAsync(event, payload).timeout(timeout);
+      final res =
+          await socket.emitWithAckAsync(event, payload).timeout(timeout);
       if (res is Map) {
         return Map<String, dynamic>.from(
           res.map((k, v) => MapEntry(k.toString(), v)),
@@ -64,7 +69,8 @@ class SocketService {
     } on TimeoutException {
       return {'ok': false, 'error': 'timeout'};
     } catch (e, st) {
-      log('[socket] emitAck error $e', stackTrace: st);
+      AppLogger.logError('[socket] emitAck error', e, st,
+          name: 'SocketService');
       return {'ok': false, 'error': e.toString()};
     }
   }

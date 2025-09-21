@@ -47,6 +47,17 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host "[INFO] Repo path: $repoRoot"
 
+# --- Logging setup -----------------------------------------------------------
+$logsRoot = Join-Path $repoRoot 'logs'
+if (-not (Test-Path $logsRoot)) { New-Item -ItemType Directory -Path $logsRoot | Out-Null }
+$clientLogsRoot = Join-Path $logsRoot 'clients'
+if (-not (Test-Path $clientLogsRoot)) { New-Item -ItemType Directory -Path $clientLogsRoot | Out-Null }
+$launchStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$centralLog = Join-Path $clientLogsRoot "flutter-clients-$launchStamp.log"
+New-Item -ItemType File -Path $centralLog -Force | Out-Null
+Write-Host "[INFO] Central client log: $centralLog"
+$script:LogJobs = @()
+
 # --- Ctrl+C handler: on interruption, close server console and clients ---
 try { Unregister-Event -SourceIdentifier 'LG_CtrlC' -ErrorAction SilentlyContinue } catch { }
 $serverTitle = "LG_SERVER_$Port"
@@ -88,6 +99,12 @@ try {
     try {
       Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue |
         ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
+    } catch { }
+    try {
+      Get-Job -Name 'LG_LOG_*' -ErrorAction SilentlyContinue | ForEach-Object {
+        Stop-Job -Job $_ -Force -ErrorAction SilentlyContinue
+        Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue
+      }
     } catch { }
   } | Out-Null
   Write-Host "[INFO] Ctrl+C handler registered (will close server/clients)."
@@ -236,18 +253,64 @@ function Set-WindowBounds { param([System.Diagnostics.Process]$Process,[int]$X,[
     Start-Sleep -Milliseconds 100 }
 }
 
+function Start-ClientLogCollector {
+  param(
+    [string]$LogPath,
+    [string]$Nick
+  )
+  $safeNick = ($Nick -replace '[^a-zA-Z0-9_]', '_')
+  if ([string]::IsNullOrWhiteSpace($safeNick)) { $safeNick = 'client' }
+  $jobName = "LG_LOG_${safeNick}_$([guid]::NewGuid().ToString('N'))"
+  $job = Start-Job -Name $jobName -ArgumentList $LogPath, $Nick, $centralLog -ScriptBlock {
+    param($src, $nick, $dest)
+    try {
+      while (-not (Test-Path $src)) { Start-Sleep -Milliseconds 200 }
+      Get-Content -Path $src -Wait |
+        ForEach-Object {
+          $line = $_
+          $ts = [DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss.fff')
+          $formatted = "{0} [{1}] {2}" -f $ts, $nick, $line
+          Add-Content -Path $dest -Value $formatted -Encoding UTF8
+        }
+    } catch {
+      $ts = [DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss.fff')
+      $errMsg = $_.Exception.Message
+      Add-Content -Path $dest -Value "$ts [LOGGER] collector failed for $nick: $errMsg" -Encoding UTF8
+    }
+  }
+  if ($script:LogJobs -eq $null) { $script:LogJobs = @() }
+  $script:LogJobs += $job
+}
+
 function Spawn-Client {
   param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[int]$X,[int]$Y,[int]$W,[int]$H,[switch]$NoAuto)
+  $safeNick = ($Nick -replace '[^a-zA-Z0-9_-]', '_')
+  if ([string]::IsNullOrWhiteSpace($safeNick)) { $safeNick = 'client' }
+  $clientLogPath = Join-Path $clientLogsRoot ("flutter-client-{0}-{1}.log" -f $launchStamp, $safeNick)
+  try { Remove-Item $clientLogPath -ErrorAction SilentlyContinue } catch { }
+  New-Item -ItemType File -Path $clientLogPath -Force | Out-Null
+  $env:LG_CLIENT_LOG_FILE = $clientLogPath
+
   if ($NoAuto) {
     Remove-Item Env:_paramNick -ErrorAction SilentlyContinue
     Remove-Item Env:_autoCreate -ErrorAction SilentlyContinue
     Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
   } else {
     $env:_paramNick = $Nick
-    if ($AutoCreate) { $env:_autoCreate = 'true'; if ($AutoMaxPlayers -gt 0) { $env:_maxPlayers = "$AutoMaxPlayers" } } else { $env:_autoCreate = 'false'; Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue }
+    if ($AutoCreate) {
+      $env:_autoCreate = 'true'
+      if ($AutoMaxPlayers -gt 0) { $env:_maxPlayers = "$AutoMaxPlayers" }
+    } else {
+      $env:_autoCreate = 'false'
+      Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
+    }
   }
+
   $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
-  return (Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru)
+  $process = Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru
+  Remove-Item Env:LG_CLIENT_LOG_FILE -ErrorAction SilentlyContinue
+  Start-ClientLogCollector -LogPath $clientLogPath -Nick $Nick
+  return $process
 }
 
 $procs = @(); $p=0
@@ -262,3 +325,9 @@ for ($i=0; $i -lt $procs.Count; $i++) { Set-WindowBounds -Process $procs[$i] -X 
 Write-Host "[OK] Server and 5 clients launched."
 Write-Host "[INFO] Press Ctrl+C in this console to stop server and clients (or close the server window)."
 if ($script:serverProc) { try { Wait-Process -Id $script:serverProc.Id } catch { } } else { try { Wait-Event -SourceIdentifier 'LG_CtrlC' } catch { while ($true) { Start-Sleep -Seconds 60 } } }
+try {
+  Get-Job -Name 'LG_LOG_*' -ErrorAction SilentlyContinue | ForEach-Object {
+    Stop-Job -Job $_ -Force -ErrorAction SilentlyContinue
+    Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue
+  }
+} catch { }

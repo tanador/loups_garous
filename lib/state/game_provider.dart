@@ -1,8 +1,8 @@
 // Couche "state": gestion de l'état global et des interactions avec le serveur.
 // Le [GameController] ci-dessous centralise toute la logique métier côté client.
 import 'dart:async';
-import 'dart:developer';
 import 'package:flutter/services.dart';
+import '../utils/app_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,17 +104,18 @@ class GameController extends Notifier<GameModel> {
 
     s.on('connect', (_) async {
       state = state.copy(socketConnected: true);
-      log('[event] connect');
+      AppLogger.log('[event] connect');
       // Si nous avions déjà rejoint une partie, tentons de reprendre la session.
       if (state.gameId != null && state.playerId != null) {
         final ack = await _socketSvc.emitAck('session:resume', {
           'gameId': state.gameId,
           'playerId': state.playerId,
         });
-        log('[ack] session:resume $ack');
+        AppLogger.log('[ack] session:resume $ack');
         if (ack['ok'] != true) {
           // Session périmée: nettoie et laisse l'UI recréer proprement
-          state = state.copy(gameId: null, playerId: null, isOwner: false, hasSnapshot: false);
+          state = state.copy(
+              gameId: null, playerId: null, isOwner: false, hasSnapshot: false);
           await _clearSession();
         } else {
           await _setContext();
@@ -126,7 +127,7 @@ class GameController extends Notifier<GameModel> {
 
     s.on('disconnect', (_) {
       state = state.copy(socketConnected: false);
-      log('[event] disconnect');
+      AppLogger.log('[event] disconnect');
     });
 
     // --- Lobby events
@@ -136,7 +137,7 @@ class GameController extends Notifier<GameModel> {
               .toList() ??
           [];
       state = state.copy(lobby: games);
-      log('[evt] lobby:updated ${games.length}');
+      AppLogger.log('[evt] lobby:updated ${games.length}');
     });
 
     // --- Role and state
@@ -159,7 +160,7 @@ class GameController extends Notifier<GameModel> {
         rolePressRevealMs: pressMs,
         youReadyLocal: false,
       );
-      log('[evt] role:assigned $role');
+      AppLogger.log('[evt] role:assigned $role');
     });
 
     s.on('game:stateChanged', (data) async {
@@ -169,9 +170,11 @@ class GameController extends Notifier<GameModel> {
       final closing = data['closingEyes'] == true;
       final vibCfg = _parseVibrationConfig(data['config']);
       // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
-      final loverPartnerId = phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
+      final loverPartnerId =
+          phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
       // Clear the day recap when leaving RESOLVE phase
-      final clearDayRecap = phase != GamePhase.RESOLVE ? null : state.dayVoteRecap;
+      final clearDayRecap =
+          phase != GamePhase.RESOLVE ? null : state.dayVoteRecap;
       state = state.copy(
         phase: phase,
         deadlineMs: deadline,
@@ -183,10 +186,13 @@ class GameController extends Notifier<GameModel> {
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
       );
-      if (previousPhase != phase && GameController.shouldVibrateWake(state, phase)) {
-        try { await _vibrateWakeIfAlive(); } catch (_) {}
+      if (previousPhase != phase &&
+          GameController.shouldVibrateWake(state, phase)) {
+        try {
+          await _vibrateWakeIfAlive();
+        } catch (_) {}
       }
-      log('[evt] game:stateChanged $phase deadline=$deadline');
+      AppLogger.log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
     s.on('game:snapshot', (data) async {
@@ -215,7 +221,9 @@ class GameController extends Notifier<GameModel> {
       // les récupérer depuis le snapshot pour permettre à l'UI d'avancer.
       final nextGameId = state.gameId ?? snapshotGameId;
       final nextPlayerId = state.playerId ?? youId;
-      final isOwner = players.isNotEmpty && nextPlayerId != null && players.first.id == nextPlayerId;
+      final isOwner = players.isNotEmpty &&
+          nextPlayerId != null &&
+          players.first.id == nextPlayerId;
       state = state.copy(
         gameId: nextGameId,
         playerId: nextPlayerId,
@@ -232,21 +240,34 @@ class GameController extends Notifier<GameModel> {
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
         // Déclenche l'animation si l'on apprend via snapshot qu'on vient de mourir
-        showDeathAnim: state.showDeathAnim || (wasAliveBefore && !(players.firstWhere(
-          (p) => p.id == (nextPlayerId ?? ''),
-          orElse: () => const PlayerView(id: '', connected: true, alive: true),
-        ).alive)),
+        showDeathAnim: state.showDeathAnim ||
+            (wasAliveBefore &&
+                !(players
+                    .firstWhere(
+                      (p) => p.id == (nextPlayerId ?? ''),
+                      orElse: () => const PlayerView(
+                          id: '', connected: true, alive: true),
+                    )
+                    .alive)),
       );
       if (wasClosing && !closing) {
-        try { await _vibrateWakeIfAlive(); } catch (_) {}
+        try {
+          await _vibrateWakeIfAlive();
+        } catch (_) {}
       }
       // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
       // et persiste la session afin d'éviter toute désynchronisation.
-      if ((snapshotGameId != null || youId != null) && (state.gameId != null && state.playerId != null)) {
-        try { await _setContext(); } catch (_) {}
-        try { await _saveSession(); } catch (_) {}
+      if ((snapshotGameId != null || youId != null) &&
+          (state.gameId != null && state.playerId != null)) {
+        try {
+          await _setContext();
+        } catch (_) {}
+        try {
+          await _saveSession();
+        } catch (_) {}
       }
-      log('[evt] game:snapshot role=$role phase=$phase players=${players.length}');
+      AppLogger.log(
+          '[evt] game:snapshot role=$role phase=$phase players=${players.length}');
     });
 
     // Fin de partie: inclut désormais la liste des amoureux pour marquer
@@ -260,22 +281,22 @@ class GameController extends Notifier<GameModel> {
                 roleFromStr(j['role'] as String),
               ))
           .toList();
-      final lovers = ((data['lovers'] as List?) ?? [])
-          .map((e) => e.toString())
-          .toSet();
+      final lovers =
+          ((data['lovers'] as List?) ?? []).map((e) => e.toString()).toSet();
       state = state.copy(
         winner: win,
         phase: GamePhase.END,
         finalRoles: roles,
         loversKnown: lovers.isNotEmpty ? lovers : state.loversKnown,
       );
-      log('[evt] game:ended winner=$win roles=${roles.length} lovers=${lovers.length}');
+      AppLogger.log(
+          '[evt] game:ended winner=$win roles=${roles.length} lovers=${lovers.length}');
     });
 
     s.on('game:cancelled', (_) async {
       _resetGameState();
       await _clearSession();
-      log('[evt] game:cancelled');
+      AppLogger.log('[evt] game:cancelled');
     });
 
     // --- Phase de nuit : rôle Voyante ---
@@ -287,7 +308,7 @@ class GameController extends Notifier<GameModel> {
           .toList();
       state = state.copy(seerTargets: list);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] seer:wake targets=${list.length}');
+      AppLogger.log('[evt] seer:wake targets=${list.length}');
     });
 
     // Réception d'une révélation de rôle suite à `seer:peek`.
@@ -303,13 +324,13 @@ class GameController extends Notifier<GameModel> {
       }
       final logList = [...state.seerLog, (pid, role)];
       state = state.copy(seerLog: logList, seerPending: (pid, role));
-      log('[evt] seer:reveal target=$pid role=$roleStr');
+      AppLogger.log('[evt] seer:reveal target=$pid role=$roleStr');
     });
 
     // Fin de phase : la voyante se rendort.
     s.on('seer:sleep', (_) async {
       state = state.copy(seerTargets: [], seerPending: null);
-      log('[evt] seer:sleep');
+      AppLogger.log('[evt] seer:sleep');
     });
 
     // --- Night: wolves
@@ -319,9 +340,13 @@ class GameController extends Notifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       // Réinitialise le dernier comptage (égalité) à chaque réveil des loups
-      state = state.copy(wolvesTargets: list, wolvesLockedTargetId: null, confirmationsRemaining: 0, wolvesLastTally: null);
+      state = state.copy(
+          wolvesTargets: list,
+          wolvesLockedTargetId: null,
+          confirmationsRemaining: 0,
+          wolvesLastTally: null);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] wolves:wake targets=${list.length}');
+      AppLogger.log('[evt] wolves:wake targets=${list.length}');
     });
 
     s.on('wolves:targetLocked', (data) {
@@ -329,16 +354,18 @@ class GameController extends Notifier<GameModel> {
         wolvesLockedTargetId: data['targetId'] as String?,
         confirmationsRemaining: (data['confirmationsRemaining'] ?? 0) as int,
       );
-      log('[evt] wolves:targetLocked ${state.wolvesLockedTargetId} confLeft=${state.confirmationsRemaining}');
+      AppLogger.log(
+          '[evt] wolves:targetLocked ${state.wolvesLockedTargetId} confLeft=${state.confirmationsRemaining}');
     });
 
     // Wolves: tie results (re-vote like village)
     // Egalité côté loups: affiche un comptage détaillé et invite à revoter
     s.on('wolves:results', (data) {
       final tallyMap = <String, int>{};
-      (data['tally'] as Map?)?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
+      (data['tally'] as Map?)
+          ?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
       state = state.copy(wolvesLastTally: tallyMap);
-      log('[evt] wolves:results tie tally=${tallyMap.length}');
+      AppLogger.log('[evt] wolves:results tie tally=${tallyMap.length}');
     });
 
     // --- Night: witch
@@ -355,7 +382,8 @@ class GameController extends Notifier<GameModel> {
       );
       state = state.copy(witchWake: ww);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
+      AppLogger.log(
+          '[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
     });
 
     // --- Night: cupid
@@ -366,7 +394,7 @@ class GameController extends Notifier<GameModel> {
           .toList();
       state = state.copy(cupidTargets: list);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] cupid:wake targets=${list.length}');
+      AppLogger.log('[evt] cupid:wake targets=${list.length}');
     });
 
     s.on('lovers:wake', (data) async {
@@ -378,13 +406,13 @@ class GameController extends Notifier<GameModel> {
       if (partnerId != null) known.add(partnerId);
       state = state.copy(loverPartnerId: partnerId, loversKnown: known);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] lovers:wake partner=$partnerId');
+      AppLogger.log('[evt] lovers:wake partner=$partnerId');
     });
 
     // Amoureux: fin de la révélation -> refermer l'écran côté client
     s.on('lovers:sleep', (_) async {
       state = state.copy(loverPartnerId: null);
-      log('[evt] lovers:sleep');
+      AppLogger.log('[evt] lovers:sleep');
     });
 
     // --- Hunter ability
@@ -395,7 +423,7 @@ class GameController extends Notifier<GameModel> {
           .toList();
       state = state.copy(hunterTargets: alive);
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] hunter:wake targets=${alive.length}');
+      AppLogger.log('[evt] hunter:wake targets=${alive.length}');
     });
 
     // --- Morning & Day recap (shared event name)
@@ -403,17 +431,24 @@ class GameController extends Notifier<GameModel> {
       final map = Map<String, dynamic>.from(data ?? {});
       if (map.containsKey('votes')) {
         // Daytime recap after vote
-        final eliminated = ((map['eliminated'] as List?) ?? []).map((e) => e.toString()).toList();
+        final eliminated = ((map['eliminated'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList();
         final votes = ((map['votes'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e))
-            .map<(String, String?)>((j) => (j['voterId'] as String, j['targetId'] as String?))
+            .map<(String, String?)>(
+                (j) => (j['voterId'] as String, j['targetId'] as String?))
             .toList();
         final recap = DayVoteRecap(eliminated: eliminated, votes: votes);
         // Reflect locally the eliminated alive=false if present
         final deadIds = eliminated.toSet();
         final updatedPlayers = state.players
             .map((p) => deadIds.contains(p.id)
-                ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
+                ? PlayerView(
+                    id: p.id,
+                    connected: p.connected,
+                    alive: false,
+                    ready: p.ready)
                 : p)
             .toList();
         final you = state.playerId;
@@ -426,13 +461,15 @@ class GameController extends Notifier<GameModel> {
           showDeathAnim: state.showDeathAnim || youDiedNow,
         );
         if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-        log('[evt] day:recap (day) eliminated=${eliminated.length} votes=${votes.length}');
+        AppLogger.log(
+            '[evt] day:recap (day) eliminated=${eliminated.length} votes=${votes.length}');
         return;
       }
       // Morning recap
       final deaths = ((map['deaths'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
-          .map<(String, String)>((j) => (j['playerId'] as String, j['role'] as String))
+          .map<(String, String)>(
+              (j) => (j['playerId'] as String, j['role'] as String))
           .toList();
       final hunterKills = ((map['hunterKills'] as List?) ?? [])
           .map((e) => e.toString())
@@ -444,7 +481,11 @@ class GameController extends Notifier<GameModel> {
       };
       final updatedPlayers = state.players
           .map((p) => deadIds.contains(p.id)
-              ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
+              ? PlayerView(
+                  id: p.id,
+                  connected: p.connected,
+                  alive: false,
+                  ready: p.ready)
               : p)
           .toList();
       final you = state.playerId;
@@ -463,7 +504,8 @@ class GameController extends Notifier<GameModel> {
         showDeathAnim: state.showDeathAnim || youDiedNow,
       );
       if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
-      log('[evt] day:recap (morning) deaths=${deaths.length} hunterKills=${hunterKills.length}');
+      AppLogger.log(
+          '[evt] day:recap (morning) deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
 
     // --- Vote
@@ -473,7 +515,7 @@ class GameController extends Notifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(voteAlive: alive, lastVote: null);
-      log('[evt] vote:options ${alive.length}');
+      AppLogger.log('[evt] vote:options ${alive.length}');
     });
 
     // Statut de vote (nombre de bulletins déposés / en attente)
@@ -484,12 +526,13 @@ class GameController extends Notifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => j['id'] as String)
           .join(', ');
-      log('[evt] vote:status $voted/$total pending=[$pending]');
+      AppLogger.log('[evt] vote:status $voted/$total pending=[$pending]');
     });
 
     s.on('vote:results', (data) {
       final tallyMap = <String, int>{};
-      (data['tally'] as Map?)?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
+      (data['tally'] as Map?)
+          ?.forEach((k, v) => tallyMap[k.toString()] = (v as num).toInt());
       final vr = VoteResult(
         eliminatedId: data['eliminatedId'] as String?,
         role: data['role'] as String?,
@@ -500,15 +543,22 @@ class GameController extends Notifier<GameModel> {
           ? state.players
           : state.players
               .map((p) => p.id == elimId
-                  ? PlayerView(id: p.id, connected: p.connected, alive: false, ready: p.ready)
+                  ? PlayerView(
+                      id: p.id,
+                      connected: p.connected,
+                      alive: false,
+                      ready: p.ready)
                   : p)
               .toList();
       // Détection si je viens d'être éliminé(e) par le vote
       final you = state.playerId;
       final wasAlive = _youAlive();
-      final youDiedNow = you != null && elimId != null && you == elimId && wasAlive;
-      state = state.copy(lastVote: vr, players: updatedPlayers, showDeathAnim: youDiedNow);
-      log('[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
+      final youDiedNow =
+          you != null && elimId != null && you == elimId && wasAlive;
+      state = state.copy(
+          lastVote: vr, players: updatedPlayers, showDeathAnim: youDiedNow);
+      AppLogger.log(
+          '[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
 
     // --- Thief (Voleur)
@@ -521,12 +571,13 @@ class GameController extends Notifier<GameModel> {
           .toList();
       state = state.copy(thiefCenter: center);
       if (state.vibrations) await HapticFeedback.vibrate();
-      log('[evt] thief:wake center=${center.map((r)=>r.name).join("/")}');
+      AppLogger.log(
+          '[evt] thief:wake center=${center.map((r) => r.name).join("/")}');
     });
     // Fin de l'étape Voleur: efface l'aperçu local
     s.on('thief:sleep', (_) async {
       state = state.copy(thiefCenter: []);
-      log('[evt] thief:sleep');
+      AppLogger.log('[evt] thief:sleep');
     });
 
     // Initiate connection after all listeners are registered to avoid missing early events
@@ -545,7 +596,8 @@ class GameController extends Notifier<GameModel> {
 
   // ------------- Lobby actions -------------
   Future<String?> createGame(String nickname, int maxPlayers) async {
-    final ack = await _socketSvc.emitAck('lobby:create', {'nickname': nickname, 'maxPlayers': maxPlayers});
+    final ack = await _socketSvc.emitAck(
+        'lobby:create', {'nickname': nickname, 'maxPlayers': maxPlayers});
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
@@ -561,13 +613,16 @@ class GameController extends Notifier<GameModel> {
     );
     await _setContext();
     // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
-    try { await _listGames(); } catch (_) {}
+    try {
+      await _listGames();
+    } catch (_) {}
     await _saveSession();
     return null;
   }
 
   Future<String?> joinGame(String gameId, String nickname) async {
-    final ack = await _socketSvc.emitAck('lobby:join', {'gameId': gameId, 'nickname': nickname});
+    final ack = await _socketSvc
+        .emitAck('lobby:join', {'gameId': gameId, 'nickname': nickname});
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       if (err == 'nickname_taken') return 'Ce pseudo est déjà pris';
@@ -583,7 +638,9 @@ class GameController extends Notifier<GameModel> {
     );
     await _setContext();
     // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
-    try { await _listGames(); } catch (_) {}
+    try {
+      await _listGames();
+    } catch (_) {}
     await _saveSession();
     return null;
   }
@@ -595,16 +652,20 @@ class GameController extends Notifier<GameModel> {
         'gameId': state.gameId,
         'playerId': state.playerId,
       });
-      log('[ack] lobby:cancel $ack');
+      AppLogger.log('[ack] lobby:cancel $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
-        log('cancelGame error: $err');
+        AppLogger.log('cancelGame error: $err');
         // Tolère game_not_found côté client: on nettoie quand même l'état
-        if (err == 'game_not_found' || err == 'invalid_payload' || err == 'invalid_context') err = null;
+        if (err == 'game_not_found' ||
+            err == 'invalid_payload' ||
+            err == 'invalid_context') {
+          err = null;
+        }
       }
     } catch (e, st) {
       err = e.toString();
-      log('cancelGame exception: $err', stackTrace: st);
+      AppLogger.log('cancelGame exception: $err', stackTrace: st);
     }
     _resetGameState();
     await _clearSession();
@@ -618,16 +679,20 @@ class GameController extends Notifier<GameModel> {
         'gameId': state.gameId,
         'playerId': state.playerId,
       });
-      log('[ack] lobby:leave $ack');
+      AppLogger.log('[ack] lobby:leave $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
-        log('leaveGame error: $err');
+        AppLogger.log('leaveGame error: $err');
         // Tolère game_not_found côté client (ex: jeu déjà annulé)
-        if (err == 'game_not_found' || err == 'invalid_payload' || err == 'invalid_context') err = null;
+        if (err == 'game_not_found' ||
+            err == 'invalid_payload' ||
+            err == 'invalid_context') {
+          err = null;
+        }
       }
     } catch (e, st) {
       err = e.toString();
-      log('leaveGame exception: $err', stackTrace: st);
+      AppLogger.log('leaveGame exception: $err', stackTrace: st);
     }
     _resetGameState();
     await _clearSession();
@@ -673,16 +738,16 @@ class GameController extends Notifier<GameModel> {
       'gameId': state.gameId,
       'playerId': state.playerId,
     });
-    log('[ack] context:set $ack');
+    AppLogger.log('[ack] context:set $ack');
     // Demande explicitement un snapshot après avoir fixé le contexte
     try {
       final ack2 = await _socketSvc.emitAck('session:resume', {
         'gameId': state.gameId,
         'playerId': state.playerId,
       });
-      log('[ack] session:resume(post-context) $ack2');
+      AppLogger.log('[ack] session:resume(post-context) $ack2');
     } catch (e) {
-      log('session:resume post-context failed: $e');
+      AppLogger.log('session:resume post-context failed: $e');
     }
   }
 
@@ -699,7 +764,7 @@ class GameController extends Notifier<GameModel> {
     // Optimistic update for immediate UI feedback
     state = state.copy(youReadyLocal: ready);
     var ack = await _socketSvc.emitAck(event, {});
-    log('[ack] $event $ack');
+    AppLogger.log('[ack] $event $ack');
     // Auto-heal missing context by re-sending context and retrying once
     if (ack['ok'] != true) {
       final err = (ack['error'] ?? '').toString();
@@ -707,9 +772,9 @@ class GameController extends Notifier<GameModel> {
         try {
           await _setContext();
           ack = await _socketSvc.emitAck(event, {});
-          log('[ack] retry $event $ack');
+          AppLogger.log('[ack] retry $event $ack');
         } catch (e) {
-          log('retry $event failed: $e');
+          AppLogger.log('retry $event failed: $e');
         }
       }
     }
@@ -758,7 +823,8 @@ class GameController extends Notifier<GameModel> {
         try {
           if (supportsCustom) {
             if (supportsAmplitude) {
-              await Vibration.vibrate(pattern: pattern, intensities: intensities);
+              await Vibration.vibrate(
+                  pattern: pattern, intensities: intensities);
             } else {
               await Vibration.vibrate(pattern: pattern);
             }
@@ -776,7 +842,9 @@ class GameController extends Notifier<GameModel> {
         }
       } else {
         for (var i = 0; i < pulses; i++) {
-          try { await HapticFeedback.mediumImpact(); } catch (_) {}
+          try {
+            await HapticFeedback.mediumImpact();
+          } catch (_) {}
           final wait = pulseMs + (i < pulses - 1 ? pauseMs : 0);
           if (wait > 0) await Future.delayed(Duration(milliseconds: wait));
         }
@@ -786,11 +854,13 @@ class GameController extends Notifier<GameModel> {
 
   static int _totalVibrationDuration(int pulses, int pulseMs, int pauseMs) {
     if (pulses <= 0 || pulseMs <= 0) return 0;
-    final betweenTotal = pulses > 1 ? (pulses - 1) * (pauseMs < 0 ? 0 : pauseMs) : 0;
+    final betweenTotal =
+        pulses > 1 ? (pulses - 1) * (pauseMs < 0 ? 0 : pauseMs) : 0;
     return pulses * pulseMs + betweenTotal;
   }
 
-  static int? _clampConfigInt(dynamic value, {required int min, required int max}) {
+  static int? _clampConfigInt(dynamic value,
+      {required int min, required int max}) {
     if (value is num && value.isFinite) {
       final intVal = value.toInt();
       if (intVal < min) return min;
@@ -800,7 +870,8 @@ class GameController extends Notifier<GameModel> {
     return null;
   }
 
-  static ({int? pulses, int? pulseMs, int? pauseMs, int? force})? _parseVibrationConfig(dynamic raw) {
+  static ({int? pulses, int? pulseMs, int? pauseMs, int? force})?
+      _parseVibrationConfig(dynamic raw) {
     if (raw is! Map) return null;
     final source = raw['vibrations'];
     final map = source is Map ? source : raw;
@@ -808,7 +879,9 @@ class GameController extends Notifier<GameModel> {
     final pulseMs = _clampConfigInt(map['pulseMs'], min: 0, max: 60000);
     final pauseMs = _clampConfigInt(map['pauseMs'], min: 0, max: 60000);
     final force = _clampConfigInt(map['amplitude'], min: 1, max: 255);
-    if (pulses == null && pulseMs == null && pauseMs == null && force == null) return null;
+    if (pulses == null && pulseMs == null && pauseMs == null && force == null) {
+      return null;
+    }
     return (pulses: pulses, pulseMs: pulseMs, pauseMs: pauseMs, force: force);
   }
 
@@ -852,19 +925,21 @@ class GameController extends Notifier<GameModel> {
   /// - En cas d’erreur, on retourne un message utilisateur compréhensible pour l’UI.
   Future<String?> wolvesChoose(String targetId) async {
     // 1) Envoi standard
-    var ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
-    log('[ack] wolves:chooseTarget $ack');
+    var ack =
+        await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
+    AppLogger.log('[ack] wolves:chooseTarget $ack');
     if (ack['ok'] == true) return null;
     final err = (ack['error'] ?? '').toString();
     // 2) Auto-réparation si le contexte manque, puis un seul retry
     if (err == 'missing_context' || err == 'invalid_context') {
       try {
         await _setContext();
-        ack = await _socketSvc.emitAck('wolves:chooseTarget', {'targetId': targetId});
-        log('[ack] retry wolves:chooseTarget $ack');
+        ack = await _socketSvc
+            .emitAck('wolves:chooseTarget', {'targetId': targetId});
+        AppLogger.log('[ack] retry wolves:chooseTarget $ack');
         if (ack['ok'] == true) return null;
       } catch (e) {
-        log('retry wolves:chooseTarget failed: $e');
+        AppLogger.log('retry wolves:chooseTarget failed: $e');
       }
     }
     // 3) Adapter les erreurs connues vers des messages lisibles par l’utilisateur
@@ -883,10 +958,14 @@ class GameController extends Notifier<GameModel> {
   }
 
   // ------------- Witch -------------
-  Future<void> witchDecision({required bool save, String? poisonTargetId}) async {
-    final payload = {'save': save, if (poisonTargetId != null) 'poisonTargetId': poisonTargetId};
+  Future<void> witchDecision(
+      {required bool save, String? poisonTargetId}) async {
+    final payload = {
+      'save': save,
+      if (poisonTargetId != null) 'poisonTargetId': poisonTargetId
+    };
     final ack = await _socketSvc.emitAck('witch:decision', payload);
-    log('[ack] witch:decision $ack');
+    AppLogger.log('[ack] witch:decision $ack');
   }
 
   // ------------- Cupid -------------
@@ -895,14 +974,14 @@ class GameController extends Notifier<GameModel> {
       'targetA': targetAId,
       'targetB': targetBId,
     });
-    log('[ack] cupid:choose $ack');
+    AppLogger.log('[ack] cupid:choose $ack');
     state = state.copy(cupidTargets: []);
   }
 
   // ------------- Lovers Ack -------------
   Future<void> loversAck() async {
     final ack = await _socketSvc.emitAck('lovers:ack', {});
-    log('[ack] lovers:ack $ack');
+    AppLogger.log('[ack] lovers:ack $ack');
   }
 
   // ------------- Seer -------------
@@ -910,32 +989,33 @@ class GameController extends Notifier<GameModel> {
   /// Le serveur répondra ensuite avec l'évènement `seer:reveal`.
   Future<void> seerPeek(String targetId) async {
     final ack = await _socketSvc.emitAck('seer:peek', {'targetId': targetId});
-    log('[ack] seer:peek $ack');
+    AppLogger.log('[ack] seer:peek $ack');
   }
 
   /// ACK de lecture de la voyante pour passer à la phase suivante.
   Future<void> seerAck() async {
     final ack = await _socketSvc.emitAck('seer:ack', {});
-    log('[ack] seer:ack $ack');
+    AppLogger.log('[ack] seer:ack $ack');
   }
 
   // ------------- Hunter -------------
   Future<void> hunterShoot(String targetId) async {
-    final ack = await _socketSvc.emitAck('hunter:shoot', {'targetId': targetId});
-    log('[ack] hunter:shoot $ack');
+    final ack =
+        await _socketSvc.emitAck('hunter:shoot', {'targetId': targetId});
+    AppLogger.log('[ack] hunter:shoot $ack');
     state = state.copy(hunterTargets: []);
   }
 
   // ------------- Morning ack -------------
   Future<void> dayAck() async {
     final ack = await _socketSvc.emitAck('day:ack', {});
-    log('[ack] day:ack $ack');
+    AppLogger.log('[ack] day:ack $ack');
   }
 
   // ------------- Vote -------------
   Future<String?> voteCast(String targetId) async {
     final ack = await _socketSvc.emitAck('vote:cast', {'targetId': targetId});
-    log('[ack] vote:cast $ack');
+    AppLogger.log('[ack] vote:cast $ack');
     if (ack['ok'] != true) {
       final err = ack['error']?.toString() ?? 'unknown_error';
       switch (err) {
@@ -956,30 +1036,34 @@ class GameController extends Notifier<GameModel> {
 
   Future<void> voteCancel() async {
     final ack = await _socketSvc.emitAck('vote:cancel', {});
-    log('[ack] vote:cancel $ack');
+    AppLogger.log('[ack] vote:cancel $ack');
   }
 
   // ------------- Vote resolve ack (day elimination) -------------
   // Envoie l'ACK "J'ai vu" après un vote diurne (phase RESOLVE)
   Future<void> voteAck() async {
     final ack = await _socketSvc.emitAck('vote:ack', {});
-    log('[ack] vote:ack $ack');
+    AppLogger.log('[ack] vote:ack $ack');
   }
 
   // ------------- Thief -------------
   Future<String?> thiefKeep() async {
     final ack = await _socketSvc.emitAck('thief:choose', {'action': 'keep'});
-    log('[ack] thief:choose keep -> $ack');
+    AppLogger.log('[ack] thief:choose keep -> $ack');
     if (ack['ok'] != true) {
       final err = (ack['error']?.toString() ?? 'unknown_error');
-      if (err == 'must_take_wolf') return 'Deux Loups au centre: vous devez en prendre un.';
+      if (err == 'must_take_wolf') {
+        return 'Deux Loups au centre: vous devez en prendre un.';
+      }
       return err;
     }
     return null;
   }
+
   Future<String?> thiefSwap(int index) async {
-    final ack = await _socketSvc.emitAck('thief:choose', {'action': 'swap', 'index': index});
-    log('[ack] thief:choose swap($index) -> $ack');
+    final ack = await _socketSvc
+        .emitAck('thief:choose', {'action': 'swap', 'index': index});
+    AppLogger.log('[ack] thief:choose swap($index) -> $ack');
     if (ack['ok'] != true) {
       final err = (ack['error']?.toString() ?? 'unknown_error');
       if (err == 'invalid_index') return 'Choix invalide (carte inconnue).';
@@ -995,4 +1079,3 @@ class GameController extends Notifier<GameModel> {
     await _clearSession();
   }
 }
-

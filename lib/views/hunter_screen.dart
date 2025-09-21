@@ -10,13 +10,15 @@ class HunterScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Keep watching the provider so the screen reacts to updates (deadline, options).
+    // Garder l'écoute active pour rafraîchir la liste de cibles et la deadline.
     ref.watch(gameProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Dernier tir')),
-      body: const HunterPrompt(
+      body: const Padding(
         padding: EdgeInsets.all(16),
-        scrollable: true,
+        child: HunterPrompt(
+          scrollable: true,
+        ),
       ),
     );
   }

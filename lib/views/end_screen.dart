@@ -1,8 +1,8 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import '../utils/app_logger.dart';
 
 // Écran affiché à la fin de la partie avec le récapitulatif des rôles.
 
@@ -35,7 +35,10 @@ class EndScreen extends ConsumerWidget {
     // 2) Si les amoureux ont gagné et que 2 survivants existent, marque-les.
     final lovers = {...s.loversKnown};
     if (s.winner == 'LOVERS') {
-      final aliveNow = s.players.where((p) => p.alive).map((p) => p.id).toList(growable: false);
+      final aliveNow = s.players
+          .where((p) => p.alive)
+          .map((p) => p.id)
+          .toList(growable: false);
       if (aliveNow.length == 2) {
         lovers.addAll(aliveNow);
       }
@@ -44,7 +47,9 @@ class EndScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Fin de partie')),
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(text, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           // Pour chaque joueur, on affiche une icône d'état en plus du rôle:
           // - coche verte = vivant
@@ -53,10 +58,13 @@ class EndScreen extends ConsumerWidget {
           // visuellement qui a survécu sans devoir interpréter d'autres écrans.
           for (final (playerId, role) in roles)
             Builder(builder: (context) {
-              final alive = s.players.firstWhere(
-                (p) => p.id == playerId,
-                orElse: () => const PlayerView(id: '', connected: true, alive: false),
-              ).alive;
+              final alive = s.players
+                  .firstWhere(
+                    (p) => p.id == playerId,
+                    orElse: () =>
+                        const PlayerView(id: '', connected: true, alive: false),
+                  )
+                  .alive;
               final text = lovers.contains(playerId)
                   ? '$playerId (amoureux) : ${roleLabel(role)}'
                   : '$playerId : ${roleLabel(role)}';
@@ -74,7 +82,7 @@ class EndScreen extends ConsumerWidget {
                 try {
                   await ctl.leaveToHome();
                 } catch (e, st) {
-                  log('leaveToHome exception: $e', stackTrace: st);
+                  AppLogger.log('leaveToHome exception: $e', stackTrace: st);
                 } finally {
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);

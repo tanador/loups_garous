@@ -16,7 +16,7 @@
 // liés aux overlays.
 // Les timers restent visibles dans les écrans de rôle (loups, sorcière, vote…).
 
-import 'dart:developer';
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui show Offset; // for explicit Offset
 import 'package:flutter/material.dart';
@@ -38,6 +38,7 @@ import 'views/day_recap_screen.dart';
 import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'views/hunter_screen.dart';
+import 'utils/app_logger.dart';
 import 'views/role_screen.dart';
 import 'state/models.dart';
 import 'views/widgets/player_badge.dart';
@@ -47,52 +48,93 @@ import 'views/widgets/player_badge.dart';
 // sous un `ProviderScope` pour activer Riverpod.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb && Platform.isWindows) {
-    try {
-      // Defer showing until we set size/position
-      await windowManager.ensureInitialized();
-      final env = Platform.environment;
-      // Read desired size/position from environment (set by launcher script)
-      final w = int.tryParse(env['WINDOW_W'] ?? '') ?? 0;
-      final h = int.tryParse(env['WINDOW_H'] ?? '') ?? 0;
-      final x = int.tryParse(env['WINDOW_X'] ?? '') ?? 0;
-      final y = int.tryParse(env['WINDOW_Y'] ?? '') ?? 0;
-      final hasSize = w > 0 && h > 0;
-      final hasPos = env.containsKey('WINDOW_X') && env.containsKey('WINDOW_Y');
+  AppLogger.initFromEnv();
 
-      // Convert requested physical pixels to logical size using the current view's devicePixelRatio
-      double scale = 1.0;
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message == null) return;
+    AppLogger.log(message, name: 'debugPrint');
+  };
+
+  FlutterError.onError = (details) {
+    AppLogger.log(
+      details.exceptionAsString(),
+      name: 'FlutterError',
+      stackTrace: details.stack,
+    );
+    FlutterError.presentError(details);
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLogger.log(
+      'Uncaught platform error: $error',
+      name: 'PlatformDispatcher',
+      error: error,
+      stackTrace: stack,
+    );
+    return false;
+  };
+
+  await runZonedGuarded<Future<void>>(() async {
+    if (!kIsWeb && Platform.isWindows) {
       try {
-        final views = WidgetsBinding.instance.platformDispatcher.views;
-        if (views.isNotEmpty) {
-          scale = views.first.devicePixelRatio;
-        }
-      } catch (_) {}
-      final lw = hasSize ? (w.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
-      final lh = hasSize ? (h.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
+        await windowManager.ensureInitialized();
+        final env = Platform.environment;
+        final w = int.tryParse(env['WINDOW_W'] ?? '') ?? 0;
+        final h = int.tryParse(env['WINDOW_H'] ?? '') ?? 0;
+        final x = int.tryParse(env['WINDOW_X'] ?? '') ?? 0;
+        final y = int.tryParse(env['WINDOW_Y'] ?? '') ?? 0;
+        final hasSize = w > 0 && h > 0;
+        final hasPos =
+            env.containsKey('WINDOW_X') && env.containsKey('WINDOW_Y');
 
-      final opts = WindowOptions(
-        size: (lw != null && lh != null) ? Size(lw, lh) : null,
-        center: !(hasPos),
-      );
-      await windowManager.waitUntilReadyToShow(opts, () async {
-        if (hasSize && lw != null && lh != null) {
-          final logicalSize = Size(lw, lh);
-          await windowManager.setSize(logicalSize);
-          await windowManager.setMinimumSize(logicalSize);
-          await windowManager.setMaximumSize(logicalSize);
-        }
-        if (hasPos) {
-          await windowManager.setPosition(ui.Offset(x.toDouble(), y.toDouble()));
-        }
-        await windowManager.show();
-        await windowManager.focus();
-      });
-    } catch (e, st) {
-      log('window init error: $e', stackTrace: st);
+        double scale = 1.0;
+        try {
+          final views = WidgetsBinding.instance.platformDispatcher.views;
+          if (views.isNotEmpty) {
+            scale = views.first.devicePixelRatio;
+          }
+        } catch (_) {}
+
+        final lw = hasSize ? (w.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
+        final lh = hasSize ? (h.toDouble() / (scale <= 0 ? 1.0 : scale)) : null;
+
+        final opts = WindowOptions(
+          size: (lw != null && lh != null) ? Size(lw, lh) : null,
+          center: !hasPos,
+        );
+        await windowManager.waitUntilReadyToShow(opts, () async {
+          if (hasSize && lw != null && lh != null) {
+            final logicalSize = Size(lw, lh);
+            await windowManager.setSize(logicalSize);
+            await windowManager.setMinimumSize(logicalSize);
+            await windowManager.setMaximumSize(logicalSize);
+          }
+          if (hasPos) {
+            await windowManager
+                .setPosition(ui.Offset(x.toDouble(), y.toDouble()));
+          }
+          await windowManager.show();
+          await windowManager.focus();
+        });
+      } catch (e, st) {
+        AppLogger.logError('window init error', e, st, name: 'Main');
+      }
     }
-  }
-  runApp(const ProviderScope(child: App()));
+
+    runApp(const ProviderScope(child: App()));
+  }, (error, stack) {
+    AppLogger.log(
+      'Uncaught zone error: $error',
+      name: 'Zone',
+      error: error,
+      stackTrace: stack,
+    );
+  }, zoneSpecification: ZoneSpecification(
+    print: (self, parent, zone, line) {
+      AppLogger.log(line, name: 'print');
+      parent.print(zone, line);
+    },
+  ));
 }
 
 /// Widget racine de l'application.
@@ -135,8 +177,7 @@ class _HomeRouter extends ConsumerWidget {
     final youRole = s.role;
     final phase = s.phase;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final me = s.players.firstWhere(
-        (p) => p.id == s.playerId,
+    final me = s.players.firstWhere((p) => p.id == s.playerId,
         orElse: () => const PlayerView(id: '', connected: true, alive: true));
 
     // Toujours afficher l'écran de fin lorsque la partie est terminée,
@@ -191,22 +232,28 @@ class _HomeRouter extends ConsumerWidget {
         return const RoleScreen();
       case GamePhase.NIGHT_CUPID:
         if (youRole == Role.CUPID) return const NightCupidScreen();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_THIEF:
         if (youRole == Role.THIEF) return const ThiefView();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_LOVERS:
         if (s.loverPartnerId != null) return const NightLoversScreen();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_SEER:
         if (youRole == Role.SEER) return const SeerView();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_WOLVES:
         if (youRole == Role.WOLF) return const NightWolvesScreen();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.NIGHT_WITCH:
         if (youRole == Role.WITCH) return const NightWitchScreen();
-        return const SleepingPlaceholder(title: 'Nuit', subtitle: 'Fermez les yeux');
+        return const SleepingPlaceholder(
+            title: 'Nuit', subtitle: 'Fermez les yeux');
       case GamePhase.MORNING:
         return const MorningScreen();
       case GamePhase.VOTE:
@@ -222,7 +269,8 @@ class _HomeRouter extends ConsumerWidget {
       case GamePhase.CHECK_END:
         // Courte phase de vérification des conditions de victoire, avant soit
         // la fin de partie (END), soit le retour à la nuit si personne n'a gagné.
-        return const SleepingPlaceholder(title: 'Transition', subtitle: 'Patientez...');
+        return const SleepingPlaceholder(
+            title: 'Transition', subtitle: 'Patientez...');
       default:
         return const WaitingLobby();
     }
@@ -236,7 +284,8 @@ class _HomeRouter extends ConsumerWidget {
 class SleepingPlaceholder extends StatelessWidget {
   final String title;
   final String subtitle;
-  const SleepingPlaceholder({super.key, required this.title, required this.subtitle});
+  const SleepingPlaceholder(
+      {super.key, required this.title, required this.subtitle});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -270,7 +319,8 @@ class WaitingLobby extends ConsumerWidget {
             if (!s.hasSnapshot) ...[
               Text('Partie ${s.gameId} • synchronisation...'),
             ] else ...[
-              Text('Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/${s.maxPlayers}')
+              Text(
+                  'Partie ${s.gameId} • joueurs: ${s.players.where((p) => p.alive).length}/${s.maxPlayers}')
             ],
             const SizedBox(height: 12),
             if (!s.hasSnapshot)
@@ -282,7 +332,8 @@ class WaitingLobby extends ConsumerWidget {
                       .map((p) => ListTile(
                             title: Text(p.id),
                             subtitle: Text(p.alive ? 'Vivant' : 'Mort'),
-                            trailing: Icon(p.connected ? Icons.wifi : Icons.wifi_off),
+                            trailing:
+                                Icon(p.connected ? Icons.wifi : Icons.wifi_off),
                           ))
                       .toList(),
                 ),
@@ -295,12 +346,12 @@ class WaitingLobby extends ConsumerWidget {
                   err = await (isOwner ? ctl.cancelGame() : ctl.leaveGame());
                 } catch (e, st) {
                   err = e.toString();
-                  log('leave/cancel exception: $err', stackTrace: st);
+                  AppLogger.log('leave/cancel exception: $err', stackTrace: st);
                 } finally {
                   if (context.mounted) {
                     if (err != null) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text(err)));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          backgroundColor: Colors.red, content: Text(err)));
                     }
                     // Pas de navigation nécessaire : le routeur principal
                     // réaffichera automatiquement l'écran de connexion
@@ -311,7 +362,8 @@ class WaitingLobby extends ConsumerWidget {
               child: Text(isOwner ? 'Annuler la partie' : 'Quitter la partie'),
             ),
             const SizedBox(height: 12),
-            Text('En attente du démarrage automatique à ${s.maxPlayers} joueurs...')
+            Text(
+                'En attente du démarrage automatique à ${s.maxPlayers} joueurs...')
           ],
         ),
       ),

@@ -1,8 +1,8 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import '../utils/app_logger.dart';
 import 'death_skull_animation.dart';
 import 'hunter_screen.dart';
 
@@ -93,7 +93,7 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
               try {
                 await ctl.voteAck();
               } catch (e, st) {
-                log('voteAck exception: $e', stackTrace: st);
+                AppLogger.log('voteAck exception: $e', stackTrace: st);
               }
             },
             child: const Text("J'ai vu"),
@@ -104,7 +104,7 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
               try {
                 await ctl.leaveToHome();
               } catch (e, st) {
-                log('leaveToHome exception: $e', stackTrace: st);
+                AppLogger.log('leaveToHome exception: $e', stackTrace: st);
               } finally {
                 if (context.mounted) {
                   Navigator.of(context).popUntil((route) => route.isFirst);
