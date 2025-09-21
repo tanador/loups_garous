@@ -31,9 +31,10 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
     // Lorsqu’il meurt, il peut tirer une dernière balle. Cet « éveil » arrive
     // pendant la phase MORNING via l’événement serveur hunter:wake.
     // Pour éviter que le joueur quitte avant d’exercer ce pouvoir, on masque
-    // temporairement le bouton « Quitter » tant qu'une cible est proposée
-    // (hunterTargets non vide).
-    final bool hasPendingHunterShot = s.hunterTargets.isNotEmpty;
+    // temporairement le bouton « Quitter » tant qu'une cible est proposée au
+    // chasseur local (rôle HUNTER et hunterTargets non vide).
+    final bool hasPendingHunterShot =
+        s.role == Role.HUNTER && s.hunterTargets.isNotEmpty;
     if (hasPendingHunterShot) {
       return const HunterScreen();
     }
