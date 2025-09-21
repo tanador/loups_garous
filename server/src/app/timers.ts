@@ -193,8 +193,14 @@ for (const candidate of CONFIG_CANDIDATES) {
 for (const [directory, filenames] of filesByDirectory) {
   if (!fs.existsSync(directory)) continue;
   try {
-    fs.watch(directory, (eventType, changed) => {
-      const name = typeof changed === 'string' ? changed : changed?.toString();
+  try {
+    fs.watch(directory, (eventType, changed: string | Buffer | undefined) => {
+      let name: string | undefined;
+      if (typeof changed === 'string') {
+        name = changed;
+      } else if (Buffer.isBuffer(changed)) {
+        name = changed.toString();
+      }
       if (!name || filenames.has(name)) scheduleReload();
     });
   } catch (err) {
@@ -208,4 +214,5 @@ export function randomNextWakeMs(): number {
   const max = Math.max(min, CONFIG.NEXT_WAKE_DELAY_MAX_MS);
   return Math.floor(min + Math.random() * (max - min));
 }
+
 
