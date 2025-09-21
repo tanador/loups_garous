@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 import 'death_skull_animation.dart';
-import 'hunter_prompt.dart';
+import 'hunter_screen.dart';
 
 // Écran affiché aux joueurs éliminés.
 
@@ -34,6 +34,9 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
     // temporairement le bouton « Quitter » tant qu'une cible est proposée
     // (hunterTargets non vide).
     final bool hasPendingHunterShot = s.hunterTargets.isNotEmpty;
+    if (hasPendingHunterShot) {
+      return const HunterScreen();
+    }
     // Bloque le bouton Quitter tant qu'un tir de chasseur est attendu ou que
     // l'on doit encore accuser réception d'une élimination de jour.
     final bool blockQuit = hasPendingHunterShot || isEliminatedThisVote;
@@ -108,13 +111,6 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
               }
             },
             child: const Text('Quitter'),
-          )
-        else if (hasPendingHunterShot)
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            child: HunterPrompt(
-              padding: const EdgeInsets.all(16),
-            ),
           )
         else
           const SizedBox.shrink(),
