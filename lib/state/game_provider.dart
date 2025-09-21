@@ -202,6 +202,8 @@ class GameController extends Notifier<GameModel> {
       // Clear the day recap when leaving RESOLVE phase
       final clearDayRecap =
           phase != GamePhase.RESOLVE ? null : state.dayVoteRecap;
+      final leavingRoles =
+          previousPhase == GamePhase.ROLES && phase != GamePhase.ROLES;
       state = state.copy(
         phase: phase,
         deadlineMs: deadline,
@@ -212,6 +214,9 @@ class GameController extends Notifier<GameModel> {
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
+        roleRevealUntilMs:
+            phase == GamePhase.ROLES ? state.roleRevealUntilMs : null,
+        youReadyLocal: leavingRoles ? false : state.youReadyLocal,
       );
       if (previousPhase != phase &&
           GameController.shouldVibrateWake(state, phase)) {
