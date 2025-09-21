@@ -884,6 +884,10 @@ export class Orchestrator {
   dayAck(gameId: string, playerId: string) {
     const game = this.mustGet(gameId);
     if (game.state === "MORNING") {
+      if (!game.alive.has(playerId)) {
+        this.log(game.id, game.state, playerId, 'day.ack.ignored_dead');
+        return;
+      }
       game.morningAcks.add(playerId);
       this.log(game.id, game.state, playerId, "day.ack");
       const needed = game.alive.size;
@@ -899,6 +903,10 @@ export class Orchestrator {
       // pendingDayAcks n'est pas présent, on l'initialise à la volée.
       if (!this.pendingDayAcks.has(game.id)) this.pendingDayAcks.add(game.id);
       if (!game.dayAcks) game.dayAcks = new Set<string>();
+      if (!game.alive.has(playerId)) {
+        this.log(game.id, game.state, playerId, 'day.ack.ignored_dead');
+        return;
+      }
       game.dayAcks.add(playerId);
       this.log(game.id, game.state, playerId, 'day.ack');
       const needed = game.alive.size;

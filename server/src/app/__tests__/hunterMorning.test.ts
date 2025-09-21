@@ -66,6 +66,7 @@ describe('hunter death handling', () => {
     await (orch as any).beginMorning(g);
 
     // First recap acknowledgments
+    orch.dayAck(g.id, 'A');
     orch.dayAck(g.id, 'B');
     orch.dayAck(g.id, 'C');
     orch.dayAck(g.id, 'D');

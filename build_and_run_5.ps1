@@ -275,7 +275,7 @@ function Start-ClientLogCollector {
     } catch {
       $ts = [DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss.fff')
       $errMsg = $_.Exception.Message
-      Add-Content -Path $dest -Value "$ts [LOGGER] collector failed for $nick: $errMsg" -Encoding UTF8
+      Add-Content -Path $dest -Value "$ts [LOGGER] collector failed for $($nick): $errMsg" -Encoding UTF8
     }
   }
   if ($script:LogJobs -eq $null) { $script:LogJobs = @() }
