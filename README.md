@@ -37,7 +37,7 @@ Nuit 0 — Voleur (`NIGHT_THIEF`):
 - Contrainte officielle: si les 2 cartes du centre sont `WOLF`, le Voleur ne peut pas « garder » et doit échanger.
 - Après échange, son rôle change immédiatement (rooms Socket.IO mises à jour), et la nuit continue vers Cupidon (`NIGHT_CUPID`).
 
-Timers: `THIEF_MS` (configurable via `server/timer.config.json`).
+Timers: `THIEF_MS` (configurable via `server/timer.config.json`). Vibrations de réveil configurables via `NOMBRE_DE_VIBRATIONS`, `TEMPS_CHAQUE_VIBRATION`, `PAUSE_ENTRE_VIBRATION`, `FORCE_VIBRATION` dans le même fichier.
 
 Plus de détails et des exemples de configuration: voir `server/ROLES.md`.
 

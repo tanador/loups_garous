@@ -11,6 +11,11 @@ export type TimerConfig = Partial<{
   COUNTDOWN_SECONDS: number;
   // Durée d'appui (ms) avant de révéler le rôle en maintenant le badge
   TIME_PRESS_BEFOR_REVEAL_ROLE: number;
+  // Paramètres des vibrations client configurables côté serveur
+  NOMBRE_DE_VIBRATIONS: number;
+  TEMPS_CHAQUE_VIBRATION: number;
+  PAUSE_ENTRE_VIBRATION: number;
+  FORCE_VIBRATION: number;
   // Overrides facultatifs des durées par phase
   CUPID_MS: number;
   LOVERS_MS: number;
@@ -29,6 +34,10 @@ const defaultConfig: Required<TimerConfig> = {
   NEXT_WAKE_DELAY_MAX_MS: 20_000,
   COUNTDOWN_SECONDS: 10,
   TIME_PRESS_BEFOR_REVEAL_ROLE: 700,
+  NOMBRE_DE_VIBRATIONS: 1,
+  TEMPS_CHAQUE_VIBRATION: 5_000,
+  PAUSE_ENTRE_VIBRATION: 0,
+  FORCE_VIBRATION: 128,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
   SEER_MS: 80_000,
@@ -75,6 +84,20 @@ export const DURATION = {
   MORNING_MS: CONFIG.MORNING_MS,
   VOTE_MS: CONFIG.VOTE_MS,
   CRITICAL_DISCONNECT_MS: CONFIG.CRITICAL_DISCONNECT_MS,
+} as const;
+
+const clampInt = (value: number, min: number, max: number): number => {
+  const int = Number.isFinite(value) ? Math.trunc(value) : min;
+  if (int < min) return min;
+  if (int > max) return max;
+  return int;
+};
+
+export const VIBRATION = {
+  count: clampInt(CONFIG.NOMBRE_DE_VIBRATIONS, 0, 200),
+  pulseMs: clampInt(CONFIG.TEMPS_CHAQUE_VIBRATION, 0, 60_000),
+  pauseMs: clampInt(CONFIG.PAUSE_ENTRE_VIBRATION, 0, 60_000),
+  amplitude: clampInt(CONFIG.FORCE_VIBRATION, 1, 255),
 } as const;
 
 export function randomNextWakeMs(): number {

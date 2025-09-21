@@ -38,7 +38,7 @@ import {
   activeWolves,
 } from "../domain/rules.js";
 import { setState, canTransition } from "../domain/fsm.js";
-import { DURATION, CONFIG } from "./timers.js";
+import { DURATION, CONFIG, VIBRATION } from "./timers.js";
 import { logger } from "../logger.js";
 
 function now() {
@@ -888,6 +888,7 @@ export class Orchestrator {
       this.log(game.id, game.state, playerId, "day.ack");
       const needed = game.alive.size;
       if (game.morningAcks.size >= needed) {
+        this.cancelTimer(game.id);
         this.handleMorningEnd(game);
       }
       return;
@@ -1312,6 +1313,7 @@ export class Orchestrator {
       serverTime: Date.now(),
       deadline: game.deadlines?.phaseEndsAt ?? null,
       closingEyes: (game as any).closingEyes === true,
+      config: { vibrations: VIBRATION },
     });
   }
 
@@ -1341,6 +1343,7 @@ export class Orchestrator {
       alive: publicAlive,
       deadline: game.deadlines?.phaseEndsAt ?? null,
       closingEyes: (game as any).closingEyes === true,
+      config: { vibrations: VIBRATION },
     };
     this.io.to(you.socketId).emit("game:snapshot", sanitized);
   }
@@ -1399,3 +1402,4 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
+
