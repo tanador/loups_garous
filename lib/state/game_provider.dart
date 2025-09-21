@@ -17,6 +17,33 @@ final gameProvider =
 /// Contrôleur principal de l'application.
 /// Il maintient l'état du jeu dans [GameModel] et gère
 /// la communication avec le serveur via Socket.IO.
+///
+/// Guide rapide pour débutants – Orchestration & évènements
+///
+/// Phases (FSM) côté serveur
+///   LOBBY → ROLES → (NIGHT_CUPID → NIGHT_LOVERS)? → NIGHT_WOLVES → NIGHT_WITCH →
+///   MORNING → VOTE → RESOLVE → CHECK_END → (END | retour NIGHT_WOLVES)
+///
+/// Evènements clés écoutés par ce contrôleur et usage UI
+///   - game:stateChanged: mise à jour de la phase/délais. Utilisé pour afficher
+///     ou masquer les écrans de rôle, vote, recap, etc.
+///   - game:snapshot: synchronisation complète (joueurs vivants, rôle secret,
+///     deadlines). Toujours utilisé comme vérité serveur.
+///   - day:recap: récapitulatif du matin (morts de la nuit) ou de la journée
+///     (après vote). Affiche l'écran Morning ou DayRecap et expose un bouton
+///     "J'ai lu" qui envoie day:ack.
+///   - vote:options|status|results: ouvre l'écran Vote, met à jour l'état puis
+///     publie un récapitulatif.
+///   - wolves:wake / witch:wake / cupid:wake / lovers:wake / seer:wake:
+///     réveils privés. Chaque écran consomme la liste des cibles et émet une
+///     commande d'ACK/choix vers le serveur.
+///   - hunter:wake: réveil privé du Chasseur, même s'il est mort. Le routeur
+///     affiche l'écran de tir dès que [state.hunterTargets] n'est pas vide.
+///
+/// Rappels d’ACK (pour éviter les blocages)
+///   - Seuls les survivants comptent pour day:ack (MORNING et RESOLVE).
+///   - Le chasseur est réveillé APRES l’ACK des survivants le matin, si un
+///     chasseur est mort pendant la nuit (ou par chagrin).
 class GameController extends Notifier<GameModel> {
   @override
   GameModel build() {

@@ -17,6 +17,30 @@
  * reveal casualties, days end with a public vote. Wolves win when they eat
  * every villager; villagers win when all wolves are dead; the special lovers
  * pair can win as a team if they survive together.
+ *
+ * Quick FSM cheat sheet (server-facing API + events):
+ *   LOBBY → ROLES → NIGHT_* → MORNING → VOTE → RESOLVE → CHECK_END → (END | NIGHT_WOLVES)
+ *   - NIGHT_* order when roles are present: CUPID → LOVERS reveal → WOLVES → WITCH
+ *   - MORNING: broadcast recap of night deaths immediately, then wait for survivors' acks
+ *     (dead players are ignored). If a Hunter died, wake them AFTER survivors ack.
+ *   - VOTE: broadcast vote options to alive players only; emit live status and results.
+ *   - RESOLVE: broadcast daytime recap (eliminated + who-voted-who), then wait for
+ *     survivors' acks (dead never required). Finally CHECK_END may end the game.
+ *
+ * Events overview (Socket.IO):
+ *   Broadcast: lobby:updated, game:stateChanged, game:snapshot, day:recap,
+ *              vote:options, vote:status, vote:results, vote:revote, game:ended
+ *   Commands (ack): lobby:create|join|cancel|leave, session:resume, context:set,
+ *                   player:ready|unready, cupid:choose, lovers:ack,
+ *                   wolves:chooseTarget, witch:decision, hunter:shoot,
+ *                   day:ack, vote:cast|vote:cancel|vote:ack
+ *
+ * Acknowledgement rules (important to avoid stalls):
+ *   - MORNING day:ack: only survivors count; dead clicks are ignored.
+ *   - RESOLVE day:ack: only survivors count; disconnects from survivors count as ack;
+ *     dead players never count towards the quorum.
+ *   - Hunter: the shot is asked only after the survivors have acknowledged the morning
+ *     recap when a hunter died during the previous night (including grief chains).
  */
 
 import { Server, Socket } from "socket.io";
@@ -787,6 +811,13 @@ export class Orchestrator {
   }
 
   hunterShoot(gameId: string, playerId: string, targetId: string) {
+    /**
+     * Called by the Hunter client to confirm their last shot.
+     *
+     * Validates lover protection and that the target was among the options
+     * previously offered in hunter:wake, clears the timeout, and resolves the
+     * pending promise so the morning flow can continue.
+     */
     const game = this.mustGet(gameId);
     const key = `${gameId}:${playerId}`;
     const pending = this.hunterAwaiting.get(key);
@@ -813,6 +844,17 @@ export class Orchestrator {
   }
 
   private async beginMorning(game: Game) {
+    /**
+     * MORNING phase entry point.
+     *
+     * - Resolves night deaths (wolves, witch, grief), possibly deferring grief if no hunter
+     *   died directly.
+     * - Emits an immediate day:recap to everyone so clients can render who died.
+     * - If at least one Hunter died (directly at night or due to grief), records them in
+     *   pendingHunters; winner evaluation is postponed while a shot is pending.
+     * - Starts a survivor-only acknowledgement window (day:ack). When all survivors have
+     *   acknowledged or the timer elapses, handleMorningEnd() runs.
+     */
     if (!canTransition(game, game.state, "MORNING")) return;
 
     const initial = await computeNightDeaths(game);
@@ -882,6 +924,14 @@ export class Orchestrator {
   }
 
   dayAck(gameId: string, playerId: string) {
+    /**
+     * Survivor acknowledgement for MORNING and RESOLVE recaps.
+     *
+     * - MORNING: ignores dead players entirely; as soon as every survivor has acked,
+     *   the hunter (if pending) is awakened and their shot resolved.
+     * - RESOLVE (post-vote recap): counts survivors only; tolerant to missing setup by
+     *   initializing data structures on the fly to avoid rare stalls.
+     */
     const game = this.mustGet(gameId);
     if (game.state === "MORNING") {
       if (!game.alive.has(playerId)) {
@@ -939,6 +989,19 @@ export class Orchestrator {
   }
 
   private async handleMorningEnd(game: Game) {
+    /**
+     * MORNING end handler.
+     *
+     * After survivors have acknowledged the recap (or a timeout fired), this method:
+     *   - sequentially wakes each pending Hunter (if any) with a private hunter:wake
+     *     containing eligible targets (cannot shoot self nor lover)
+     *   - applies the shot, resolves chains (including grief), extends the recap and
+     *     re-broadcasts day:recap
+     *   - requires a second survivor-only ack if the recap changed due to the shot
+     *   - then proceeds to VOTE (even if a winner technically exists) to keep the
+     *     client flow predictable; otherwise checks for a winner and transitions
+     *     to VOTE when none
+     */
     if (game.state !== "MORNING") return;
     const pending = this.pendingHunters.get(game.id) ?? [];
     const recap = this.morningRecaps.get(game.id);
@@ -1029,6 +1092,10 @@ export class Orchestrator {
   }
 
   private beginVote(game: Game) {
+    /**
+     * Opens a daytime vote for all survivors unless a winner is already determined.
+     * Resets previous vote state and broadcasts the list of eligible targets.
+     */
     if (!canTransition(game, game.state, "VOTE")) return;
     // Garde pédagogique:
     // Si un vainqueur est déjà déterminé (ex.: dernier survivant, ou 2 amoureux
@@ -1272,6 +1339,11 @@ export class Orchestrator {
     hunterId: string,
     alive: string[],
   ): Promise<string | undefined> {
+    /**
+     * Sends a private hunter:wake to the (dead) hunter asking for a target within
+     * a deadline. The promise resolves with the chosen target or undefined on
+     * timeout/disconnection.
+     */
     return new Promise((resolve) => {
       const socketId = this.playerSocket(game, hunterId);
       const s = this.io.sockets.sockets.get(socketId);
@@ -1381,15 +1453,18 @@ export class Orchestrator {
           this.beginCheckEnd(g);
         }
         // Si un récapitulatif de journée est en attente d'ACKs de tous
-        // les survivants, considérer cette déconnexion comme un ACK si le
-        // joueur est encore vivant (ou simplement ignorer si mort).
+        // les survivants, considérer cette déconnexion comme un ACK UNIQUEMENT
+        // si le joueur est encore vivant. Les morts ne comptent jamais dans
+        // le quorum. Utilise la même logique de comptage tolérante que dayAck.
         if (g.state === 'RESOLVE' && this.pendingDayAcks.has(g.id)) {
           if (!g.dayAcks) g.dayAcks = new Set<string>();
-          g.dayAcks.add(p.id);
-          const needed = g.alive.size;
-          if (g.dayAcks.size >= needed) {
-            this.pendingDayAcks.delete(g.id);
-            this.beginCheckEnd(g);
+          if (g.alive.has(p.id)) {
+            g.dayAcks.add(p.id);
+            const { acked, needed } = this.livingAckProgress(g, g.dayAcks);
+            if (needed === 0 || acked >= needed) {
+              this.pendingDayAcks.delete(g.id);
+              this.beginCheckEnd(g);
+            }
           }
         }
       }
