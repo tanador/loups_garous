@@ -1,4 +1,5 @@
 import type { Game } from "../../../domain/types.js";
+import type { Role } from "../../../domain/roles/index.js";
 import { canTransition, setState } from "../../../domain/fsm.js";
 import {
   targetsForWolves,
@@ -75,13 +76,13 @@ export function createNightApi(ctx: OrchestratorContext) {
     if (mustTakeWolf && action === "keep") throw new Error("must_take_wolf");
     if (action === "swap") {
       if (index !== 0 && index !== 1) throw new Error("invalid_index");
-      const oldRole = game.roles[playerId];
-      const newRole = index === 0 ? c0 : c1;
+      const oldRole = game.roles[playerId] as Role;
+      const newRole = (index === 0 ? c0 : c1) as Role;
       if (index === 0) game.centerCards = [oldRole, c1];
       else game.centerCards = [c0, oldRole];
-      game.roles[playerId] = newRole as any;
+      game.roles[playerId] = newRole;
       const player = game.players.find((x) => x.id === playerId)!;
-      player.role = newRole as any;
+      player.role = newRole;
       const socket = ctx.io.sockets.sockets.get(player.socketId);
       if (socket) {
         if (oldRole === "WOLF") socket.leave(`room:${game.id}:wolves`);
