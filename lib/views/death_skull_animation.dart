@@ -215,51 +215,71 @@ class _DeathOverlayPage extends StatefulWidget {
 
 class _DeathOverlayPageState extends State<_DeathOverlayPage> {
   bool _showText = false;
+  bool _dismissed = false;
 
   @override
   void initState() {
     super.initState();
     // Révèle le texte juste après la fin de l'animation principale.
     Future.delayed(widget.duration).then((_) {
-      if (!mounted) return;
+      if (!mounted || _dismissed) return;
       setState(() => _showText = true);
+      _scheduleAutoDismiss();
     });
+  }
+
+  void _scheduleAutoDismiss({Duration delay = const Duration(milliseconds: 1200)}) {
+    Future.delayed(delay).then((_) {
+      if (!mounted || _dismissed) return;
+      _dismissed = true;
+      Navigator.of(context).maybePop();
+    });
+  }
+
+  void _handleDismiss() {
+    if (!mounted || _dismissed) return;
+    _dismissed = true;
+    Navigator.of(context).maybePop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DeathSkullAnimation(duration: widget.duration),
-            // Texte qui apparaît progressivement au-dessus de la tête
-            Align(
-              alignment: const Alignment(0, -0.45),
-              child: AnimatedOpacity(
-                opacity: _showText ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                child: AnimatedSlide(
-                  offset: _showText ? Offset.zero : const Offset(0, -0.08),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _handleDismiss,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DeathSkullAnimation(duration: widget.duration),
+              // Texte qui apparaît progressivement au-dessus de la tête
+              Align(
+                alignment: const Alignment(0, -0.45),
+                child: AnimatedOpacity(
+                  opacity: _showText ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 700),
                   curve: Curves.easeOutCubic,
-                  child: const Text(
-                    'Vous êtes mort',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                  child: AnimatedSlide(
+                    offset: _showText ? Offset.zero : const Offset(0, -0.08),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeOutCubic,
+                    child: const Text(
+                      'Vous êtes mort',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
