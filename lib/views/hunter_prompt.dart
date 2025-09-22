@@ -31,6 +31,7 @@ class _HunterPromptState extends ConsumerState<HunterPrompt> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(gameProvider);
+    final messenger = ScaffoldMessenger.of(context);
     final ctl = ref.read(gameProvider.notifier);
     final List<Lite> targets = s.hunterTargets;
     final deadline = s.deadlineMs;
@@ -82,11 +83,15 @@ class _HunterPromptState extends ConsumerState<HunterPrompt> {
             onPressed: targetId == null
                 ? null
                 : () async {
-                    try {
-                      await ctl.hunterShoot(targetId!);
-                    } finally {
-                      if (mounted) setState(() => targetId = null);
+                    final err = await ctl.hunterShoot(targetId!);
+                    if (!mounted) return;
+                    if (err != null) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(err)),
+                      );
+                      return;
                     }
+                    setState(() => targetId = null);
                   },
             child: const Text('Tirer'),
           ),

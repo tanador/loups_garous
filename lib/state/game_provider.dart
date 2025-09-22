@@ -1031,13 +1031,28 @@ class GameController extends Notifier<GameModel> {
   }
 
   // ------------- Hunter -------------
-  Future<void> hunterShoot(String targetId) async {
+  Future<String?> hunterShoot(String targetId) async {
     final ack =
         await _socketSvc.emitAck('hunter:shoot', {'targetId': targetId});
     AppLogger.log('[ack] hunter:shoot $ack');
+    if (ack['ok'] != true) {
+      final err = ack['error']?.toString() ?? 'unknown_error';
+      switch (err) {
+        case 'cannot_target_lover':
+          return "Vous ne pouvez pas viser votre amoureux·se.";
+        case 'invalid_target':
+          return "Cible invalide ou déjà morte.";
+        case 'no_pending_shot':
+          return "Le serveur n'attendait pas de tir.";
+        case 'rate_limited':
+          return "Action trop rapide, réessayez.";
+        default:
+          return err;
+      }
+    }
     state = state.copy(hunterTargets: []);
+    return null;
   }
-
   // ------------- Morning ack -------------
   Future<void> dayAck() async {
     final ack = await _socketSvc.emitAck('day:ack', {});
