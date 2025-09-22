@@ -191,14 +191,6 @@ class _HomeRouter extends ConsumerWidget {
     if (s.hunterTargets.isNotEmpty) {
       return const HunterScreen();
     }
-    if (s.roleRevealUntilMs != null) {
-      if (nowMs <= s.roleRevealUntilMs!) {
-        return const CountdownScreen();
-      }
-      return const RoleScreen();
-    }
-
-    // (géré plus haut pour éviter l'écran « Fermez les yeux » sur les morts)
 
     // IMPORTANT: Les joueurs morts ne doivent pas voir l'écran « Fermez les yeux »
     // pendant les transitions globales. On gère donc leur cas avant `closingEyes`.
@@ -217,6 +209,13 @@ class _HomeRouter extends ConsumerWidget {
     // dans le flux principal plutôt qu'un overlay — uniquement pour les vivants.
     if (s.closingEyes) {
       return const SleepingPlaceholder(title: ' ', subtitle: 'Fermez les yeux');
+    }
+
+    if (s.roleRevealUntilMs != null) {
+      if (nowMs <= s.roleRevealUntilMs!) {
+        return const CountdownScreen();
+      }
+      return const RoleScreen();
     }
 
     // Aucune partie jointe: afficher l'écran de connexion.
