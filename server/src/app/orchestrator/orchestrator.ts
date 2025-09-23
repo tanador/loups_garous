@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { GameStore } from "../store.js";
 import type { Game, Player } from "../../domain/types.js";
-import { DURATION, VIBRATION } from "../timers.js";
+import { CONFIG, DURATION, VIBRATION } from "../timers.js";
 import { logger } from "../../logger.js";
 import { createContext } from "./context.js";
 import type { OrchestratorContext } from "./context.js";
@@ -290,13 +290,34 @@ export class Orchestrator {
       }
       const lover = game.players.find((p) => p.id === hunterId)?.loverId;
       const options = alive.filter((pid) => pid !== hunterId && pid !== lover);
+
       const key = `${game.id}:${hunterId}`;
+      const rawSeconds = Number(CONFIG.DELAI_CHASSEUR_SECONDES);
+      const waitMs = (
+        Number.isFinite(rawSeconds) && rawSeconds >= 0
+          ? Math.max(0, Math.round(rawSeconds * 1000))
+          : 60_000
+      );
       const timer = setTimeout(() => {
+        const stored = this.hunterAwaiting.get(key);
         this.hunterAwaiting.delete(key);
-        resolve(undefined);
-      }, DURATION.HUNTER_MS);
+        const pool = stored?.alive ?? options;
+        if (!pool.length) {
+          resolve(undefined);
+          this.log(game.id, game.state, hunterId, "hunter.timeout_no_options");
+          return;
+        }
+        const index = Math.floor(Math.random() * pool.length);
+        const autoTarget = pool[index];
+        resolve(autoTarget);
+        this.log(game.id, game.state, hunterId, "hunter.timeout_autoshoot", {
+          targetId: autoTarget,
+          options: pool.length,
+          waitMs,
+        });
+      }, waitMs);
       this.hunterAwaiting.set(key, { resolve, alive: options, timer });
-      setDeadline(this.ctx, game, DURATION.HUNTER_MS);
+      setDeadline(this.ctx, game, waitMs);
       this.broadcastState(game);
       socket.emit("hunter:wake", {
         alive: options.map((pid) => this.playerLite(game, pid)),

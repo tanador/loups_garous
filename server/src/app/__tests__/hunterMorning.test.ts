@@ -347,4 +347,106 @@ describe('hunter death handling', () => {
     await (orch as any).handleMorningEnd(g);
     expect((orch as any).pendingHunters.get(g.id)).toBeUndefined();
   });
+
+  it('notifies the table while the hunter chooses a target', async () => {
+    const roomEvents: { room: string; event: string; payload: any }[] = [];
+    const io = {
+      to: (room: string) => ({
+        emit: (event: string, payload: any) => {
+          roomEvents.push({ room, event, payload });
+        },
+      }),
+      emit: () => {},
+      sockets: { sockets: new Map<string, any>() },
+    } as any;
+    const orch = new Orchestrator(io);
+    const g = createGame(4);
+    const sockets = io.sockets.sockets as Map<string, any>;
+    const players = ['A', 'B', 'C', 'D'];
+    for (const id of players) {
+      addPlayer(g, { id, socketId: 's' + id });
+    }
+    g.roles['A'] = 'HUNTER';
+    g.roles['B'] = 'VILLAGER';
+    g.roles['C'] = 'VILLAGER';
+    g.roles['D'] = 'WOLF';
+    (orch as any).store.put(g);
+    const hunterSocket = {
+      events: [] as { event: string; payload: any }[],
+      emit(event: string, payload: any) {
+        this.events.push({ event, payload });
+        if (event === 'hunter:wake') {
+          setTimeout(() => orch.hunterShoot(g.id, 'A', 'B'), 0);
+        }
+      },
+      join() {},
+    };
+    sockets.set('sA', hunterSocket);
+    for (const id of players.slice(1)) {
+      sockets.set('s' + id, { emit: () => {}, join: () => {} });
+    }
+    g.state = 'NIGHT_WITCH';
+    g.night.attacked = 'A';
+
+    await (orch as any).beginMorning(g);
+
+    orch.dayAck(g.id, 'B');
+    orch.dayAck(g.id, 'C');
+    orch.dayAck(g.id, 'D');
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const pendingEvents = roomEvents.filter(
+      (evt) => evt.room === 'room:' + g.id && evt.event === 'hunter:pending',
+    );
+    expect(pendingEvents[0]?.payload).toEqual({ active: true });
+    expect(pendingEvents.find((evt) => evt.payload?.active === false)).toBeDefined();
+  });
+
+  it('auto-selects a target when the hunter delay expires', async () => {
+    vi.useFakeTimers();
+    const io = fakeIo();
+    const orch = new Orchestrator(io);
+    const g = createGame(4);
+    addPlayer(g, { id: 'A', socketId: 'sA' });
+    addPlayer(g, { id: 'B', socketId: 'sB' });
+    addPlayer(g, { id: 'C', socketId: 'sC' });
+    addPlayer(g, { id: 'D', socketId: 'sD' });
+    g.roles['A'] = 'HUNTER';
+    g.roles['B'] = 'VILLAGER';
+    g.roles['C'] = 'VILLAGER';
+    g.roles['D'] = 'WOLF';
+    (orch as any).store.put(g);
+
+    const sockets = (io as any).sockets.sockets as Map<string, any>;
+    const hunterSocket = { emit: vi.fn() };
+    sockets.set('sA', hunterSocket);
+
+    const originalDelay = CONFIG.DELAI_CHASSEUR_SECONDES;
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.6);
+
+    CONFIG.DELAI_CHASSEUR_SECONDES = 0.5;
+
+    try {
+      const promise = (orch as any).askHunterTarget(g, 'A', ['A', 'B', 'C', 'D']);
+
+      expect(hunterSocket.emit).toHaveBeenCalledWith('hunter:wake', {
+        alive: [{ id: 'B' }, { id: 'C' }, { id: 'D' }],
+      });
+
+      await vi.runOnlyPendingTimersAsync();
+
+      const target = await promise;
+
+      expect(target).toBe('C');
+      expect((orch as any).hunterAwaiting.size).toBe(0);
+    } finally {
+      CONFIG.DELAI_CHASSEUR_SECONDES = originalDelay;
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
 });
+

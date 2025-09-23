@@ -116,6 +116,7 @@ export interface Game {
   morningAcks: Set<string>;
   loversMode?: LoversMode;
   pendingDeaths?: PendingDeath[];
+  hunterPending?: boolean;
   deferredGrief?: string[];
   /** Two hidden cards when the Thief is in the deck (official rule). */
   centerCards?: Role[];

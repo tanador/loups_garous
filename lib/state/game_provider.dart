@@ -208,8 +208,7 @@ class GameController extends Notifier<GameModel> {
         phase: phase,
         deadlineMs: deadline,
         loverPartnerId: loverPartnerId,
-        closingEyes: closing,
-        dayVoteRecap: clearDayRecap,
+        closingEyes: closing,`r`n        hunterPending: data['hunterPending'] == true,`r`n        dayVoteRecap: clearDayRecap,
         vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
@@ -263,8 +262,7 @@ class GameController extends Notifier<GameModel> {
         players: players,
         role: role,
         deadlineMs: deadline,
-        closingEyes: closing,
-        maxPlayers: maxPlayers,
+        closingEyes: closing,`r`n        hunterPending: data['hunterPending'] == true,`r`n        maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
         vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
@@ -448,6 +446,12 @@ class GameController extends Notifier<GameModel> {
     });
 
     // --- Hunter ability
+    s.on('hunter:pending', (data) {
+      final active = data[''active''] == true;
+      state = state.copy(hunterPending: active);
+      AppLogger.log('[evt] hunter:pending active=$active');
+    });
+
     s.on('hunter:wake', (data) async {
       final alive = ((data['alive'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))

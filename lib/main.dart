@@ -174,8 +174,13 @@ class _HomeRouter extends ConsumerWidget {
     // - Pas de chronomètre : l'affichage reste calme et identique pour tous.
     // - Responsabilités claires : le routeur choisit l'écran à afficher ;
     //   l'enveloppe globale (_WithGlobalOverlay) ne gère plus ce cas.
-    final youRole = s.role;
     final phase = s.phase;
+
+    // Pas de partie en cours : revenir à l'écran de connexion (permet d'éviter
+    // de rester bloqué sur "Fin de partie" après un reset local).
+    if (s.gameId == null) return const ConnectScreen();
+
+    final youRole = s.role;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final me = s.players.firstWhere((p) => p.id == s.playerId,
         orElse: () => const PlayerView(id: '', connected: true, alive: true));
@@ -219,7 +224,6 @@ class _HomeRouter extends ConsumerWidget {
     }
 
     // Aucune partie jointe: afficher l'écran de connexion.
-    if (s.gameId == null) return const ConnectScreen();
 
     // Route vers l'écran approprié selon la phase de jeu courante.
     switch (phase) {
@@ -388,7 +392,35 @@ class _WithGlobalOverlay extends ConsumerWidget {
           duration: const Duration(milliseconds: 150),
           child: const PlayerBadge(),
         ),
-        // MISE A JOUR 2025-09-12
+        Positioned(
+          top: 24,
+          left: 0,
+          right: 0,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: s.hunterPending && s.hunterTargets.isEmpty
+                ? Center(
+                    key: const ValueKey('hunter-banner-visible'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Le chasseur doit choisir une cible.',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : const SizedBox(
+                    key: ValueKey('hunter-banner-hidden'),
+                    width: 0,
+                    height: 0,
+                  ),
+          ),
+        ),\n        // MISE A JOUR 2025-09-12
         // L'overlay « Fermez les yeux » a été retiré d'ici pour éviter
         // l'effet de superposition + chronomètre. Le rendu de cet état
         // de transition est désormais fait dans _HomeRouter : lorsqu'il

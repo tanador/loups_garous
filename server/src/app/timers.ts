@@ -17,6 +17,7 @@ export type TimerConfig = Partial<{
   TEMPS_CHAQUE_VIBRATION: number;
   PAUSE_ENTRE_VIBRATION: number;
   FORCE_VIBRATION: number;
+  DELAI_CHASSEUR_SECONDES: number;
   // Overrides facultatifs des durées par phase
   CUPID_MS: number;
   LOVERS_MS: number;
@@ -39,6 +40,7 @@ const defaultConfig: Required<TimerConfig> = {
   TEMPS_CHAQUE_VIBRATION: 5_000,
   PAUSE_ENTRE_VIBRATION: 0,
   FORCE_VIBRATION: 128,
+  DELAI_CHASSEUR_SECONDES: 60,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
   SEER_MS: 80_000,
@@ -208,6 +210,7 @@ export function randomNextWakeMs(): number {
   const max = Math.max(min, CONFIG.NEXT_WAKE_DELAY_MAX_MS);
   return Math.floor(min + Math.random() * (max - min));
 }
+
 
 
 

@@ -85,8 +85,7 @@ class GameModel {
   final String? wolvesLockedTargetId;
   final int confirmationsRemaining;
 
-  final WitchWake? witchWake;
-  final List<Lite> hunterTargets;
+  final WitchWake? witchWake;`r`n  final List<Lite> hunterTargets;`r`n  final bool hunterPending;
   // Liste des joueurs vivants que la voyante peut sonder cette nuit.
   // Elle est envoyée par le serveur au moment du réveil.
   final List<Lite> seerTargets;
@@ -149,8 +148,7 @@ class GameModel {
     required this.wolvesLockedTargetId,
     required this.confirmationsRemaining,
     required this.witchWake,
-    required this.hunterTargets,
-    required this.seerTargets,
+    required this.hunterTargets,`r`n    required this.hunterPending,`r`n    required this.seerTargets,
     required this.seerLog,
     required this.seerPending,
     required this.cupidTargets,
@@ -195,8 +193,7 @@ class GameModel {
         wolvesLockedTargetId: null,
         confirmationsRemaining: 0,
         witchWake: null,
-        hunterTargets: [],
-        seerTargets: [],
+        hunterTargets: [],`r`n        hunterPending: false,`r`n        seerTargets: [],
         seerLog: [],
         seerPending: null,
         cupidTargets: [],

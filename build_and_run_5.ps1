@@ -13,6 +13,7 @@
     -Port <int>         Port HTTP du serveur (défaut 3000)
     -ScreenIndex <int>  Écran cible (0 = principal, 1 = second, ... ; défaut 0)
     -NoAuto             Si présent, n'envoie pas _paramNick/_autoCreate/_maxPlayers aux clients
+    -NoServer           Passe la phase de demarrage du serveur
     -FirstX <int>       Décalage X (px) de la 1ère fenêtre dans la zone utile de l'écran
     -FirstY <int>       Décalage Y (px) de la 1ère fenêtre dans la zone utile de l'écran
 
@@ -28,6 +29,7 @@
     .\build_and_run_5.ps1 -ScreenIndex 1           # écran secondaire
     .\build_and_run_5.ps1 -Port 3001               # serveur sur 3001
     .\build_and_run_5.ps1 -NoAuto                  # sans _paramNick/_autoCreate/_maxPlayers
+    .\build_and_run_5.ps1 -NoServer              # saute le lancement serveur
 
   Notes:
     - Le build Windows se fait en parallèle du démarrage du serveur pour gagner du temps.
@@ -39,6 +41,7 @@ param(
   [int]$Port = 3000,
   [int]$ScreenIndex = 0,
   [switch]$NoAuto,
+  [switch]$NoServer,
   [int]$FirstX = 0,
   [int]$FirstY = 0
 )
@@ -63,13 +66,19 @@ try { Unregister-Event -SourceIdentifier 'LG_CtrlC' -ErrorAction SilentlyContinu
 $serverTitle = "LG_SERVER_$Port"
 $env:LG_SERVER_TITLE = $serverTitle
 $env:LG_SERVER_PORT = "$Port"
+if ($NoServer) {
+  $env:LG_SKIP_SERVER = '1'
+} else {
+  Remove-Item Env:LG_SKIP_SERVER -ErrorAction SilentlyContinue
+}
 try {
   Register-ObjectEvent -InputObject ([console]) -EventName CancelKeyPress -SourceIdentifier 'LG_CtrlC' -Action {
     param($sender, $eventArgs)
+    $skipServer = $env:LG_SKIP_SERVER -eq '1'
     try { if ($eventArgs) { $eventArgs.Cancel = $true } } catch { }
     try {
       $title = $env:LG_SERVER_TITLE
-      if ($title) {
+      if (-not $skipServer -and $title) {
         Get-Process -Name cmd -ErrorAction SilentlyContinue |
           Where-Object { $_.MainWindowTitle -eq $title } |
           ForEach-Object { & taskkill /PID $_.Id /T /F 2>$null | Out-Null }
@@ -77,7 +86,7 @@ try {
     } catch { }
     try {
       $p = $env:LG_SERVER_PORT
-      if ($p) {
+      if (-not $skipServer -and $p) {
         try {
           $list = Get-NetTCPConnection -LocalPort ([int]$p) -State Listen -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty OwningProcess -Unique
@@ -92,9 +101,11 @@ try {
       }
     } catch { }
     try {
-      Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'start_server\.cmd' } |
-        ForEach-Object { & taskkill /PID $_.ProcessId /T /F 2>$null | Out-Null }
+      if (-not $skipServer) {
+        Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+          Where-Object { $_.CommandLine -match 'start_server\.cmd' } |
+          ForEach-Object { & taskkill /PID $_.ProcessId /T /F 2>$null | Out-Null }
+      }
     } catch { }
     try {
       Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue |
@@ -113,27 +124,35 @@ try {
 # --- 0) Cleanup
 function Stop-ProcessTree { param([int]$Pid) if ($Pid) { try { & taskkill /PID $Pid /T /F 2>$null | Out-Null } catch { } } }
 
-Write-Host "[INFO] Cleaning up previous instances (server + clients)..."
-try {
-  $srvCmds = Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'start_server\.cmd' }
-  foreach ($c in $srvCmds) { Stop-ProcessTree -Pid $c.ProcessId }
-  $srvByTitle = Get-Process -Name cmd -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'LG_SERVER_*' }
-  foreach ($p in $srvByTitle) { Stop-ProcessTree -Pid $p.Id }
-} catch { }
+if ($NoServer) {
+  Write-Host "[INFO] Cleaning up previous client instances..."
+} else {
+  Write-Host "[INFO] Cleaning up previous instances (server + clients)..."
+  try {
+    $srvCmds = Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -match 'start_server\.cmd' }
+    foreach ($c in $srvCmds) { Stop-ProcessTree -Pid $c.ProcessId }
+    $srvByTitle = Get-Process -Name cmd -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'LG_SERVER_*' }
+    foreach ($p in $srvByTitle) { Stop-ProcessTree -Pid $p.Id }
+  } catch { }
+}
 try {
   Get-Process -Name 'loup_garou_client' -ErrorAction SilentlyContinue | ForEach-Object { Stop-ProcessTree -Pid $_.Id }
 } catch { }
 Start-Sleep -Milliseconds 400
 
-# --- 1) Start server
-$serverCmd = Join-Path $repoRoot 'start_server.cmd'
-if (-not (Test-Path $serverCmd)) { throw "start_server.cmd not found at $serverCmd" }
-Write-Host "[INFO] Launching server (port $Port) in a new window..."
-$serverTitle = "LG_SERVER_$Port"
-$cmdInner = "title $serverTitle & `"$serverCmd`" $Port"
-$script:serverProc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal -PassThru
-
+# --- 1) Start server (skipped if -NoServer)
+if ($NoServer) {
+  Write-Host "[INFO] -NoServer flag detected: skipping server launch."
+  $script:serverProc = $null
+} else {
+  $serverCmd = Join-Path $repoRoot 'start_server.cmd'
+  if (-not (Test-Path $serverCmd)) { throw "start_server.cmd not found at $serverCmd" }
+  Write-Host "[INFO] Launching server (port $Port) in a new window..."
+  $serverTitle = "LG_SERVER_$Port"
+  $cmdInner = "title $serverTitle & `\"$serverCmd`\" $Port"
+  $script:serverProc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal -PassThru
+}
 # --- 2) Build Flutter Windows in background
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) { throw 'Flutter not found in PATH. Install Flutter and retry.' }
 try { & flutter config --enable-windows-desktop | Out-Null } catch { }
@@ -322,8 +341,13 @@ $procs += Spawn-Client -Nick 'fabrice_5'      -AutoCreate $false -AutoMaxPlayers
 
 for ($i=0; $i -lt $procs.Count; $i++) { Set-WindowBounds -Process $procs[$i] -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH }
 
-Write-Host "[OK] Server and 5 clients launched."
-Write-Host "[INFO] Press Ctrl+C in this console to stop server and clients (or close the server window)."
+if ($NoServer) {
+  Write-Host "[OK] 5 clients launched (server skipped)."
+  Write-Host "[INFO] Press Ctrl+C in this console to stop clients."
+} else {
+  Write-Host "[OK] Server and 5 clients launched."
+  Write-Host "[INFO] Press Ctrl+C in this console to stop server and clients (or close the server window)."
+}
 if ($script:serverProc) { try { Wait-Process -Id $script:serverProc.Id } catch { } } else { try { Wait-Event -SourceIdentifier 'LG_CtrlC' } catch { while ($true) { Start-Sleep -Seconds 60 } } }
 try {
   Get-Job -Name 'LG_LOG_*' -ErrorAction SilentlyContinue | ForEach-Object {

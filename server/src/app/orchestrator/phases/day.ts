@@ -36,9 +36,7 @@ export type DayApiDependencies = {
   beginCheckEnd: (game: Game) => void;
 };
 
-export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies) {
-  async function beginMorning(game: Game) {
-    if (!canTransition(game, game.state, "MORNING")) return;
+export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies) {`r`n  async function beginMorning(game: Game) {`r`n    if (!canTransition(game, game.state, "MORNING")) return;`r`n    game.hunterPending = false;
 
     const initial = await computeNightDeaths(game);
     for (const victim of initial) onPlayerDeath(game, victim, "NIGHT");

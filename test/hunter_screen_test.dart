@@ -68,4 +68,61 @@ void main() {
     expect(find.byType(DeadScreen), findsOneWidget);
     expect(find.byType(HunterScreen), findsNothing);
   });
+
+  testWidgets('Displays hunter pending banner for other players', (tester) async {
+    final model = GameModel.initial().copy(
+      socketConnected: true,
+      hasSnapshot: true,
+      gameId: 'G2',
+      playerId: 'ally',
+      phase: GamePhase.MORNING,
+      players: const [
+        PlayerView(id: 'hunter', connected: true, alive: false),
+        PlayerView(id: 'ally', connected: true, alive: true),
+      ],
+      hunterPending: true,
+      recap: const DayRecap(deaths: [], hunterKills: []),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          gameProvider.overrideWith(() => _TestGameController(model)),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Le chasseur doit choisir une cible.'), findsOneWidget);
+  });
+
+  testWidgets('Hunter pending banner is hidden for the shooter', (tester) async {
+    final model = GameModel.initial().copy(
+      socketConnected: true,
+      hasSnapshot: true,
+      gameId: 'G3',
+      playerId: 'hunter',
+      phase: GamePhase.MORNING,
+      players: const [
+        PlayerView(id: 'hunter', connected: true, alive: false),
+        PlayerView(id: 'ally', connected: true, alive: true),
+      ],
+      hunterTargets: const [Lite(id: 'ally')],
+      hunterPending: true,
+      recap: const DayRecap(deaths: [], hunterKills: []),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          gameProvider.overrideWith(() => _TestGameController(model)),
+        ],
+        child: const App(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Le chasseur doit choisir une cible.'), findsNothing);
+  });
 }
