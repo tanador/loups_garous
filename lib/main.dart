@@ -402,14 +402,16 @@ class _WithGlobalOverlay extends ConsumerWidget {
                 ? Center(
                     key: const ValueKey('hunter-banner-visible'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.78),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
                         'Le chasseur doit choisir une cible.',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -420,7 +422,8 @@ class _WithGlobalOverlay extends ConsumerWidget {
                     height: 0,
                   ),
           ),
-        ),\n        // MISE A JOUR 2025-09-12
+        ),
+        // MISE A JOUR 2025-09-12
         // L'overlay « Fermez les yeux » a été retiré d'ici pour éviter
         // l'effet de superposition + chronomètre. Le rendu de cet état
         // de transition est désormais fait dans _HomeRouter : lorsqu'il

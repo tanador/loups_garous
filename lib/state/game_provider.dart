@@ -208,7 +208,9 @@ class GameController extends Notifier<GameModel> {
         phase: phase,
         deadlineMs: deadline,
         loverPartnerId: loverPartnerId,
-        closingEyes: closing,`r`n        hunterPending: data['hunterPending'] == true,`r`n        dayVoteRecap: clearDayRecap,
+        closingEyes: closing,
+        hunterPending: data['hunterPending'] == true,
+        dayVoteRecap: clearDayRecap,
         vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
@@ -262,7 +264,9 @@ class GameController extends Notifier<GameModel> {
         players: players,
         role: role,
         deadlineMs: deadline,
-        closingEyes: closing,`r`n        hunterPending: data['hunterPending'] == true,`r`n        maxPlayers: maxPlayers,
+        closingEyes: closing,
+        hunterPending: data['hunterPending'] == true,
+        maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
         vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
@@ -447,7 +451,7 @@ class GameController extends Notifier<GameModel> {
 
     // --- Hunter ability
     s.on('hunter:pending', (data) {
-      final active = data[''active''] == true;
+      final active = data['active'] == true;
       state = state.copy(hunterPending: active);
       AppLogger.log('[evt] hunter:pending active=$active');
     });
@@ -1057,6 +1061,7 @@ class GameController extends Notifier<GameModel> {
     state = state.copy(hunterTargets: []);
     return null;
   }
+
   // ------------- Morning ack -------------
   Future<void> dayAck() async {
     final ack = await _socketSvc.emitAck('day:ack', {});

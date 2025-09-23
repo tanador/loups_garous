@@ -41,6 +41,7 @@ export function createGame(maxPlayers: number): Game {
     morningAcks: new Set<string>(),
     loversMode: null,
     pendingDeaths: [],
+    hunterPending: false,
     deferredGrief: [],
     centerCards: [],
   };

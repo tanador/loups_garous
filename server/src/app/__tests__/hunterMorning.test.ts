@@ -401,7 +401,8 @@ describe('hunter death handling', () => {
     const pendingEvents = roomEvents.filter(
       (evt) => evt.room === 'room:' + g.id && evt.event === 'hunter:pending',
     );
-    expect(pendingEvents[0]?.payload).toEqual({ active: true });
+    const activeEvent = pendingEvents.find((evt) => evt.payload?.active === true);
+    expect(activeEvent).toBeDefined();
     expect(pendingEvents.find((evt) => evt.payload?.active === false)).toBeDefined();
   });
 

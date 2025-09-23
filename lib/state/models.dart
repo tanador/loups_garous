@@ -11,9 +11,16 @@ class LobbyGameInfo {
   final int players;
   final int slots;
   final int maxPlayers;
-  LobbyGameInfo({required this.id, required this.players, required this.slots, required this.maxPlayers});
-  factory LobbyGameInfo.fromJson(Map<String, dynamic> j) =>
-      LobbyGameInfo(id: j['id'], players: j['players'], slots: j['slots'], maxPlayers: j['maxPlayers']);
+  LobbyGameInfo(
+      {required this.id,
+      required this.players,
+      required this.slots,
+      required this.maxPlayers});
+  factory LobbyGameInfo.fromJson(Map<String, dynamic> j) => LobbyGameInfo(
+      id: j['id'],
+      players: j['players'],
+      slots: j['slots'],
+      maxPlayers: j['maxPlayers']);
 }
 
 /// Représente un joueur tel que visible par les autres.
@@ -22,7 +29,11 @@ class PlayerView {
   final bool connected;
   final bool alive;
   final bool ready;
-  const PlayerView({required this.id, required this.connected, required this.alive, this.ready = false});
+  const PlayerView(
+      {required this.id,
+      required this.connected,
+      required this.alive,
+      this.ready = false});
 }
 
 /// Version "allégée" d'un joueur utilisée dans certaines listes.
@@ -37,7 +48,11 @@ class WitchWake {
   final bool healAvailable;
   final bool poisonAvailable;
   final List<Lite> alive;
-  const WitchWake({this.attacked, required this.healAvailable, required this.poisonAvailable, required this.alive});
+  const WitchWake(
+      {this.attacked,
+      required this.healAvailable,
+      required this.poisonAvailable,
+      required this.alive});
 }
 
 /// Récapitulatif des morts de la nuit précédente.
@@ -59,7 +74,8 @@ class VoteResult {
   final String? eliminatedId;
   final String? role;
   final Map<String, int> tally;
-  const VoteResult({required this.eliminatedId, required this.role, required this.tally});
+  const VoteResult(
+      {required this.eliminatedId, required this.role, required this.tally});
 }
 
 /// État complet de l'application côté client.
@@ -85,7 +101,9 @@ class GameModel {
   final String? wolvesLockedTargetId;
   final int confirmationsRemaining;
 
-  final WitchWake? witchWake;`r`n  final List<Lite> hunterTargets;`r`n  final bool hunterPending;
+  final WitchWake? witchWake;
+  final List<Lite> hunterTargets;
+  final bool hunterPending;
   // Liste des joueurs vivants que la voyante peut sonder cette nuit.
   // Elle est envoyée par le serveur au moment du réveil.
   final List<Lite> seerTargets;
@@ -148,7 +166,9 @@ class GameModel {
     required this.wolvesLockedTargetId,
     required this.confirmationsRemaining,
     required this.witchWake,
-    required this.hunterTargets,`r`n    required this.hunterPending,`r`n    required this.seerTargets,
+    required this.hunterTargets,
+    required this.hunterPending,
+    required this.seerTargets,
     required this.seerLog,
     required this.seerPending,
     required this.cupidTargets,
@@ -193,7 +213,9 @@ class GameModel {
         wolvesLockedTargetId: null,
         confirmationsRemaining: 0,
         witchWake: null,
-        hunterTargets: [],`r`n        hunterPending: false,`r`n        seerTargets: [],
+        hunterTargets: [],
+        hunterPending: false,
+        seerTargets: [],
         seerLog: [],
         seerPending: null,
         cupidTargets: [],
@@ -203,21 +225,21 @@ class GameModel {
         dayVoteRecap: null,
         voteAlive: [],
         lastVote: null,
-      wolvesLastTally: null,
-      winner: null,
-      finalRoles: [],
-      vibrationPulses: 1,
-      vibrationPulseMs: 5000,
-      vibrationPauseMs: 0,
-      vibrationForce: 128,
-      vibrations: true,
-      showDeathAnim: false,
-      closingEyes: false,
-      youReadyLocal: false,
-      roleRevealUntilMs: null,
-      rolePressRevealMs: 700,
-      loversKnown: <String>{},
-    );
+        wolvesLastTally: null,
+        winner: null,
+        finalRoles: [],
+        vibrationPulses: 1,
+        vibrationPulseMs: 5000,
+        vibrationPauseMs: 0,
+        vibrationForce: 128,
+        vibrations: true,
+        showDeathAnim: false,
+        closingEyes: false,
+        youReadyLocal: false,
+        roleRevealUntilMs: null,
+        rolePressRevealMs: 700,
+        loversKnown: <String>{},
+      );
 
   static const _unset = Object();
 
@@ -242,6 +264,7 @@ class GameModel {
     int? confirmationsRemaining,
     Object? witchWake = _unset,
     List<Lite>? hunterTargets,
+    bool? hunterPending,
     List<Lite>? seerTargets,
     List<(String playerId, Role role)>? seerLog,
     Object? seerPending = _unset,
@@ -272,33 +295,48 @@ class GameModel {
       socketConnected: socketConnected ?? this.socketConnected,
       lobby: lobby ?? this.lobby,
       gameId: identical(gameId, _unset) ? this.gameId : gameId as String?,
-      playerId: identical(playerId, _unset) ? this.playerId : playerId as String?,
+      playerId:
+          identical(playerId, _unset) ? this.playerId : playerId as String?,
       isOwner: isOwner ?? this.isOwner,
       hasSnapshot: hasSnapshot ?? this.hasSnapshot,
       role: identical(role, _unset) ? this.role : role as Role?,
       phase: phase ?? this.phase,
       round: round ?? this.round,
       players: players ?? this.players,
-      deadlineMs: identical(deadlineMs, _unset) ? this.deadlineMs : deadlineMs as int?,
+      deadlineMs:
+          identical(deadlineMs, _unset) ? this.deadlineMs : deadlineMs as int?,
       maxPlayers: maxPlayers ?? this.maxPlayers,
       wolvesTargets: wolvesTargets ?? this.wolvesTargets,
       wolvesLockedTargetId: identical(wolvesLockedTargetId, _unset)
           ? this.wolvesLockedTargetId
           : wolvesLockedTargetId as String?,
-      confirmationsRemaining: confirmationsRemaining ?? this.confirmationsRemaining,
-      witchWake: identical(witchWake, _unset) ? this.witchWake : witchWake as WitchWake?,
+      confirmationsRemaining:
+          confirmationsRemaining ?? this.confirmationsRemaining,
+      witchWake: identical(witchWake, _unset)
+          ? this.witchWake
+          : witchWake as WitchWake?,
       hunterTargets: hunterTargets ?? this.hunterTargets,
+      hunterPending: hunterPending ?? this.hunterPending,
       seerTargets: seerTargets ?? this.seerTargets,
       seerLog: seerLog ?? this.seerLog,
-      seerPending: identical(seerPending, _unset) ? this.seerPending : seerPending as (String, Role)?,
+      seerPending: identical(seerPending, _unset)
+          ? this.seerPending
+          : seerPending as (String, Role)?,
       cupidTargets: cupidTargets ?? this.cupidTargets,
       thiefCenter: thiefCenter ?? this.thiefCenter,
-      loverPartnerId: identical(loverPartnerId, _unset) ? this.loverPartnerId : loverPartnerId as String?,
+      loverPartnerId: identical(loverPartnerId, _unset)
+          ? this.loverPartnerId
+          : loverPartnerId as String?,
       recap: identical(recap, _unset) ? this.recap : recap as DayRecap?,
-      dayVoteRecap: identical(dayVoteRecap, _unset) ? this.dayVoteRecap : dayVoteRecap as DayVoteRecap?,
+      dayVoteRecap: identical(dayVoteRecap, _unset)
+          ? this.dayVoteRecap
+          : dayVoteRecap as DayVoteRecap?,
       voteAlive: voteAlive ?? this.voteAlive,
-      lastVote: identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,
-      wolvesLastTally: identical(wolvesLastTally, _unset) ? this.wolvesLastTally : wolvesLastTally as Map<String,int>?,
+      lastVote:
+          identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,
+      wolvesLastTally: identical(wolvesLastTally, _unset)
+          ? this.wolvesLastTally
+          : wolvesLastTally as Map<String, int>?,
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
       vibrationPulses: vibrationPulses ?? this.vibrationPulses,
