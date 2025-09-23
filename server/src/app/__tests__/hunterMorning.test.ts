@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator } from '../orchestrator.js';
+import { CONFIG } from '../timers.js';
 import { createGame, addPlayer } from '../../domain/game.js';
 
 function fakeIo() {

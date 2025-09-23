@@ -261,6 +261,8 @@ export class Orchestrator {
     if (!pending.alive.includes(targetId)) throw new Error("invalid_target");
     clearTimeout(pending.timer);
     this.hunterAwaiting.delete(key);
+    this.setHunterPending(game, false);
+    this.broadcastState(game);
     pending.resolve(targetId);
     this.log(gameId, "HUNTER", playerId, "hunter.shoot", { targetId });
   }
@@ -303,12 +305,16 @@ export class Orchestrator {
         this.hunterAwaiting.delete(key);
         const pool = stored?.alive ?? options;
         if (!pool.length) {
+          this.setHunterPending(game, false);
+          this.broadcastState(game);
           resolve(undefined);
           this.log(game.id, game.state, hunterId, "hunter.timeout_no_options");
           return;
         }
         const index = Math.floor(Math.random() * pool.length);
         const autoTarget = pool[index];
+        this.setHunterPending(game, false);
+        this.broadcastState(game);
         resolve(autoTarget);
         this.log(game.id, game.state, hunterId, "hunter.timeout_autoshoot", {
           targetId: autoTarget,
@@ -317,6 +323,7 @@ export class Orchestrator {
         });
       }, waitMs);
       this.hunterAwaiting.set(key, { resolve, alive: options, timer });
+      this.setHunterPending(game, options.length > 0);
       setDeadline(this.ctx, game, waitMs);
       this.broadcastState(game);
       socket.emit("hunter:wake", {
@@ -326,6 +333,14 @@ export class Orchestrator {
         options: options.length,
       });
     });
+  }
+
+
+  private setHunterPending(game: Game, active: boolean) {
+    const previous = game.hunterPending === true;
+    game.hunterPending = active;
+    if (previous === active) return;
+    this.io.to(`room:${game.id}`).emit("hunter:pending", { active });
   }
 
   private emitGameEnded(game: Game, win: string) {
@@ -361,6 +376,7 @@ export class Orchestrator {
       state: game.state,
       serverTime: Date.now(),
       deadline: game.deadlines?.phaseEndsAt ?? null,
+      hunterPending: game.hunterPending === true,
       closingEyes: (game as any).closingEyes === true,
       config: { vibrations: VIBRATION },
     });
@@ -391,6 +407,7 @@ export class Orchestrator {
       },
       alive: publicAlive,
       deadline: game.deadlines?.phaseEndsAt ?? null,
+      hunterPending: game.hunterPending === true,
       closingEyes: (game as any).closingEyes === true,
       config: { vibrations: VIBRATION },
     };
