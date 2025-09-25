@@ -14,20 +14,53 @@ class VoteScreen extends ConsumerStatefulWidget {
 
 class _VoteScreenState extends ConsumerState<VoteScreen> {
   String? targetId;
-  bool _voted = false;
+  bool _optimisticVoted = false;
+  bool _isCasting = false;
+  bool _isCancelling = false;
+  bool _isAcking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listen<List<String>>(
+      gameProvider.select((s) => s.voteAlive.map((e) => e.id).toList()),
+      (prev, next) {
+        final currentTarget = targetId;
+        if (currentTarget == null) return;
+        if (!next.contains(currentTarget)) {
+          if (!mounted) return;
+          setState(() {
+            targetId = null;
+            _optimisticVoted = false;
+            _isCasting = false;
+            _isCancelling = false;
+            _isAcking = false;
+          });
+        }
+      },
+    );
+
+    ref.listen<GamePhase>(
+      gameProvider.select((s) => s.phase),
+      (prev, next) {
+        if (prev == next || !mounted) return;
+        final enteringVote = prev != GamePhase.VOTE && next == GamePhase.VOTE;
+        final leavingVote = prev == GamePhase.VOTE && next != GamePhase.VOTE;
+        if (enteringVote || leavingVote) {
+          setState(() {
+            targetId = null;
+            _optimisticVoted = false;
+            _isCasting = false;
+            _isCancelling = false;
+            _isAcking = false;
+          });
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Reset the local vote when the list of alive players changes.
-    ref.listen<GameModel>(gameProvider, (prev, next) {
-      if (prev?.voteAlive != next.voteAlive) {
-        setState(() {
-          targetId = null;
-          _voted = false;
-        });
-      }
-    });
-
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
 
@@ -37,6 +70,96 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
     final youMustAck = isResolve && you != null && eliminated == you;
 
     final messenger = ScaffoldMessenger.of(context);
+
+    Future<void> castVote() async {
+      if (targetId == null || _isCasting) return;
+      setState(() {
+        _isCasting = true;
+        _optimisticVoted = true; // feedback immédiat
+      });
+      String? err;
+      try {
+        err = await ctl.voteCast(targetId!);
+      } catch (e) {
+        err = e.toString();
+      }
+      if (!mounted) return;
+      if (err != null) {
+        setState(() {
+          _isCasting = false;
+          _optimisticVoted = false;
+        });
+        messenger.showSnackBar(SnackBar(content: Text(err)));
+        return;
+      }
+      setState(() {
+        _isCasting = false;
+      });
+    }
+
+    Future<void> cancelVote() async {
+      if (_isCancelling) return;
+      setState(() {
+        _isCancelling = true;
+      });
+      try {
+        await ctl.voteCancel();
+      } catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      if (!mounted) return;
+      setState(() {
+        _isCancelling = false;
+        _optimisticVoted = false;
+      });
+    }
+
+    Future<void> acknowledgeElimination() async {
+      if (_isAcking) return;
+      setState(() {
+        _isAcking = true;
+      });
+      try {
+        await ctl.voteAck();
+      } catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      if (!mounted) return;
+      setState(() {
+        _isAcking = false;
+      });
+    }
+
+    final serverVoted = s.youVoted;
+    if (serverVoted && _optimisticVoted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _optimisticVoted = false);
+      });
+    }
+
+    final hasVoted = serverVoted || _optimisticVoted;
+    final disableChoices = hasVoted || youMustAck;
+    final bool showSpinner = _isCasting || _isCancelling || _isAcking;
+    final String buttonLabel =
+        youMustAck ? "J'ai vu" : (hasVoted ? 'Annuler mon vote' : 'Voter');
+    String busyLabel;
+    if (_isCancelling) {
+      busyLabel = 'Annulation...';
+    } else if (_isCasting) {
+      busyLabel = 'Envoi...';
+    } else {
+      busyLabel = 'Patientez...';
+    }
+
+    VoidCallback? action;
+    if (youMustAck) {
+      action = _isAcking ? null : acknowledgeElimination;
+    } else if (hasVoted) {
+      action = _isCancelling ? null : cancelVote;
+    } else {
+      action = (targetId == null || _isCasting) ? null : castVote;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Vote du village')),
@@ -50,14 +173,17 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             const SizedBox(height: 8),
             RadioGroup<String?>(
               groupValue: targetId,
-              onChanged: (v) { if(!_voted && !youMustAck) setState(() => targetId = v); },
+              onChanged: (v) {
+                if (disableChoices) return;
+                setState(() => targetId = v);
+              },
               child: Column(
                 children: [
                   ...s.voteAlive.map(
                     (p) => RadioListTile<String?>(
                       title: Text(p.id),
                       value: p.id,
-                      enabled: !_voted && !youMustAck,
+                      enabled: !disableChoices,
                     ),
                   ),
                 ],
@@ -66,43 +192,27 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: youMustAck
-                    ? () {
-                        ctl.voteAck();
-                      }
-                    : (targetId == null && !_voted
-                        ? null
-                        : () {
-                            if (_voted) {
-                              ctl.voteCancel();
-                              setState(() {
-                                _voted = false;
-                                targetId = null;
-                              });
-                        } else if (targetId != null) {
-                          () async {
-                            final err = await ctl.voteCast(targetId!);
-                            if (!mounted) return;
-                            if (err == null) {
-                              setState(() => _voted = true);
-                            } else {
-                              messenger.showSnackBar(
-                                SnackBar(content: Text(err)),
-                              );
-                            }
-                          }();
-                        }
-                      }),
+                onPressed: action,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: youMustAck
                       ? Colors.orange
-                      : (_voted ? Colors.green : null),
+                      : (hasVoted ? Colors.green : null),
                 ),
-                child: Text(
-                  youMustAck
-                      ? "J'ai vu"
-                      : (_voted ? 'Annuler mon vote' : 'Voter'),
-                ),
+                child: showSpinner
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(busyLabel),
+                        ],
+                      )
+                    : Text(buttonLabel),
               ),
             ),
             const SizedBox(height: 12),
@@ -113,8 +223,9 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                   return const Text('Égalité, veuillez revoter.');
                 }
                 String name = s.lastVote!.eliminatedId!;
-                final match =
-                    s.players.where((p) => p.id == s.lastVote!.eliminatedId).toList();
+                final match = s.players
+                    .where((p) => p.id == s.lastVote!.eliminatedId)
+                    .toList();
                 if (match.isNotEmpty) name = match.first.id;
                 return Text('Éliminé: $name • rôle: ${s.lastVote!.role}');
               }),
@@ -122,15 +233,12 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
               if (youMustAck)
                 const Text('Appuyez sur « J\'ai vu » pour continuer.'),
               Builder(builder: (_) {
-                final entries = s.lastVote!.tally.entries
-                    .map((e) {
-                      String name = e.key;
-                      final match =
-                          s.players.where((p) => p.id == e.key).toList();
-                      if (match.isNotEmpty) name = match.first.id;
-                      return '$name: ${e.value}';
-                    })
-                    .join(', ');
+                final entries = s.lastVote!.tally.entries.map((e) {
+                  String name = e.key;
+                  final match = s.players.where((p) => p.id == e.key).toList();
+                  if (match.isNotEmpty) name = match.first.id;
+                  return '$name: ${e.value}';
+                }).join(', ');
                 return Text('Comptage: $entries');
               }),
             ]

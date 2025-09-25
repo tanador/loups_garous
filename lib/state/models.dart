@@ -119,6 +119,7 @@ class GameModel {
   final DayVoteRecap? dayVoteRecap;
   final List<Lite> voteAlive;
   final VoteResult? lastVote;
+  final bool youVoted;
   // Dernier comptage côté loups en cas d'égalité (revote)
   final Map<String, int>? wolvesLastTally;
   final String? winner; // 'WOLVES' | 'VILLAGE'
@@ -178,6 +179,7 @@ class GameModel {
     required this.dayVoteRecap,
     required this.voteAlive,
     required this.lastVote,
+    required this.youVoted,
     required this.wolvesLastTally,
     required this.winner,
     required this.finalRoles,
@@ -225,6 +227,7 @@ class GameModel {
         dayVoteRecap: null,
         voteAlive: [],
         lastVote: null,
+        youVoted: false,
         wolvesLastTally: null,
         winner: null,
         finalRoles: [],
@@ -275,6 +278,7 @@ class GameModel {
     Object? dayVoteRecap = _unset,
     List<Lite>? voteAlive,
     Object? lastVote = _unset,
+    bool? youVoted,
     Object? wolvesLastTally = _unset,
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
@@ -334,6 +338,7 @@ class GameModel {
       voteAlive: voteAlive ?? this.voteAlive,
       lastVote:
           identical(lastVote, _unset) ? this.lastVote : lastVote as VoteResult?,
+      youVoted: youVoted ?? this.youVoted,
       wolvesLastTally: identical(wolvesLastTally, _unset)
           ? this.wolvesLastTally
           : wolvesLastTally as Map<String, int>?,

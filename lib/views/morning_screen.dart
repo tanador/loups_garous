@@ -65,6 +65,17 @@ class _MorningScreenState extends ConsumerState<MorningScreen> {
                   subtitle: Text('Rôle: ${d.$2}'),
                 );
               }),
+              // Affiche une note inline pendant l'attente du tir du chasseur.
+              if (s.hunterPending && r.hunterKills.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '(en attente de la sélection de la cible du chasseur)',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(fontStyle: FontStyle.italic),
+                ),
+              ],
               if (r.hunterKills.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text('Le chasseur a tué :'),

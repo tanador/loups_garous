@@ -398,7 +398,7 @@ class _WithGlobalOverlay extends ConsumerWidget {
           right: 0,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
-            child: s.hunterPending && s.hunterTargets.isEmpty
+            child: (s.hunterPending && s.hunterTargets.isEmpty && s.phase != GamePhase.MORNING)
                 ? Center(
                     key: const ValueKey('hunter-banner-visible'),
                     child: Container(

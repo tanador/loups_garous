@@ -5,6 +5,7 @@ import '../state/models.dart';
 import '../utils/app_logger.dart';
 import 'death_skull_animation.dart';
 import 'hunter_screen.dart';
+import 'connect_screen.dart';
 
 // Écran affiché aux joueurs éliminés.
 
@@ -101,14 +102,19 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
         else if (!blockQuit)
           ElevatedButton(
             onPressed: () async {
+              // Capture le Navigator avant l'attente pour éviter d'utiliser
+              // un BuildContext après un gap async.
+              final nav = Navigator.of(context);
               try {
                 await ctl.leaveToHome();
               } catch (e, st) {
                 AppLogger.log('leaveToHome exception: $e', stackTrace: st);
               } finally {
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
+                // Retour fiable à l'accueil, en purgant toute la pile.
+                nav.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const ConnectScreen()),
+                  (route) => false,
+                );
               }
             },
             child: const Text('Quitter'),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 import '../utils/app_logger.dart';
+import 'connect_screen.dart';
 
 // Écran affiché à la fin de la partie avec le récapitulatif des rôles.
 
@@ -79,14 +80,20 @@ class EndScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           ElevatedButton(
               onPressed: () async {
+                // Capture le Navigator avant l'attente pour éviter d'utiliser
+                // un BuildContext après un gap async.
+                final nav = Navigator.of(context);
                 try {
                   await ctl.leaveToHome();
                 } catch (e, st) {
                   AppLogger.log('leaveToHome exception: $e', stackTrace: st);
                 } finally {
-                  if (context.mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
+                  // Garantit un retour fiable à l'accueil, même si des routes
+                  // intermédiaires (ex. options de partie) sont encore empilées.
+                  nav.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const ConnectScreen()),
+                    (route) => false,
+                  );
                 }
               },
               child: const Text('Retour à l\'accueil'))

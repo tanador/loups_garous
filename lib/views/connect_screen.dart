@@ -94,7 +94,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text: Platform.isAndroid ? 'http://Satigny.giize.com:3000' : 'http://Satigny.giize.com:3000');
+    _url = TextEditingController(text: Platform.isAndroid ? 'http://127.0.0.1:3000' : 'http://Satigny.giize.com:3000');
     _loadLastNick().then((_) {
       if (_autoCreate) {
         _autoStart();

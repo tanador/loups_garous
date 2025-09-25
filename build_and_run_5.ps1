@@ -150,7 +150,7 @@ if ($NoServer) {
   if (-not (Test-Path $serverCmd)) { throw "start_server.cmd not found at $serverCmd" }
   Write-Host "[INFO] Launching server (port $Port) in a new window..."
   $serverTitle = "LG_SERVER_$Port"
-  $cmdInner = "title $serverTitle & `\"$serverCmd`\" $Port"
+  $cmdInner = 'title {0} & "{1}" {2}' -f $serverTitle, $serverCmd, $Port
   $script:serverProc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $cmdInner) -WorkingDirectory $repoRoot -WindowStyle Normal -PassThru
 }
 # --- 2) Build Flutter Windows in background

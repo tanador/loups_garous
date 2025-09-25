@@ -115,6 +115,7 @@ class GameController extends Notifier<GameModel> {
       recap: null,
       voteAlive: [],
       lastVote: null,
+      youVoted: false,
       winner: null,
       finalRoles: [],
       youReadyLocal: false,
@@ -210,6 +211,7 @@ class GameController extends Notifier<GameModel> {
         loverPartnerId: loverPartnerId,
         closingEyes: closing,
         hunterPending: data['hunterPending'] == true,
+        youVoted: phase == GamePhase.VOTE ? state.youVoted : false,
         dayVoteRecap: clearDayRecap,
         vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
@@ -273,6 +275,7 @@ class GameController extends Notifier<GameModel> {
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
+        youVoted: phase == GamePhase.VOTE ? state.youVoted : false,
         // Déclenche l'animation si l'on apprend via snapshot qu'on vient de mourir
         showDeathAnim: state.showDeathAnim ||
             (wasAliveBefore &&
@@ -554,7 +557,7 @@ class GameController extends Notifier<GameModel> {
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => Lite(id: j['id']))
           .toList();
-      state = state.copy(voteAlive: alive, lastVote: null);
+      state = state.copy(voteAlive: alive, lastVote: null, youVoted: false);
       AppLogger.log('[evt] vote:options ${alive.length}');
     });
 
@@ -562,11 +565,16 @@ class GameController extends Notifier<GameModel> {
     s.on('vote:status', (data) {
       final voted = (data['voted'] as num?)?.toInt() ?? 0;
       final total = (data['total'] as num?)?.toInt() ?? 0;
-      final pending = ((data['pending'] as List?) ?? [])
+      final pendingList = ((data['pending'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .map((j) => j['id'] as String)
-          .join(', ');
-      AppLogger.log('[evt] vote:status $voted/$total pending=[$pending]');
+          .toList();
+      final pendingLabel = pendingList.join(', ');
+      final youId = state.playerId;
+      final youVoted = youId != null && !pendingList.contains(youId);
+      state = state.copy(youVoted: youVoted);
+      AppLogger.log(
+          '[evt] vote:status $voted/$total pending=[$pendingLabel] youVoted=$youVoted');
     });
 
     s.on('vote:results', (data) {
@@ -596,7 +604,10 @@ class GameController extends Notifier<GameModel> {
       final youDiedNow =
           you != null && elimId != null && you == elimId && wasAlive;
       state = state.copy(
-          lastVote: vr, players: updatedPlayers, showDeathAnim: youDiedNow);
+          lastVote: vr,
+          players: updatedPlayers,
+          showDeathAnim: youDiedNow,
+          youVoted: false);
       AppLogger.log(
           '[evt] vote:results eliminated=${vr.eliminatedId} role=${vr.role}');
     });
