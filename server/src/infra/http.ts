@@ -15,8 +15,19 @@ import http from 'http';
 export function createHttpApp() {
   const app = express();
   app.use(cors());
+
   // Simple endpoint used by clients/tests to verify the server is reachable.
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
+
+  // Connectivity probe used by automation scripts to detect the deployed version.
+  app.get('/connectivity', (_req, res) => {
+    res.json({
+      ok: true,
+      service: 'loup_garou_server',
+      version: process.env['npm_package_version'] ?? 'dev',
+    });
+  });
+
   const httpServer = http.createServer(app);
   return { app, httpServer };
 }

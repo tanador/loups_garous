@@ -23,10 +23,10 @@
     },
     "5": {
       "WOLF": 1,
-      "CUPID": 0,
-      "WITCH": 0,
+      "CUPID": 1,
+      "WITCH": 1,
       "HUNTER": 1,
-      "VILLAGER": 3
+      "VILLAGER": 1
     },
     "6": {
       "WOLF": 1,

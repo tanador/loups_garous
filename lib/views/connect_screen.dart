@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import '../utils/app_logger.dart';
 import 'game_options_screen.dart';
 
 // Paramètres de lancement (lecture à l'exécution)
@@ -77,6 +78,12 @@ final int _autoMaxPlayers = (() {
 
 
 
+const String _primaryServerUrl = 'http://Satigny.giize.com:3000';
+const String _fallbackServerUrl = 'http://127.0.0.1:3000';
+const String _connectivityPath = '/connectivity';
+const Duration _probeTimeout = Duration(seconds: 2);
+const String _primaryServerHost = 'satigny.giize.com';
+
 // Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
 
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -94,7 +101,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text: Platform.isAndroid ? 'http://127.0.0.1:3000' : 'http://Satigny.giize.com:3000');
+    _url = TextEditingController(text: Platform.isAndroid ? _fallbackServerUrl : _primaryServerUrl);
     _loadLastNick().then((_) {
       if (_autoCreate) {
         _autoStart();
@@ -115,17 +122,101 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     super.dispose();
   }
 
+  Future<void> _connectPreferredServer({bool waitForHandshake = false}) async {
+    final trimmed = _url.text.trim();
+    final resolved = await _resolveServerUrl(trimmed);
+    if (mounted && resolved != trimmed) {
+      _url.text = resolved;
+    }
+    final current = ref.read(gameProvider);
+    if (current.socketConnected && current.serverUrl == resolved) {
+      return;
+    }
+    await ref.read(gameProvider.notifier).connect(resolved);
+    if (waitForHandshake) {
+      for (int i = 0; i < 100; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (ref.read(gameProvider).socketConnected) {
+          break;
+        }
+      }
+    }
+  }
+
+  Future<String> _resolveServerUrl(String rawUrl) async {
+    final trimmed = rawUrl.trim();
+    final parsed = _parseUrl(trimmed);
+    if (parsed == null) {
+      return trimmed.isEmpty ? _fallbackServerUrl : trimmed;
+    }
+    final normalized = parsed.toString();
+    if (kIsWeb) {
+      return normalized;
+    }
+
+    if (parsed.host.toLowerCase() != _primaryServerHost) {
+      return normalized;
+    }
+
+    final reachable = await _probeConnectivity(parsed);
+    if (reachable) {
+      return normalized;
+    }
+
+    if (normalized != _fallbackServerUrl) {
+      AppLogger.log(
+        '[connect] remote $_primaryServerHost indisponible, bascule sur localhost',
+        name: 'ConnectScreen',
+      );
+    }
+    return _fallbackServerUrl;
+  }
+
+  Uri? _parseUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    try {
+      final direct = Uri.parse(trimmed);
+      if (direct.hasScheme) {
+        return (direct.scheme == 'http' || direct.scheme == 'https') ? direct : null;
+      }
+    } catch (_) {}
+    try {
+      final inferred = Uri.parse('http://$trimmed');
+      if (inferred.scheme == 'http' || inferred.scheme == 'https') {
+        return inferred;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> _probeConnectivity(Uri base) async {
+    if (kIsWeb) {
+      return false;
+    }
+    final client = HttpClient();
+    client.connectionTimeout = _probeTimeout;
+    try {
+      final target = base.replace(path: _connectivityPath, query: '');
+      final request = await client.getUrl(target).timeout(_probeTimeout);
+      final response = await request.close().timeout(_probeTimeout);
+      await response.drain();
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+
   Future<void> _autoConnectAndJoinIfPossible() async {
     if (_autoClientRan) return;
     final ctl = ref.read(gameProvider.notifier);
     // Assure une connexion socket comme si on avait cliqué sur "Se connecter"
-    if (!ref.read(gameProvider).socketConnected) {
-      await ctl.connect(_url.text);
-      for (int i = 0; i < 100; i++) { // ~10s max
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (ref.read(gameProvider).socketConnected) break;
-      }
-    }
+    await _connectPreferredServer(waitForHandshake: true);
     await _saveNick();
     // Rafraîchit et attend la liste de parties du lobby
     await ctl.refreshLobby();
@@ -162,13 +253,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
 
     // Connect if needed and wait until the socket handshake completes
-    if (!ref.read(gameProvider).socketConnected) {
-      await ctl.connect(_url.text);
-      for (int i = 0; i < 100; i++) { // ~10s max
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (ref.read(gameProvider).socketConnected) break;
-      }
-    }
+    await _connectPreferredServer(waitForHandshake: true);
 
     await _saveNick();
     await ctl.createGame(_nick.text.trim(), _autoMaxPlayers);
@@ -200,7 +285,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           const SizedBox(height: 8),
           Row(children: [
             ElevatedButton(
-              onPressed: () => ctl.connect(_url.text),
+              onPressed: () async => _connectPreferredServer(waitForHandshake: true),
               child: Text(gm.socketConnected ? 'Reconnecté' : 'Se connecter'),
             ),
             const SizedBox(width: 8),
