@@ -128,19 +128,60 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     if (mounted && resolved != trimmed) {
       _url.text = resolved;
     }
-    final current = ref.read(gameProvider);
-    if (current.socketConnected && current.serverUrl == resolved) {
+
+    if (_isConnectedTo(resolved)) {
       return;
     }
-    await ref.read(gameProvider.notifier).connect(resolved);
-    if (waitForHandshake) {
-      for (int i = 0; i < 100; i++) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (ref.read(gameProvider).socketConnected) {
-          break;
-        }
-      }
+
+    final shouldWait = waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
+    var connected = await _attemptConnection(resolved, shouldWait);
+    if (connected || !waitForHandshake) {
+      return;
     }
+
+    if (resolved != _fallbackServerUrl) {
+      AppLogger.log(
+        '[connect] remote $_primaryServerHost indisponible, bascule sur localhost',
+        name: 'ConnectScreen',
+      );
+      connected = await _attemptConnection(_fallbackServerUrl, const Duration(seconds: 8));
+      if (connected && mounted) {
+        _url.text = _fallbackServerUrl;
+      }
+      return;
+    }
+
+    // Already trying localhost: retry once after a short delay to cover server boot time.
+    await Future.delayed(const Duration(milliseconds: 200));
+    await _attemptConnection(_fallbackServerUrl, const Duration(seconds: 8));
+  }
+
+  Future<bool> _attemptConnection(String url, Duration waitFor) async {
+    if (_isConnectedTo(url)) {
+      return true;
+    }
+    await ref.read(gameProvider.notifier).connect(url);
+    if (waitFor <= Duration.zero) {
+      return _isConnectedTo(url);
+    }
+    final connected = await _waitForHandshake(url, waitFor);
+    return connected;
+  }
+
+  bool _isConnectedTo(String url) {
+    final snapshot = ref.read(gameProvider);
+    return snapshot.socketConnected && snapshot.serverUrl == url;
+  }
+
+  Future<bool> _waitForHandshake(String url, Duration timeout) async {
+    final sw = Stopwatch()..start();
+    while (sw.elapsed < timeout) {
+      if (_isConnectedTo(url)) {
+        return true;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    return _isConnectedTo(url);
   }
 
   Future<String> _resolveServerUrl(String rawUrl) async {
