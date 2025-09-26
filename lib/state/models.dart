@@ -126,6 +126,11 @@ class GameModel {
   final Map<String, int>? wolvesLastTally;
   final String? winner; // 'WOLVES' | 'VILLAGE'
   final List<(String playerId, Role role)> finalRoles;
+  final int vibrationPulses;
+  final int vibrationPulseMs;
+  final int vibrationPauseMs;
+  final int vibrationForce;
+  final bool vibrations;
   // Déclencheur local: joue l'animation de mort exactement une fois
   // lorsqu'on vient de mourir. Reset à false après affichage.
   final bool showDeathAnim;
@@ -181,6 +186,11 @@ class GameModel {
     required this.wolvesLastTally,
     required this.winner,
     required this.finalRoles,
+    required this.vibrationPulses,
+    required this.vibrationPulseMs,
+    required this.vibrationPauseMs,
+    required this.vibrationForce,
+    required this.vibrations,
     required this.showDeathAnim,
     required this.closingEyes,
     required this.youReadyLocal,
@@ -225,6 +235,11 @@ class GameModel {
         wolvesLastTally: null,
         winner: null,
         finalRoles: [],
+        vibrationPulses: 1,
+        vibrationPulseMs: 5000,
+        vibrationPauseMs: 0,
+        vibrationForce: 128,
+        vibrations: true,
         showDeathAnim: false,
         closingEyes: false,
         youReadyLocal: false,
@@ -272,6 +287,11 @@ class GameModel {
     Object? wolvesLastTally = _unset,
     Object? winner = _unset,
     List<(String playerId, Role role)>? finalRoles,
+    int? vibrationPulses,
+    int? vibrationPulseMs,
+    int? vibrationPauseMs,
+    int? vibrationForce,
+    bool? vibrations,
     bool? showDeathAnim,
     bool? closingEyes,
     bool? youReadyLocal,
@@ -281,9 +301,8 @@ class GameModel {
   }) {
     return GameModel(
       serverUrl: serverUrl ?? this.serverUrl,
-      socketUrl: identical(socketUrl, _unset)
-          ? this.socketUrl
-          : socketUrl as String?,
+      socketUrl:
+          identical(socketUrl, _unset) ? this.socketUrl : socketUrl as String?,
       socketConnected: socketConnected ?? this.socketConnected,
       lobby: lobby ?? this.lobby,
       gameId: identical(gameId, _unset) ? this.gameId : gameId as String?,
@@ -332,6 +351,11 @@ class GameModel {
           : wolvesLastTally as Map<String, int>?,
       winner: identical(winner, _unset) ? this.winner : winner as String?,
       finalRoles: finalRoles ?? this.finalRoles,
+      vibrationPulses: vibrationPulses ?? this.vibrationPulses,
+      vibrationPulseMs: vibrationPulseMs ?? this.vibrationPulseMs,
+      vibrationPauseMs: vibrationPauseMs ?? this.vibrationPauseMs,
+      vibrationForce: vibrationForce ?? this.vibrationForce,
+      vibrations: vibrations ?? this.vibrations,
       showDeathAnim: showDeathAnim ?? this.showDeathAnim,
       closingEyes: closingEyes ?? this.closingEyes,
       youReadyLocal: youReadyLocal ?? this.youReadyLocal,
@@ -343,9 +367,3 @@ class GameModel {
     );
   }
 }
-
-
-
-
-
-

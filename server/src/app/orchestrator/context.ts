@@ -15,6 +15,8 @@ export type OrchestratorHelpers = {
   beginNightThief: (game: Game) => void;
   beginNightCupid: (game: Game) => void;
   beginNightSeer: (game: Game) => void;
+  beginNightWolves: (game: Game) => void;
+  beginNightWitch: (game: Game) => void;
   beginMorning: (game: Game) => void;
 };
 
@@ -67,7 +69,11 @@ export function createContext(deps: {
       beginNightThief: () => missing("beginNightThief"),
       beginNightCupid: () => missing("beginNightCupid"),
       beginNightSeer: () => missing("beginNightSeer"),
+      beginNightWolves: () => missing("beginNightWolves"),
+      beginNightWitch: () => missing("beginNightWitch"),
       beginMorning: () => missing("beginMorning"),
     },
   };
 }
+
+

@@ -62,6 +62,8 @@ export class Orchestrator {
       beginNightThief: (game) => this.beginNightThief(game),
       beginNightCupid: (game) => this.beginNightCupid(game),
       beginNightSeer: (game) => this.beginNightSeer(game),
+      beginNightWolves: (game) => this.beginNightWolves(game),
+      beginNightWitch: (game) => this.beginNightWitch(game),
       beginMorning: (game) => this.beginMorning(game),
     };
 
@@ -427,4 +429,5 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
+
 
