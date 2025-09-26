@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { GameStore } from "../store.js";
 import type { Game, Player } from "../../domain/types.js";
-import { CONFIG, DURATION, VIBRATION } from "../timers.js";
+import { CONFIG, VIBRATION } from "../timers.js";
 import { logger } from "../../logger.js";
 import { createContext } from "./context.js";
 import type { OrchestratorContext } from "./context.js";
@@ -122,7 +122,7 @@ export class Orchestrator {
     this.lobby.playerUnready(gameId, playerId);
   }
 
-  private bindPlayerToRooms(game: Game, player: Player, socket: Socket) {
+  public bindPlayerToRooms(game: Game, player: Player, socket: Socket) {
     this.lobby.bindPlayerToRooms(game, player, socket);
   }
 
@@ -142,10 +142,6 @@ export class Orchestrator {
     this.night.thiefChoose(gameId, playerId, action, index);
   }
 
-  private endNightThief(gameId: string) {
-    this.night.endNightThief(gameId);
-  }
-
   private beginNightCupid(game: Game) {
     this.night.beginNightCupid(game);
   }
@@ -154,20 +150,8 @@ export class Orchestrator {
     this.night.cupidChoose(gameId, playerId, targetA, targetB);
   }
 
-  private endNightCupid(gameId: string) {
-    this.night.endNightCupid(gameId);
-  }
-
-  private beginNightLovers(game: Game) {
-    this.night.beginNightLovers(game);
-  }
-
   loversAck(gameId: string, playerId: string) {
     this.night.loversAck(gameId, playerId);
-  }
-
-  private endNightLovers(gameId: string) {
-    this.night.endNightLovers(gameId);
   }
 
   seerProbe(gameId: string, playerId: string, targetId: string) {
@@ -186,24 +170,8 @@ export class Orchestrator {
     this.night.seerAck(gameId, playerId);
   }
 
-  private endNightSeer(gameId: string) {
-    this.night.endNightSeer(gameId);
-  }
-
-  private beginNightWolves(game: Game) {
-    this.night.beginNightWolves(game);
-  }
-
   wolvesChoose(gameId: string, playerId: string, targetId: string) {
     this.night.wolvesChoose(gameId, playerId, targetId);
-  }
-
-  private endNightWolves(gameId: string) {
-    this.night.endNightWolves(gameId);
-  }
-
-  private beginNightWitch(game: Game) {
-    this.night.beginNightWitch(game);
   }
 
   witchDecision(
@@ -223,7 +191,7 @@ export class Orchestrator {
     this.day.dayAck(gameId, playerId);
   }
 
-  private async handleMorningEnd(game: Game) {
+  public async handleMorningEnd(game: Game) {
     await this.day.handleMorningEnd(game);
   }
 
@@ -237,10 +205,6 @@ export class Orchestrator {
 
   voteCancel(gameId: string, playerId: string) {
     this.vote.voteCancel(gameId, playerId);
-  }
-
-  private async endVote(gameId: string) {
-    await this.vote.endVote(gameId);
   }
 
   voteAck(gameId: string, playerId: string) {

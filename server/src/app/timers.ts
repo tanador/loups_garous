@@ -195,7 +195,7 @@ for (const candidate of CONFIG_CANDIDATES) {
 for (const [directory, filenames] of filesByDirectory) {
   if (!fs.existsSync(directory)) continue;
   try {
-    fs.watch(directory, { encoding: 'utf8' }, (eventType, changed) => {
+    fs.watch(directory, { encoding: 'utf8' }, (_eventType, changed) => {
       const name = typeof changed === 'string' ? changed : undefined;
       if (!name || filenames.has(name)) scheduleReload();
     });
