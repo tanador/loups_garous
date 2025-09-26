@@ -3,6 +3,7 @@ import { canTransition, setState } from "../../../domain/fsm.js";
 import {
   alivePlayers,
   computeVoteResult,
+  enforceWolvesDomination,
   onPlayerDeath,
   resolveDeaths,
   winner,
@@ -27,6 +28,7 @@ export function createVoteApi(ctx: OrchestratorContext, deps: VoteApiDependencie
     if (!canTransition(game, game.state, "VOTE")) return;
     const win = winner(game);
     if (win) {
+      if (win === "WOLVES") enforceWolvesDomination(game);
       setState(game, "END");
       ctx.helpers.broadcastState(game);
       deps.emitGameEnded(game, win);
@@ -197,6 +199,7 @@ export function createVoteApi(ctx: OrchestratorContext, deps: VoteApiDependencie
     setState(game, "CHECK_END");
     const win = winner(game);
     if (win) {
+      if (win === "WOLVES") enforceWolvesDomination(game);
       setState(game, "END");
       ctx.helpers.broadcastState(game);
       deps.emitGameEnded(game, win);
@@ -214,3 +217,6 @@ export function createVoteApi(ctx: OrchestratorContext, deps: VoteApiDependencie
     beginCheckEnd,
   };
 }
+
+
+

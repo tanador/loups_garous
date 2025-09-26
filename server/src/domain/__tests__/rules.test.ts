@@ -49,4 +49,12 @@ describe('winner checks', () => {
     }
     expect(winner(g)).toBe('WOLVES');
   });
+  it('wolves win as soon as they match the village headcount', () => {
+    const g = seedGame();
+    g.roles = { A: 'WOLF', B: 'VILLAGER', C: 'VILLAGER' } as any;
+    g.alive = new Set(['A','B']);
+    expect(winner(g)).toBe('WOLVES');
+  });
+
 });
+

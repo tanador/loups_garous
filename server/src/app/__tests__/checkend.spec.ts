@@ -41,7 +41,7 @@ describe('CHECK_END after RESOLVE', () => {
     }
   });
 
-  it('parity after vote triggers a new night', async () => {
+  it('parity after vote yields immediate wolves victory', async () => {
     // Situation : 2 villageois et 1 loup. Le village élimine B.
     // Il reste alors un villageois (A) et un loup (W) -> parité.
     // La partie doit continuer vers une nouvelle nuit sans déclarer de vainqueur.
@@ -67,12 +67,14 @@ describe('CHECK_END after RESOLVE', () => {
     // Tous les survivants doivent désormais accuser réception (nouvelle règle)
     orch.dayAck(game.id, 'A');
     orch.dayAck(game.id, 'W');
-    // Simule la transition planifiée vers la nuit
-    (orch as any).beginNightWolves(game);
+    // Les loups prennent l'avantage : la partie se termine aussitôt.
+    await new Promise((r) => setTimeout(r, 0));
 
     const ended = io.emits.find(e => e.event === 'game:ended');
-    expect(ended).toBeUndefined();
-    expect(game.state).toBe('NIGHT_WOLVES');
+    expect(ended?.payload?.winner).toBe('WOLVES');
+    expect(game.state).toBe('END');
+    expect(Array.from(game.alive.values())).toEqual(['W']);
+    expect(game.alive.has('A')).toBe(false);
   });
 
   it('wolves win after night when last villager dies', async () => {
@@ -123,3 +125,5 @@ describe('CHECK_END after RESOLVE', () => {
     }
   });
 });
+
+

@@ -5,7 +5,8 @@ import '../state/models.dart';
 import '../utils/app_logger.dart';
 import 'death_skull_animation.dart';
 import 'hunter_screen.dart';
-import 'connect_screen.dart';
+// Note: éviter de pousser ConnectScreen directement; revenir à la racine
+// (_HomeRouter) pour laisser le routeur refléter l'état courant.
 
 // Écran affiché aux joueurs éliminés.
 
@@ -110,11 +111,8 @@ class _DeadScreenState extends ConsumerState<DeadScreen> {
               } catch (e, st) {
                 AppLogger.log('leaveToHome exception: $e', stackTrace: st);
               } finally {
-                // Retour fiable à l'accueil, en purgant toute la pile.
-                nav.pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const ConnectScreen()),
-                  (route) => false,
-                );
+                // Revenir à la route racine (home: _HomeRouter).
+                nav.popUntil((route) => route.isFirst);
               }
             },
             child: const Text('Quitter'),

@@ -3,6 +3,7 @@ import { canTransition, setState } from "../../../domain/fsm.js";
 import {
   alivePlayers,
   computeNightDeaths,
+  enforceWolvesDomination,
   onPlayerDeath,
   resolveDeaths,
   winner,
@@ -82,6 +83,7 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
     const pending = deps.pendingHunters.get(game.id) ?? [];
     const win = pending.length > 0 ? null : winner(game);
     if (win) {
+      if (win === "WOLVES") enforceWolvesDomination(game);
       setState(game, "END");
       ctx.helpers.broadcastState(game);
       deps.emitGameEnded(game, win);
@@ -230,6 +232,7 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
 
     const win = winner(game);
     if (win) {
+      if (win === "WOLVES") enforceWolvesDomination(game);
       setState(game, "END");
       ctx.helpers.broadcastState(game);
       deps.emitGameEnded(game, win);
@@ -245,4 +248,5 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
     handleMorningEnd,
   };
 }
+
 

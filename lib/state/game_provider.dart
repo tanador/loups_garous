@@ -141,18 +141,47 @@ class GameController extends Notifier<GameModel> {
       AppLogger.log('[event] connect');
       // Si nous avions déjà rejoint une partie, tentons de reprendre la session.
       if (state.gameId != null && state.playerId != null) {
-        final ack = await _socketSvc.emitAck('session:resume', {
+        // 1) Lie le contexte d'abord (nouvelle socket après reconnexion)
+        try {
+          await _setContext();
+        } catch (_) {}
+        // 2) Reprend la session et récupère un snapshot
+        var ack = await _socketSvc.emitAck('session:resume', {
           'gameId': state.gameId,
           'playerId': state.playerId,
         });
         AppLogger.log('[ack] session:resume $ack');
         if (ack['ok'] != true) {
-          // Session périmée: nettoie et laisse l'UI recréer proprement
-          state = state.copy(
-              gameId: null, playerId: null, isOwner: false, hasSnapshot: false);
-          await _clearSession();
-        } else {
-          await _setContext();
+          final err = (ack['error'] ?? '').toString();
+          // 2b) En cas de contexte manquant/timeout, retente une seule fois après rebind
+          if (err == 'missing_context' ||
+              err == 'invalid_context' ||
+              err == 'timeout') {
+            try {
+              await _setContext();
+            } catch (_) {}
+            ack = await _socketSvc.emitAck('session:resume', {
+              'gameId': state.gameId,
+              'playerId': state.playerId,
+            });
+            AppLogger.log('[ack] session:resume (retry) $ack');
+          }
+        }
+        if (ack['ok'] != true) {
+          final err = (ack['error'] ?? '').toString();
+          // On ne purge l'état local que si la partie est finie/supprimée.
+          if (err == 'game_finished' || err == 'game_not_found') {
+            state = state.copy(
+                gameId: null,
+                playerId: null,
+                isOwner: false,
+                hasSnapshot: false);
+            await _clearSession();
+          } else {
+            // Conserve l'identité locale et laisse l'UI se resynchroniser.
+            // Un appel explicite à ensureSynced() sera déclenché côté UI (WaitingLobby)
+            // si aucun snapshot n'est présent.
+          }
         }
       }
       // Récupère la liste des parties disponibles dans le lobby.
@@ -448,6 +477,9 @@ class GameController extends Notifier<GameModel> {
       if (you != null) known.add(you);
       if (partnerId != null) known.add(partnerId);
       state = state.copy(loverPartnerId: partnerId, loversKnown: known);
+      try {
+        await _vibrateWakeIfAlive();
+      } catch (_) {}
       AppLogger.log('[evt] lovers:wake partner=$partnerId');
     });
 

@@ -332,6 +332,7 @@ export class Orchestrator {
       }
     }
     const lovers = Array.from(loversSet);
+    for (const player of game.players) this.sendSnapshot(game, player.id);
     const payload = { winner: win, roles, lovers };
     const room = `room:${game.id}`;
     this.io.to(room).emit("game:ended", payload);

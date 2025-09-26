@@ -31,6 +31,7 @@ This document is the contributor guide for this project. It explains structure, 
   - `flutter run -d windows` or `flutter run -d chrome`.
   - Optional: `--dart-define=AUTO_CREATE=true --dart-define=PSEUDO=Alice`.
   - Desktop/web default: `http://localhost:3000`; Android emulator: `http://10.0.2.2:3000`.
+  - Android release (Play Store): always bump `version: x.y.z+N` in `pubspec.yaml` before building an `.aab`, or pass `--build-number N`. The `+N` is Android `versionCode` and must be unique for each Play upload.
 
 Environment versions are defined in the repo:
 - Server: see `server/package.json` (`engines`, deps) and `server/tsconfig.json`.
@@ -89,4 +90,4 @@ Checklist before PR
 - CORS blocked in prod: restrict `cors.origin` properly; align client origin.
 - Flutter file lock (Windows): close the app before `flutter run`/rebuild.
 - Android emulator can’t reach `localhost`: use `http://10.0.2.2:3000`.
-
+- Play Console error "Le code de version X a déjà été utilisé": increment the Android build number (the `+N` in `pubspec.yaml`'s `version`) and rebuild with `flutter build appbundle --release`, or provide a higher `--build-number`.

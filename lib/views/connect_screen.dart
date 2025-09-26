@@ -424,24 +424,11 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   child: const Text('Actualiser'),
                 ),
               ];
-              if (gm.gameId != null && gm.phase == GamePhase.LOBBY) {
-                buttons.add(
-                  ElevatedButton(
-                    onPressed: () async {
-                      final err = await ctl.cancelGame();
-                      if (err != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: Colors.red,
-                            content: Text(err),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Annuler ma partie'),
-                  ),
-                );
-              }
+              // Ne pas proposer d'annulation ici : une fois qu'une partie est
+              // créée/jointe (phase LOBBY), le routeur principal bascule vers
+              // l'écran "Salle d'attente" (WaitingLobby) qui contient déjà le
+              // bouton approprié (annuler/quitter). Garder ce bouton ici crée
+              // une redondance et peut embrouiller l'utilisateur.
               if (constraints.maxWidth < 360) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

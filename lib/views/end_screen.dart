@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
 import '../utils/app_logger.dart';
-import 'connect_screen.dart';
+// Note: ne pas naviguer vers ConnectScreen directement; revenir à la racine
+// (_HomeRouter) pour laisser le routeur décider de l'écran selon l'état.
 
 // Écran affiché à la fin de la partie avec le récapitulatif des rôles.
 
@@ -20,6 +21,7 @@ class EndScreen extends ConsumerWidget {
       'LOVERS' => 'Victoire du Couple',
       _ => 'Partie terminée',
     };
+    // Libellé lisible d'un rôle (utilisé pour la ligne descriptive)
     String roleLabel(Role r) => switch (r) {
           Role.WOLF => 'Loup-garou',
           Role.WITCH => 'Sorcière',
@@ -29,6 +31,27 @@ class EndScreen extends ConsumerWidget {
           Role.THIEF => 'Voleur',
           Role.VILLAGER => 'Villageois',
           Role.CUPID => 'Cupidon',
+        };
+    // Icône et couleur représentant visuellement un rôle.
+    IconData roleIcon(Role r) => switch (r) {
+          Role.WOLF => Icons.pets, // patte = loup
+          Role.WITCH => Icons.science, // potion
+          Role.HUNTER => Icons.my_location, // viseur
+          Role.SEER => Icons.visibility, // oeil
+          Role.PETITE_FILLE => Icons.child_care,
+          Role.THIEF => Icons.vpn_key, // voleur/clef
+          Role.VILLAGER => Icons.home,
+          Role.CUPID => Icons.favorite,
+        };
+    Color roleColor(Role r) => switch (r) {
+          Role.WOLF => Colors.redAccent,
+          Role.WITCH => Colors.deepPurple,
+          Role.HUNTER => Colors.orange,
+          Role.SEER => Colors.blue,
+          Role.PETITE_FILLE => Colors.pink,
+          Role.THIEF => Colors.brown,
+          Role.VILLAGER => Colors.green,
+          Role.CUPID => Colors.pinkAccent,
         };
     final roles = s.finalRoles;
     // Détermine qui était amoureux pour l'affichage final.
@@ -52,11 +75,10 @@ class EndScreen extends ConsumerWidget {
               style:
                   const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          // Pour chaque joueur, on affiche une icône d'état en plus du rôle:
-          // - coche verte = vivant
-          // - tête de mort = mort
-          // Cela permet à quelqu'un ne connaissant pas le déroulé d'identifier
-          // visuellement qui a survécu sans devoir interpréter d'autres écrans.
+          // Pour chaque joueur, on affiche:
+          // - une icône de rôle (nouveau)
+          // - une icône d'état (coche verte = vivant / tête de mort = mort)
+          // Cela rend le récap final plus lisible et immédiat.
           for (final (playerId, role) in roles)
             Builder(builder: (context) {
               final alive = s.players
@@ -71,9 +93,16 @@ class EndScreen extends ConsumerWidget {
                   : '$playerId : ${roleLabel(role)}';
               return ListTile(
                 dense: true,
-                leading: alive
-                    ? const Icon(Icons.check_circle, color: Colors.green)
-                    : const Text('☠️', style: TextStyle(fontSize: 20)),
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(roleIcon(role), color: roleColor(role)),
+                    const SizedBox(width: 8),
+                    alive
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : const Text('☠️', style: TextStyle(fontSize: 20)),
+                  ],
+                ),
                 title: Text(text),
               );
             }),
@@ -88,12 +117,9 @@ class EndScreen extends ConsumerWidget {
                 } catch (e, st) {
                   AppLogger.log('leaveToHome exception: $e', stackTrace: st);
                 } finally {
-                  // Garantit un retour fiable à l'accueil, même si des routes
-                  // intermédiaires (ex. options de partie) sont encore empilées.
-                  nav.pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const ConnectScreen()),
-                    (route) => false,
-                  );
+                  // Revenir à la route racine (home: _HomeRouter). Le routeur
+                  // affichera automatiquement l'écran de connexion.
+                  nav.popUntil((route) => route.isFirst);
                 }
               },
               child: const Text('Retour à l\'accueil'))

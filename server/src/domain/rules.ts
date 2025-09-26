@@ -219,7 +219,7 @@ export function computeVoteResult(game: Game): { eliminated: string | null; tall
  *
  * 1. Mixed-camp lovers win as soon as they are the only survivors.
  * 2. Villagers win when no wolf remains.
- * 3. Wolves win when every non-wolf is gone.
+ * 3. Wolves win once they are at least as numerous as the remaining players.
  */
 export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
   const alive = alivePlayers(game);
@@ -237,13 +237,29 @@ export function winner(game: Game): 'WOLVES' | 'VILLAGE' | 'LOVERS' | null {
   // No wolves alive? The village eradicated the threat.
   if (wolves === 0) return 'VILLAGE';
 
-  // Wolves win only when every non-wolf is gone; a tie is not enough.
-  if (nonWolves === 0) return 'WOLVES';
+  // Wolves win as soon as they match or exceed the remaining non-wolves.
+  if (wolves >= nonWolves) return 'WOLVES';
 
   // Otherwise no win condition has been reached yet.
   return null;
 }
 
+
+/**
+ * Remove any surviving non-wolves from the alive set so the final snapshot
+ * reflects that the wolves wiped out the village when they reached parity.
+ * Returns the identifiers that were removed.
+ */
+export function enforceWolvesDomination(game: Game): string[] {
+  const removed: string[] = [];
+  for (const pid of Array.from(game.alive.values())) {
+    if (game.roles[pid] !== 'WOLF') {
+      game.alive.delete(pid);
+      removed.push(pid);
+    }
+  }
+  return removed;
+}
 // Wolves may only target alive non-wolves.
 export function targetsForWolves(game: Game): string[] {
   return nonWolvesAlive(game);
@@ -315,5 +331,7 @@ export function isConsensus(game: Game): { consensus: boolean; target?: string }
   const allSame = choices.every((c) => c === choices[0]);
   return allSame ? { consensus: true, target: choices[0] } : { consensus: false };
 }
+
+
 
 
