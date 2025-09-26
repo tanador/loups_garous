@@ -82,7 +82,18 @@ const String _primaryServerUrl = 'http://Satigny.giize.com:3000';
 const String _fallbackServerUrl = 'http://127.0.0.1:3000';
 const String _connectivityPath = '/connectivity';
 const Duration _probeTimeout = Duration(seconds: 2);
-const String _primaryServerHost = 'satigny.giize.com';
+
+class _ServerResolution {
+  const _ServerResolution({
+    required this.displayUrl,
+    required this.connectUrl,
+    required this.usedFallback,
+  });
+
+  final String displayUrl;
+  final String connectUrl;
+  final bool usedFallback;
+}
 
 // Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
 
@@ -101,7 +112,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text: Platform.isAndroid ? _fallbackServerUrl : _primaryServerUrl);
+    _url = TextEditingController(text:  _primaryServerUrl);
     _loadLastNick().then((_) {
       if (_autoCreate) {
         _autoStart();
@@ -124,93 +135,127 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   Future<void> _connectPreferredServer({bool waitForHandshake = false}) async {
     final trimmed = _url.text.trim();
-    final resolved = await _resolveServerUrl(trimmed);
-    if (mounted && resolved != trimmed) {
-      _url.text = resolved;
+    final resolution = await _resolveServerUrl(trimmed);
+    if (mounted && resolution.displayUrl != trimmed) {
+      _url.text = resolution.displayUrl;
     }
 
-    if (_isConnectedTo(resolved)) {
+    final targetUrl = resolution.connectUrl;
+
+    if (_isConnectedTo(targetUrl)) {
       return;
     }
 
     final shouldWait = waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
-    var connected = await _attemptConnection(resolved, shouldWait);
+    var connected =
+        await _attemptConnection(targetUrl, shouldWait, resolution.displayUrl);
     if (connected || !waitForHandshake) {
       return;
     }
 
-    if (resolved != _fallbackServerUrl) {
+    if (!resolution.usedFallback && targetUrl != _fallbackServerUrl) {
       AppLogger.log(
-        '[connect] remote $_primaryServerHost indisponible, bascule sur localhost',
+        '[connect] remote satigny.giize.com indisponible, bascule sur localhost',
         name: 'ConnectScreen',
       );
-      connected = await _attemptConnection(_fallbackServerUrl, const Duration(seconds: 8));
-      if (connected && mounted) {
-        _url.text = _fallbackServerUrl;
-      }
+      await _attemptConnection(
+        _fallbackServerUrl,
+        const Duration(seconds: 8),
+        resolution.displayUrl,
+      );
       return;
     }
 
-    // Already trying localhost: retry once after a short delay to cover server boot time.
-    await Future.delayed(const Duration(milliseconds: 200));
-    await _attemptConnection(_fallbackServerUrl, const Duration(seconds: 8));
+    if (targetUrl == _fallbackServerUrl) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      await _attemptConnection(
+        _fallbackServerUrl,
+        const Duration(seconds: 8),
+        resolution.displayUrl,
+      );
+    }
   }
 
-  Future<bool> _attemptConnection(String url, Duration waitFor) async {
-    if (_isConnectedTo(url)) {
+  Future<bool> _attemptConnection(
+      String socketUrl, Duration waitFor, String displayUrl) async {
+    if (_isConnectedTo(socketUrl)) {
       return true;
     }
-    await ref.read(gameProvider.notifier).connect(url);
+    await ref
+        .read(gameProvider.notifier)
+        .connect(socketUrl, displayUrl: displayUrl);
     if (waitFor <= Duration.zero) {
-      return _isConnectedTo(url);
+      return _isConnectedTo(socketUrl);
     }
-    final connected = await _waitForHandshake(url, waitFor);
+    final connected = await _waitForHandshake(socketUrl, waitFor);
     return connected;
   }
 
-  bool _isConnectedTo(String url) {
+  bool _isConnectedTo(String socketUrl) {
     final snapshot = ref.read(gameProvider);
-    return snapshot.socketConnected && snapshot.serverUrl == url;
+    return snapshot.socketConnected && snapshot.socketUrl == socketUrl;
   }
 
-  Future<bool> _waitForHandshake(String url, Duration timeout) async {
+  Future<bool> _waitForHandshake(String socketUrl, Duration timeout) async {
     final sw = Stopwatch()..start();
     while (sw.elapsed < timeout) {
-      if (_isConnectedTo(url)) {
+      if (_isConnectedTo(socketUrl)) {
         return true;
       }
       await Future.delayed(const Duration(milliseconds: 100));
     }
-    return _isConnectedTo(url);
+    return _isConnectedTo(socketUrl);
   }
 
-  Future<String> _resolveServerUrl(String rawUrl) async {
+  Future<_ServerResolution> _resolveServerUrl(String rawUrl) async {
     final trimmed = rawUrl.trim();
     final parsed = _parseUrl(trimmed);
     if (parsed == null) {
-      return trimmed.isEmpty ? _fallbackServerUrl : trimmed;
+      final fallback = trimmed.isEmpty ? _fallbackServerUrl : trimmed;
+      return _ServerResolution(
+        displayUrl: fallback,
+        connectUrl: fallback,
+        usedFallback: false,
+      );
     }
     final normalized = parsed.toString();
     if (kIsWeb) {
-      return normalized;
+      return _ServerResolution(
+        displayUrl: normalized,
+        connectUrl: normalized,
+        usedFallback: false,
+      );
     }
 
-    if (parsed.host.toLowerCase() != _primaryServerHost) {
-      return normalized;
+    if (parsed.host.toLowerCase() != 'satigny.giize.com') {
+      return _ServerResolution(
+        displayUrl: normalized,
+        connectUrl: normalized,
+        usedFallback: false,
+      );
     }
 
     final reachable = await _probeConnectivity(parsed);
     if (reachable) {
-      return normalized;
+      return _ServerResolution(
+        displayUrl: normalized,
+        connectUrl: normalized,
+        usedFallback: false,
+      );
     }
 
     if (normalized != _fallbackServerUrl) {
       AppLogger.log(
-        '[connect] remote $_primaryServerHost indisponible, bascule sur localhost',
+        '[connect] remote satigny.giize.com indisponible, bascule sur localhost',
         name: 'ConnectScreen',
       );
     }
-    return _fallbackServerUrl;
+
+    return _ServerResolution(
+      displayUrl: normalized,
+      connectUrl: _fallbackServerUrl,
+      usedFallback: true,
+    );
   }
 
   Uri? _parseUrl(String value) {
@@ -326,7 +371,13 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           const SizedBox(height: 8),
           Row(children: [
             ElevatedButton(
-              onPressed: () async => _connectPreferredServer(waitForHandshake: true),
+              onPressed: () async {
+                await _connectPreferredServer(waitForHandshake: true);
+                if (!mounted) return;
+                if (ref.read(gameProvider).socketConnected) {
+                  await ctl.refreshLobby();
+                }
+              },
               child: Text(gm.socketConnected ? 'Reconnecté' : 'Se connecter'),
             ),
             const SizedBox(width: 8),
@@ -362,16 +413,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             ],
           ]),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Switch(
-                value: gm.vibrations,
-                onChanged: (v) => ctl.toggleVibrations(v),
-              ),
-              const Text('Vibrations'),
-            ],
-          ),
           const Divider(),
+
           const Text('Parties en attente', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Expanded(
@@ -405,3 +448,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     );
   }
 }
+
+
+
+
+

@@ -79,6 +79,8 @@ export class Orchestrator {
       morningRecaps: this.morningRecaps,
       askHunterTarget: (game, hunterId, alive) =>
         this.askHunterTarget(game, hunterId, alive),
+      hunterOptions: (game, hunterId, alive) =>
+        this.hunterOptions(game, hunterId, alive),
       pendingDayAcks: this.pendingDayAcks,
       livingAckProgress: (game, ackSet) => livingAckProgress(game, ackSet),
       emitGameEnded: (game, win) => this.emitGameEnded(game, win),
@@ -154,12 +156,16 @@ export class Orchestrator {
     this.night.loversAck(gameId, playerId);
   }
 
-  seerProbe(gameId: string, playerId: string, targetId: string) {
-    this.night.seerProbe(gameId, playerId, targetId);
-  }
-
   private beginNightSeer(game: Game) {
     this.night.beginNightSeer(game);
+  }
+
+  private beginNightWolves(game: Game) {
+    this.night.beginNightWolves(game);
+  }
+
+  private beginNightWitch(game: Game) {
+    this.night.beginNightWitch(game);
   }
 
   seerPeek(gameId: string, playerId: string, targetId: string) {
@@ -242,6 +248,11 @@ export class Orchestrator {
     return { id: p.id };
   }
 
+  private hunterOptions(game: Game, hunterId: string, pool: string[]) {
+    const lover = game.players.find((p) => p.id === hunterId)?.loverId;
+    return pool.filter((pid) => pid !== hunterId && pid !== lover);
+  }
+
   private askHunterTarget(
     game: Game,
     hunterId: string,
@@ -254,8 +265,7 @@ export class Orchestrator {
         resolve(undefined);
         return;
       }
-      const lover = game.players.find((p) => p.id === hunterId)?.loverId;
-      const options = alive.filter((pid) => pid !== hunterId && pid !== lover);
+      const options = this.hunterOptions(game, hunterId, alive);
 
       const key = `${game.id}:${hunterId}`;
       const rawSeconds = Number(CONFIG.DELAI_CHASSEUR_SECONDES);
@@ -417,3 +427,4 @@ export class Orchestrator {
     logger.info({ gameId, phase, playerId, event, ...extra });
   }
 }
+

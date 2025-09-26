@@ -22,6 +22,14 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(gameProvider);
+    final ctl = ref.read(gameProvider.notifier);
+
+    // Register listeners during build as required by WidgetRef.listen
     ref.listen<List<String>>(
       gameProvider.select((s) => s.voteAlive.map((e) => e.id).toList()),
       (prev, next) {
@@ -57,12 +65,6 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
         }
       },
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = ref.watch(gameProvider);
-    final ctl = ref.read(gameProvider.notifier);
 
     final isResolve = s.phase == GamePhase.RESOLVE;
     final you = s.playerId;
@@ -199,18 +201,24 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
                       : (hasVoted ? Colors.green : null),
                 ),
                 child: showSpinner
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(busyLabel),
-                        ],
+                    ? Center(
+                        child: Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            Text(
+                              busyLabel,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       )
                     : Text(buttonLabel),
               ),

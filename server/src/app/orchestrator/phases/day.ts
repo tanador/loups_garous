@@ -29,6 +29,7 @@ export type DayApiDependencies = {
     hunterId: string,
     alive: string[],
   ) => Promise<string | undefined>;
+  hunterOptions: (game: Game, hunterId: string, alive: string[]) => string[];
   pendingDayAcks: Set<string>;
   livingAckProgress: (game: Game, ackSet: Set<string>) => { acked: number; needed: number };
   emitGameEnded: (game: Game, win: string) => void;
@@ -159,8 +160,7 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
     if (pending.length > 0 && recap) {
       for (const hid of pending) {
         const alive = alivePlayers(game);
-        const loverId = game.players.find((p) => p.id === hid)?.loverId;
-        const options = alive.filter((pid) => pid !== hid && pid !== loverId);
+        const options = deps.hunterOptions(game, hid, alive);
 
         let target: string | undefined;
         if (options.length === 0) {
@@ -168,7 +168,7 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
             alive: alive.length,
           });
         } else {
-          target = await deps.askHunterTarget(game, hid, alive);
+          target = await deps.askHunterTarget(game, hid, options);
         }
 
         if (target && game.alive.has(target)) {
@@ -188,7 +188,7 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
         if ((target && game.alive.has(target)) || hadDeferredGrief || hasPendingDeaths) {
           const { deaths, hunterShots } = await resolveDeaths(
             game,
-            (hunterId, aliveIds) => deps.askHunterTarget(game, hunterId, aliveIds),
+            (hunterId, aliveIds) => deps.askHunterTarget(game, hunterId, deps.hunterOptions(game, hunterId, aliveIds)),
           );
           if (deaths.length > 0) {
             recap.deaths.push(
@@ -245,3 +245,4 @@ export function createDayApi(ctx: OrchestratorContext, deps: DayApiDependencies)
     handleMorningEnd,
   };
 }
+

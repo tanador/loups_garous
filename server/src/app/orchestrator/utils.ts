@@ -14,21 +14,21 @@ export function setDeadline(_ctx: OrchestratorContext, game: Game, ms: number) {
 
 export function scheduleTimer(
   ctx: OrchestratorContext,
-  gameId: string,
+  key: string,
   ms: number,
   cb: () => void,
 ) {
-  const previous = ctx.timers.get(gameId);
+  const previous = ctx.timers.get(key);
   if (previous) clearTimeout(previous);
   const timer = setTimeout(cb, ms);
-  ctx.timers.set(gameId, timer);
+  ctx.timers.set(key, timer);
 }
 
-export function cancelTimer(ctx: OrchestratorContext, gameId: string) {
-  const previous = ctx.timers.get(gameId);
+export function cancelTimer(ctx: OrchestratorContext, key: string) {
+  const previous = ctx.timers.get(key);
   if (!previous) return;
   clearTimeout(previous);
-  ctx.timers.delete(gameId);
+  ctx.timers.delete(key);
 }
 
 export function limit(

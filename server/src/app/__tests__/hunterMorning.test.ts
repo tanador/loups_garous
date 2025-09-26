@@ -224,7 +224,7 @@ describe('hunter death handling', () => {
         const [, hunterId, alive] = rawArgs as [unknown, string, string[]];
         expect(hunterId).toBe('A');
         // Lover B should still be alive until grief resolves, so she is excluded from valid targets
-        expect(alive).toEqual(['B', 'C', 'D', 'E']);
+        expect(alive).toEqual(['C', 'D', 'E']);
         return 'E';
       });
 

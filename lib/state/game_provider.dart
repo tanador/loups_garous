@@ -1,15 +1,12 @@
 // Couche "state": gestion de l'état global et des interactions avec le serveur.
 // Le [GameController] ci-dessous centralise toute la logique métier côté client.
 import 'dart:async';
-import 'package:flutter/services.dart';
 import '../utils/app_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'package:vibration/vibration.dart';
 
 final gameProvider =
     NotifierProvider<GameController, GameModel>(GameController.new);
@@ -95,6 +92,8 @@ class GameController extends Notifier<GameModel> {
   /// Réinitialise complètement l'état du jeu côté client.
   void _resetGameState() {
     state = state.copy(
+      socketUrl: null,
+      socketConnected: false,
       gameId: null,
       playerId: null,
       isOwner: false,
@@ -125,9 +124,13 @@ class GameController extends Notifier<GameModel> {
   // ------------- Cycle de vie du socket -------------
   /// Ouvre une connexion Socket.IO et enregistre tous les listeners nécessaires.
   /// Cette méthode prépare également la reprise d'une session existante si possible.
-  Future<void> connect(String url) async {
+  Future<void> connect(String url, {String? displayUrl}) async {
     final io.Socket s = _socketSvc.connect(url);
-    state = state.copy(serverUrl: url, socketConnected: false);
+    state = state.copy(
+      serverUrl: displayUrl ?? url,
+      socketUrl: url,
+      socketConnected: false,
+    );
     await _saveSession();
 
     s.on('connect', (_) async {
@@ -196,7 +199,6 @@ class GameController extends Notifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final closing = data['closingEyes'] == true;
-      final vibCfg = _parseVibrationConfig(data['config']);
       // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
       final loverPartnerId =
           phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
@@ -213,25 +215,15 @@ class GameController extends Notifier<GameModel> {
         hunterPending: data['hunterPending'] == true,
         youVoted: phase == GamePhase.VOTE ? state.youVoted : false,
         dayVoteRecap: clearDayRecap,
-        vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
-        vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
-        vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
-        vibrationForce: vibCfg?.force ?? state.vibrationForce,
         roleRevealUntilMs:
             phase == GamePhase.ROLES ? state.roleRevealUntilMs : null,
         youReadyLocal: leavingRoles ? false : state.youReadyLocal,
       );
-      if (previousPhase != phase &&
-          GameController.shouldVibrateWake(state, phase)) {
-        try {
-          await _vibrateWakeIfAlive();
-        } catch (_) {}
-      }
+
       AppLogger.log('[evt] game:stateChanged $phase deadline=$deadline');
     });
 
     s.on('game:snapshot', (data) async {
-      final wasClosing = state.closingEyes;
       final wasAliveBefore = _youAlive();
       // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
@@ -250,7 +242,6 @@ class GameController extends Notifier<GameModel> {
       final deadline = data['deadline'] as int?;
       final closing = data['closingEyes'] == true;
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
-      final vibCfg = _parseVibrationConfig(data['config']);
       final snapshotGameId = data['id']?.toString();
       // Si nous n'avions pas encore les identifiants (fallback quand l'ACK a échoué),
       // les récupérer depuis le snapshot pour permettre à l'UI d'avancer.
@@ -271,10 +262,6 @@ class GameController extends Notifier<GameModel> {
         maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
-        vibrationPulses: vibCfg?.pulses ?? state.vibrationPulses,
-        vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
-        vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
-        vibrationForce: vibCfg?.force ?? state.vibrationForce,
         youVoted: phase == GamePhase.VOTE ? state.youVoted : false,
         // Déclenche l'animation si l'on apprend via snapshot qu'on vient de mourir
         showDeathAnim: state.showDeathAnim ||
@@ -287,11 +274,7 @@ class GameController extends Notifier<GameModel> {
                     )
                     .alive)),
       );
-      if (wasClosing && !closing) {
-        try {
-          await _vibrateWakeIfAlive();
-        } catch (_) {}
-      }
+
       // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
       // et persiste la session afin d'éviter toute désynchronisation.
       if ((snapshotGameId != null || youId != null) &&
@@ -344,7 +327,6 @@ class GameController extends Notifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(seerTargets: list);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log('[evt] seer:wake targets=${list.length}');
     });
 
@@ -382,7 +364,6 @@ class GameController extends Notifier<GameModel> {
           wolvesLockedTargetId: null,
           confirmationsRemaining: 0,
           wolvesLastTally: null);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log('[evt] wolves:wake targets=${list.length}');
     });
 
@@ -418,7 +399,6 @@ class GameController extends Notifier<GameModel> {
         alive: alive,
       );
       state = state.copy(witchWake: ww);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log(
           '[evt] witch:wake attacked=${ww.attacked} heal=${ww.healAvailable} poison=${ww.poisonAvailable}');
     });
@@ -430,7 +410,6 @@ class GameController extends Notifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(cupidTargets: list);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log('[evt] cupid:wake targets=${list.length}');
     });
 
@@ -442,7 +421,6 @@ class GameController extends Notifier<GameModel> {
       if (you != null) known.add(you);
       if (partnerId != null) known.add(partnerId);
       state = state.copy(loverPartnerId: partnerId, loversKnown: known);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log('[evt] lovers:wake partner=$partnerId');
     });
 
@@ -465,7 +443,6 @@ class GameController extends Notifier<GameModel> {
           .map((j) => Lite(id: j['id']))
           .toList();
       state = state.copy(hunterTargets: alive);
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log('[evt] hunter:wake targets=${alive.length}');
     });
 
@@ -503,7 +480,6 @@ class GameController extends Notifier<GameModel> {
           // Ne jamais écraser un déclenchement d'animation déjà en cours
           showDeathAnim: state.showDeathAnim || youDiedNow,
         );
-        if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
         AppLogger.log(
             '[evt] day:recap (day) eliminated=${eliminated.length} votes=${votes.length}');
         return;
@@ -546,7 +522,6 @@ class GameController extends Notifier<GameModel> {
         // Ne pas annuler une animation déjà déclenchée par un événement précédent
         showDeathAnim: state.showDeathAnim || youDiedNow,
       );
-      if (state.vibrations && _youAlive()) await HapticFeedback.vibrate();
       AppLogger.log(
           '[evt] day:recap (morning) deaths=${deaths.length} hunterKills=${hunterKills.length}');
     });
@@ -621,7 +596,6 @@ class GameController extends Notifier<GameModel> {
           .map((j) => roleFromStr(j['role'] as String))
           .toList();
       state = state.copy(thiefCenter: center);
-      if (state.vibrations) await HapticFeedback.vibrate();
       AppLogger.log(
           '[evt] thief:wake center=${center.map((r) => r.name).join("/")}');
     });
@@ -751,38 +725,6 @@ class GameController extends Notifier<GameModel> {
   }
 
   Future<void> refreshLobby() => _listGames();
-
-  Future<void> toggleVibrations(bool on) async {
-    state = state.copy(vibrations: on);
-  }
-
-  @visibleForTesting
-  static bool shouldVibrateWake(GameModel snapshot, GamePhase phase) {
-    final role = snapshot.role;
-    switch (phase) {
-      case GamePhase.NIGHT_THIEF:
-        return role == Role.THIEF;
-      case GamePhase.NIGHT_CUPID:
-        return role == Role.CUPID;
-      case GamePhase.NIGHT_LOVERS:
-        final me = snapshot.playerId;
-        if (me == null) return false;
-        if (snapshot.loverPartnerId != null) return true;
-        return snapshot.loversKnown.contains(me);
-      case GamePhase.NIGHT_SEER:
-        return role == Role.SEER;
-      case GamePhase.NIGHT_WOLVES:
-        return role == Role.WOLF;
-      case GamePhase.NIGHT_WITCH:
-        return role == Role.WITCH;
-      case GamePhase.MORNING:
-      case GamePhase.VOTE:
-        return true;
-      default:
-        return false;
-    }
-  }
-
   // ------------- Context & ready -------------
   Future<void> _setContext() async {
     final ack = await _socketSvc.emitAck('context:set', {
@@ -838,103 +780,11 @@ class GameController extends Notifier<GameModel> {
   }
 
   // Vibrations au réveil: pattern configurable côté serveur, uniquement si le joueur local est vivant.
-  Future<void> _vibrateWakeIfAlive() async {
-    try {
-      final meId = state.playerId;
-      if (meId == null) return;
-      final me = state.players.firstWhere(
-        (p) => p.id == meId,
-        orElse: () => const PlayerView(id: '', connected: true, alive: true),
-      );
-      if (!me.alive) return;
-      if (!state.vibrations) return;
 
-      final pulses = state.vibrationPulses;
-      final pulseMs = state.vibrationPulseMs;
-      final pauseMs = state.vibrationPauseMs;
-      if (pulses <= 0 || pulseMs <= 0) return;
-      final amplitude = state.vibrationForce < 1
-          ? 1
-          : (state.vibrationForce > 255 ? 255 : state.vibrationForce);
-      final totalMs = _totalVibrationDuration(pulses, pulseMs, pauseMs);
 
-      if (await Vibration.hasVibrator()) {
-        final supportsCustom = await Vibration.hasCustomVibrationsSupport();
-        final supportsAmplitude = await Vibration.hasAmplitudeControl();
-        final pattern = <int>[0];
-        final intensities = <int>[0];
-        for (var i = 0; i < pulses; i++) {
-          pattern.add(pulseMs);
-          intensities.add(amplitude);
-          if (i < pulses - 1) {
-            pattern.add(pauseMs);
-            intensities.add(0);
-          }
-        }
-        try {
-          if (supportsCustom) {
-            if (supportsAmplitude) {
-              await Vibration.vibrate(
-                  pattern: pattern, intensities: intensities);
-            } else {
-              await Vibration.vibrate(pattern: pattern);
-            }
-          } else if (supportsAmplitude && totalMs > 0) {
-            await Vibration.vibrate(duration: totalMs, amplitude: amplitude);
-          } else if (totalMs > 0) {
-            await Vibration.vibrate(duration: totalMs);
-          }
-        } catch (_) {
-          if (supportsAmplitude && totalMs > 0) {
-            await Vibration.vibrate(duration: totalMs, amplitude: amplitude);
-          } else if (totalMs > 0) {
-            await Vibration.vibrate(duration: totalMs);
-          }
-        }
-      } else {
-        for (var i = 0; i < pulses; i++) {
-          try {
-            await HapticFeedback.mediumImpact();
-          } catch (_) {}
-          final wait = pulseMs + (i < pulses - 1 ? pauseMs : 0);
-          if (wait > 0) await Future.delayed(Duration(milliseconds: wait));
-        }
-      }
-    } catch (_) {}
-  }
 
-  static int _totalVibrationDuration(int pulses, int pulseMs, int pauseMs) {
-    if (pulses <= 0 || pulseMs <= 0) return 0;
-    final betweenTotal =
-        pulses > 1 ? (pulses - 1) * (pauseMs < 0 ? 0 : pauseMs) : 0;
-    return pulses * pulseMs + betweenTotal;
-  }
 
-  static int? _clampConfigInt(dynamic value,
-      {required int min, required int max}) {
-    if (value is num && value.isFinite) {
-      final intVal = value.toInt();
-      if (intVal < min) return min;
-      if (intVal > max) return max;
-      return intVal;
-    }
-    return null;
-  }
 
-  static ({int? pulses, int? pulseMs, int? pauseMs, int? force})?
-      _parseVibrationConfig(dynamic raw) {
-    if (raw is! Map) return null;
-    final source = raw['vibrations'];
-    final map = source is Map ? source : raw;
-    final pulses = _clampConfigInt(map['count'], min: 0, max: 200);
-    final pulseMs = _clampConfigInt(map['pulseMs'], min: 0, max: 60000);
-    final pauseMs = _clampConfigInt(map['pauseMs'], min: 0, max: 60000);
-    final force = _clampConfigInt(map['amplitude'], min: 1, max: 255);
-    if (pulses == null && pulseMs == null && pauseMs == null && force == null) {
-      return null;
-    }
-    return (pulses: pulses, pulseMs: pulseMs, pauseMs: pauseMs, force: force);
-  }
 
   bool _youAlive() {
     try {

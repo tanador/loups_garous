@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/game_provider.dart';
 import '../../state/models.dart';
 import '../widgets/common.dart';
-import 'package:flutter/services.dart';
 
 /// Écran privé du Voleur (Nuit 0).
 /// Affiche les 2 cartes du centre et propose:
@@ -50,7 +49,6 @@ class ThiefView extends ConsumerWidget {
                             if (err != null) {
                               messenger.showSnackBar(SnackBar(content: Text(err)));
                             } else {
-                              if (s.vibrations) await HapticFeedback.selectionClick();
                               // Pas de notification de prise pour préserver la confidentialité
                             }
                           }
@@ -71,7 +69,6 @@ class ThiefView extends ConsumerWidget {
                             if (err != null) {
                               messenger.showSnackBar(SnackBar(content: Text(err)));
                             } else {
-                              if (s.vibrations) await HapticFeedback.selectionClick();
                               // Pas de notification de prise pour préserver la confidentialité
                             }
                           }
@@ -94,7 +91,6 @@ class ThiefView extends ConsumerWidget {
                       if (err != null) {
                         messenger.showSnackBar(SnackBar(content: Text(err)));
                       } else {
-                        if (s.vibrations) await HapticFeedback.selectionClick();
                         messenger.showSnackBar(
                           const SnackBar(content: Text('Vous gardez votre carte.')),
                         );

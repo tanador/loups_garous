@@ -33,7 +33,7 @@ const mkP = (id: string): Player => ({
   lastSeen: Date.now(),
 } as any);
 
-// Utilisation directe de `seerProbe` sans passer par l'orchestration complète.
+// Utilisation directe de `seerPeek` sans passer par l'orchestration complète.
 describe('Seer probes', () => {
   let io: FakeServer;
   let orch: Orchestrator;
@@ -72,13 +72,13 @@ describe('Seer probes', () => {
       wolvesChoices: {},
       morningAcks: new Set(),
       loversMode: null,
-      privateLog: {} as any,
+      privateLog: [] as any,
     };
     (orch as any).store.put(game);
   });
 
   it('reveals exact role only to the seer for a living target', () => {
-    orch.seerProbe(game.id, 'SEER', 'B');
+    orch.seerPeek(game.id, 'SEER', 'B');
     expect(seerSock.events).toEqual([
       { event: 'seer:reveal', payload: { playerId: 'B', role: 'WOLF' } },
     ]);
@@ -88,16 +88,16 @@ describe('Seer probes', () => {
   });
 
   it('rejects self or dead targets with an error and no reveal', () => {
-    expect(() => orch.seerProbe(game.id, 'SEER', 'SEER')).toThrow();
+    expect(() => orch.seerPeek(game.id, 'SEER', 'SEER')).toThrowError('invalid_target');
     game.alive.delete('B');
-    expect(() => orch.seerProbe(game.id, 'SEER', 'B')).toThrow();
+    expect(() => orch.seerPeek(game.id, 'SEER', 'B')).toThrowError('invalid_target');
     expect(seerSock.events.length).toBe(0);
   });
 
   it('reflects role changes made by thief before the probe', () => {
     game.roles.THIEF = 'VILLAGER' as any;
     game.roles.A = 'THIEF' as any;
-    orch.seerProbe(game.id, 'SEER', 'A');
+    orch.seerPeek(game.id, 'SEER', 'A');
     expect(seerSock.events[0]).toEqual({
       event: 'seer:reveal',
       payload: { playerId: 'A', role: 'THIEF' },
@@ -105,11 +105,11 @@ describe('Seer probes', () => {
   });
 
   it('keeps reveal result in privateLog if seer later dies', () => {
-    orch.seerProbe(game.id, 'SEER', 'B');
+    orch.seerPeek(game.id, 'SEER', 'B');
     game.alive.delete('SEER');
-    expect((game as any).privateLog.SEER).toEqual([
-      { playerId: 'B', role: 'WOLF' },
-    ]);
+    const logs = (game as any).privateLog ?? [];
+    expect(Array.isArray(logs)).toBe(true);
+    expect(logs).toContainEqual(expect.objectContaining({ seer: 'SEER', target: 'B', role: 'WOLF' }));
   });
 });
 
@@ -175,3 +175,4 @@ describe('Seer peek flow', () => {
     expect((game as any).privateLog[0].target).toBe('A');
   });
 });
+

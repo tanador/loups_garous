@@ -218,19 +218,6 @@ export function createNightApi(ctx: OrchestratorContext) {
     }
   }
 
-  function seerProbe(gameId: string, playerId: string, targetId: string) {
-    const game = mustGet(ctx, gameId);
-    if (game.state !== "NIGHT_SEER") throw new Error("bad_state");
-    if (game.roles[playerId] !== "SEER") throw new Error("forbidden");
-    if (playerId === targetId) throw new Error("cannot_probe_self");
-    if (!game.alive.has(targetId)) throw new Error("invalid_probe_target");
-    const role = game.roles[targetId];
-    const socket = ctx.io.sockets.sockets.get(game.players.find((p) => p.id === playerId)?.socketId ?? "");
-    if (socket) socket.emit("seer:reveal", { playerId: targetId, role });
-    (game as any).privateLog = (game as any).privateLog ?? {};
-    ((game as any).privateLog[playerId] = (game as any).privateLog[playerId] ?? []).push({ playerId: targetId, role });
-    ctx.log(game.id, game.state, playerId, "seer.probe", { targetId });
-  }
 
   function beginNightSeer(game: Game) {
     if (!canTransition(game, game.state, "NIGHT_SEER")) return;
@@ -458,7 +445,6 @@ export function createNightApi(ctx: OrchestratorContext) {
     beginNightLovers,
     loversAck,
     endNightLovers,
-    seerProbe,
     beginNightSeer,
     seerPeek,
     seerAck,
@@ -471,3 +457,4 @@ export function createNightApi(ctx: OrchestratorContext) {
     endNightWitch,
   };
 }
+
