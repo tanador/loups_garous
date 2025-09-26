@@ -21,7 +21,12 @@ final String _paramNick = (() {
   try {
     if (!kIsWeb) {
       final env = Platform.environment;
-      final v = (env['_paramNick'] ?? env['_PARAMNICK'] ?? env['PARAMNICK'] ?? env['PSEUDO'] ?? '').trim();
+      final v = (env['_paramNick'] ??
+              env['_PARAMNICK'] ??
+              env['PARAMNICK'] ??
+              env['PSEUDO'] ??
+              '')
+          .trim();
       if (v.isNotEmpty) return v;
     }
   } catch (_) {}
@@ -35,7 +40,10 @@ final bool _autoCreate = (() {
   try {
     if (!kIsWeb) {
       final env = Platform.environment;
-      final raw = env['_autoCreate'] ?? env['_AUTOCREATE'] ?? env['AUTOCREATE'] ?? env['AUTO_CREATE'];
+      final raw = env['_autoCreate'] ??
+          env['_AUTOCREATE'] ??
+          env['AUTOCREATE'] ??
+          env['AUTO_CREATE'];
       if (raw != null) {
         final s = raw.toLowerCase();
         if (s == '1' || s == 'true' || s == 'yes' || s == 'y') return true;
@@ -43,10 +51,9 @@ final bool _autoCreate = (() {
     }
   } catch (_) {}
   const byKey = bool.fromEnvironment('_autoCreate', defaultValue: false);
-const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
-return byKey || legacy;
+  const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
+  return byKey || legacy;
 })();
-
 
 // Nombre de joueurs pour l'auto-création (si _autoCreate est activé).
 // Sources prises en compte, par ordre de priorité :
@@ -60,12 +67,18 @@ final int _autoMaxPlayers = (() {
       final s = v.toString().trim();
       if (s.isEmpty) return -1;
       return int.parse(s);
-    } catch (_) { return -1; }
+    } catch (_) {
+      return -1;
+    }
   }
+
   try {
     if (!kIsWeb) {
       final env = Platform.environment;
-      final raw = env['_maxPlayers'] ?? env['_AUTOMAXPLAYERS'] ?? env['AUTOMAXPLAYERS'] ?? env['AUTO_MAX_PLAYERS'];
+      final raw = env['_maxPlayers'] ??
+          env['_AUTOMAXPLAYERS'] ??
+          env['AUTOMAXPLAYERS'] ??
+          env['AUTO_MAX_PLAYERS'];
       final n = parseInt(raw);
       if (n > 0) return n;
     }
@@ -75,8 +88,6 @@ final int _autoMaxPlayers = (() {
   final n = byKey != 4 ? byKey : legacy;
   return n > 0 ? n : 4;
 })();
-
-
 
 const String _primaryServerUrl = 'http://Satigny.giize.com:3000';
 const String _fallbackServerUrl = 'http://127.0.0.1:3000';
@@ -106,13 +117,15 @@ class ConnectScreen extends ConsumerStatefulWidget {
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   late final TextEditingController _url;
   final _nick = TextEditingController(text: _paramNick);
-  static bool _autoRan = false; // évite de relancer autoCreate après un retour au ConnectScreen
-  static bool _autoClientRan = false; // évite de relancer l'auto connexion/join via PSEUDO
+  static bool _autoRan =
+      false; // évite de relancer autoCreate après un retour au ConnectScreen
+  static bool _autoClientRan =
+      false; // évite de relancer l'auto connexion/join via PSEUDO
 
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text:  _primaryServerUrl);
+    _url = TextEditingController(text: _primaryServerUrl);
     _loadLastNick().then((_) {
       if (_autoCreate) {
         _autoStart();
@@ -146,7 +159,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       return;
     }
 
-    final shouldWait = waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
+    final shouldWait =
+        waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
     var connected =
         await _attemptConnection(targetUrl, shouldWait, resolution.displayUrl);
     if (connected || !waitForHandshake) {
@@ -266,7 +280,9 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     try {
       final direct = Uri.parse(trimmed);
       if (direct.hasScheme) {
-        return (direct.scheme == 'http' || direct.scheme == 'https') ? direct : null;
+        return (direct.scheme == 'http' || direct.scheme == 'https')
+            ? direct
+            : null;
       }
     } catch (_) {}
     try {
@@ -297,7 +313,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
   }
 
-
   Future<void> _autoConnectAndJoinIfPossible() async {
     if (_autoClientRan) return;
     final ctl = ref.read(gameProvider.notifier);
@@ -306,7 +321,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     await _saveNick();
     // Rafraîchit et attend la liste de parties du lobby
     await ctl.refreshLobby();
-    for (int i = 0; i < 50; i++) { // ~5s max
+    for (int i = 0; i < 50; i++) {
+      // ~5s max
       await Future.delayed(const Duration(milliseconds: 100));
       final lobby = ref.read(gameProvider).lobby;
       if (lobby.isNotEmpty) break;
@@ -361,7 +377,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          TextField(controller: _url, decoration: const InputDecoration(labelText: 'URL serveur (http://IP:3000)')),
+          TextField(
+              controller: _url,
+              decoration: const InputDecoration(
+                  labelText: 'URL serveur (http://IP:3000)')),
           const SizedBox(height: 8),
           TextField(
             controller: _nick,
@@ -369,53 +388,82 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             onChanged: (_) => _saveNick(),
           ),
           const SizedBox(height: 8),
-          Row(children: [
-            ElevatedButton(
-              onPressed: () async {
-                await _connectPreferredServer(waitForHandshake: true);
-                if (!mounted) return;
-                if (ref.read(gameProvider).socketConnected) {
-                  await ctl.refreshLobby();
-                }
-              },
-              child: Text(gm.socketConnected ? 'Reconnecté' : 'Se connecter'),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: gm.socketConnected
-                  ? () async {
-                      await _saveNick();
-                      if (!context.mounted) return;
-                      await Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => GameOptionsScreen(nickname: _nick.text.trim())));
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final buttons = <Widget>[
+                ElevatedButton(
+                  onPressed: () async {
+                    await _connectPreferredServer(waitForHandshake: true);
+                    if (!mounted) return;
+                    if (ref.read(gameProvider).socketConnected) {
+                      await ctl.refreshLobby();
                     }
-                  : null,
-              child: const Text('Créer partie'),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: gm.socketConnected ? () => ctl.refreshLobby() : null,
-              child: const Text('Actualiser'),
-            ),
-            if (gm.gameId != null && gm.phase == GamePhase.LOBBY) ...[
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  final err = await ctl.cancelGame();
-                  if (err != null && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(backgroundColor: Colors.red, content: Text(err)),
-                    );
-                  }
-                },
-                child: const Text('Annuler ma partie'),
-              ),
-            ],
-          ]),
+                  },
+                  child: Text(
+                    gm.socketConnected ? 'Reconnecté' : 'Se connecter',
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: gm.socketConnected
+                      ? () async {
+                          await _saveNick();
+                          if (!context.mounted) return;
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => GameOptionsScreen(
+                                  nickname: _nick.text.trim()),
+                            ),
+                          );
+                        }
+                      : null,
+                  child: const Text('Créer partie'),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      gm.socketConnected ? () => ctl.refreshLobby() : null,
+                  child: const Text('Actualiser'),
+                ),
+              ];
+              if (gm.gameId != null && gm.phase == GamePhase.LOBBY) {
+                buttons.add(
+                  ElevatedButton(
+                    onPressed: () async {
+                      final err = await ctl.cancelGame();
+                      if (err != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: Colors.red,
+                            content: Text(err),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Annuler ma partie'),
+                  ),
+                );
+              }
+              if (constraints.maxWidth < 360) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < buttons.length; i++) ...[
+                      buttons[i],
+                      if (i != buttons.length - 1) const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              }
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: buttons,
+              );
+            },
+          ),
           const SizedBox(height: 16),
           const Divider(),
-
-          const Text('Parties en attente', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Parties en attente',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
@@ -424,7 +472,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                 final g = gm.lobby[i];
                 return ListTile(
                   title: Text(g.id),
-                  subtitle: Text('Joueurs ${g.players}/${g.maxPlayers} • places ${g.slots}'),
+                  subtitle: Text(
+                      'Joueurs ${g.players}/${g.maxPlayers} • places ${g.slots}'),
                   onTap: gm.socketConnected
                       ? () async {
                           await _saveNick();
@@ -448,8 +497,3 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     );
   }
 }
-
-
-
-
-

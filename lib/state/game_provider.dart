@@ -240,6 +240,7 @@ class GameController extends Notifier<GameModel> {
     s.on('game:snapshot', (data) async {
       final wasClosing = state.closingEyes;
       final wasAliveBefore = _youAlive();
+      final hadContextBefore = state.gameId != null && state.playerId != null;
       // sync full snapshot
       final players = ((data['players'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e))
@@ -263,6 +264,8 @@ class GameController extends Notifier<GameModel> {
       // les récupérer depuis le snapshot pour permettre à l'UI d'avancer.
       final nextGameId = state.gameId ?? snapshotGameId;
       final nextPlayerId = state.playerId ?? youId;
+      final gainedContext =
+          !hadContextBefore && nextGameId != null && nextPlayerId != null;
       final isOwner = players.isNotEmpty &&
           nextPlayerId != null &&
           players.first.id == nextPlayerId;
@@ -302,8 +305,7 @@ class GameController extends Notifier<GameModel> {
       }
       // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
       // et persiste la session afin d'éviter toute désynchronisation.
-      if ((snapshotGameId != null || youId != null) &&
-          (state.gameId != null && state.playerId != null)) {
+      if (gainedContext) {
         try {
           await _setContext();
         } catch (_) {}

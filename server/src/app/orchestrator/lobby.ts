@@ -114,6 +114,10 @@ export function createLobbyApi(ctx: OrchestratorContext) {
   function resume(gameId: string, playerId: string, socket: Socket) {
     const game = ctx.store.get(gameId);
     if (!game) throw new Error("game_not_found");
+    // Empêche de rattacher une session à une partie déjà terminée.
+    // Cela évite l'effet de "persistance" après une fin de partie
+    // lorsque le client relance l'application et tente un resume automatique.
+    if (game.state === "END") throw new Error("game_finished");
     const player = game.players.find((p) => p.id === playerId);
     if (!player) throw new Error("player_not_found");
 
