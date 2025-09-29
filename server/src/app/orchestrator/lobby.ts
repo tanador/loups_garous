@@ -5,9 +5,49 @@ import { assignRoles } from "../../domain/rules.js";
 import { setState } from "../../domain/fsm.js";
 import { CONFIG } from "../timers.js";
 import type { OrchestratorContext } from "./context.js";
-import { mustGet } from "./utils.js";
+import { mustGet, scheduleTimer, cancelTimer } from "./utils.js";
 
 export function createLobbyApi(ctx: OrchestratorContext) {
+  type CancelSource =
+    | { type: "manual"; actor: string }
+    | { type: "timeout" };
+
+  const timeoutKey = (gameId: string) => `lobby:autoCancel:${gameId}`;
+
+  function clearLobbyTimeout(gameId: string) {
+    cancelTimer(ctx, timeoutKey(gameId));
+  }
+
+  function performCancel(game: Game, reason: CancelSource) {
+    ctx.store.del(game.id);
+    clearLobbyTimeout(game.id);
+    const payload = reason.type === "timeout" ? { reason: "timeout" } : {};
+    ctx.io.to(`room:${game.id}`).emit("game:cancelled", payload);
+    ctx.helpers.emitLobbyUpdate();
+    const actor = reason.type === "manual" ? reason.actor : undefined;
+    const event = reason.type === "manual" ? "lobby.cancel" : "lobby.auto_cancel";
+    const extra =
+      reason.type === "timeout"
+        ? { waitedSeconds: CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE }
+        : undefined;
+    ctx.log(game.id, "LOBBY", actor, event, extra);
+  }
+
+  function scheduleLobbyTimeout(game: Game) {
+    const seconds = Number(CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      clearLobbyTimeout(game.id);
+      return;
+    }
+    const ms = Math.max(0, Math.trunc(seconds * 1000));
+    scheduleTimer(ctx, timeoutKey(game.id), ms, () => {
+      const current = ctx.store.get(game.id);
+      if (!current) return;
+      if (current.state !== "LOBBY") return;
+      performCancel(current, { type: "timeout" });
+    });
+  }
+
   function listGames() {
     return ctx.store.listLobby();
   }
@@ -24,6 +64,7 @@ export function createLobbyApi(ctx: OrchestratorContext) {
   function tryAutostart(game: Game) {
     if (game.players.length === game.maxPlayers && game.state === "LOBBY") {
       setState(game, "ROLES");
+      clearLobbyTimeout(game.id);
       assignRoles(game);
       for (const p of game.players) {
         const socket = ctx.io.sockets.sockets.get(p.socketId);
@@ -48,6 +89,7 @@ export function createLobbyApi(ctx: OrchestratorContext) {
       socketId: socket.id,
     });
     ctx.store.put(game);
+    scheduleLobbyTimeout(game);
     bindPlayerToRooms(game, player, socket);
     ctx.helpers.sendSnapshot(game, player.id);
     ctx.helpers.emitLobbyUpdate();
@@ -88,10 +130,7 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     if (!game) throw new Error("game_not_found");
     if (game.players[0]?.id !== playerId) throw new Error("not_owner");
     if (game.state !== "LOBBY") throw new Error("game_already_started");
-    ctx.store.del(gameId);
-    ctx.io.to(`room:${gameId}`).emit("game:cancelled", {});
-    ctx.helpers.emitLobbyUpdate();
-    ctx.log(gameId, "LOBBY", playerId, "lobby.cancel");
+    performCancel(game, { type: "manual", actor: playerId });
   }
 
   function leaveGame(gameId: string, playerId: string) {

@@ -184,8 +184,6 @@ class GameController extends Notifier<GameModel> {
           }
         }
       }
-      // Récupère la liste des parties disponibles dans le lobby.
-      _listGames();
     });
 
     s.on('disconnect', (_) {
@@ -671,16 +669,6 @@ class GameController extends Notifier<GameModel> {
     s.connect();
   }
 
-  /// Demande au serveur la liste des parties dans le lobby
-  /// et met à jour l'état local avec le résultat.
-  Future<void> _listGames() async {
-    final ack = await _socketSvc.emitAck('lobby:listGames', {});
-    final games = ((ack['data']?['games'] as List?) ?? [])
-        .map((e) => LobbyGameInfo.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-    state = state.copy(lobby: games);
-  }
-
   // ------------- Lobby actions -------------
   Future<String?> createGame(String nickname, int maxPlayers) async {
     final ack = await _socketSvc.emitAck(
@@ -699,10 +687,6 @@ class GameController extends Notifier<GameModel> {
       hasSnapshot: false,
     );
     await _setContext();
-    // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
-    try {
-      await _listGames();
-    } catch (_) {}
     await _saveSession();
     return null;
   }
@@ -724,10 +708,6 @@ class GameController extends Notifier<GameModel> {
       hasSnapshot: false,
     );
     await _setContext();
-    // rafraîchit le lobby pour disposer d'un fallback fiable (compteur)
-    try {
-      await _listGames();
-    } catch (_) {}
     await _saveSession();
     return null;
   }
@@ -786,7 +766,6 @@ class GameController extends Notifier<GameModel> {
     return err;
   }
 
-  Future<void> refreshLobby() => _listGames();
 
   Future<void> toggleVibrations(bool on) async {
     state = state.copy(vibrations: on);

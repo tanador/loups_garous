@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Orchestrator } from '../../app/orchestrator.js';
+import { CONFIG } from '../timers.js';
+
+const DEFAULT_LAUNCH_DELAY = CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE;
 
 // Faux Socket pour simuler un client
 class FakeSocket {
@@ -32,8 +35,18 @@ describe('Lobby orchestration', () => {
   let orch: Orchestrator;
 
   beforeEach(() => {
+    CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = DEFAULT_LAUNCH_DELAY;
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
     io = new FakeServer();
     orch = new Orchestrator(io as unknown as any);
+  });
+
+  afterEach(() => {
+    CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = DEFAULT_LAUNCH_DELAY;
+    vi.useRealTimers();
   });
 
   function fakeSocket(id: string) {
@@ -88,4 +101,36 @@ describe('Lobby orchestration', () => {
     const snaps = io.emits.filter(e => e.event === 'game:snapshot');
     expect(snaps.length).toBeGreaterThan(0);
   });
+  it('auto cancels lobby when countdown expires', () => {
+    vi.useFakeTimers();
+    CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = 3;
+    const s1 = fakeSocket('s1');
+    const { gameId } = orch.createGame('Alice', 4, s1 as any);
+    expect(orch.listGames()).toHaveLength(1);
+    vi.advanceTimersByTime(2999);
+    expect(orch.listGames()).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    const cancelled = io.emits.filter(e => e.event === 'game:cancelled' && e.room === `room:${gameId}`);
+    expect(cancelled.length).toBeGreaterThan(0);
+    const lastPayload = cancelled[cancelled.length - 1]?.payload;
+    expect(lastPayload).toEqual({ reason: 'timeout' });
+    expect(orch.listGames()).toHaveLength(0);
+  });
+
+  it('does not cancel started games after timeout', () => {
+    vi.useFakeTimers();
+    CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = 1;
+    const s1 = fakeSocket('s1');
+    const { gameId } = orch.createGame('Solo', 3, s1 as any);
+    const s2 = fakeSocket('s2');
+    orch.joinGame(gameId, 'Bob', s2 as any);
+    const s3 = fakeSocket('s3');
+    orch.joinGame(gameId, 'Cara', s3 as any);
+    expect(orch.listGames()).toHaveLength(0);
+    vi.advanceTimersByTime(60000);
+    const autoCancelled = io.emits.find(e => e.event === 'game:cancelled' && e.room === `room:${gameId}`);
+    expect(autoCancelled).toBeFalsy();
+  });
+
+
 });

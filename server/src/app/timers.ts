@@ -18,6 +18,7 @@ export type TimerConfig = Partial<{
   PAUSE_ENTRE_VIBRATION: number;
   FORCE_VIBRATION: number;
   DELAI_CHASSEUR_SECONDES: number;
+  DELAIS_POUR_LANCEMENT_PARTIE_SECONDE: number;
   // Overrides facultatifs des durées par phase
   CUPID_MS: number;
   LOVERS_MS: number;
@@ -41,6 +42,7 @@ const defaultConfig: Required<TimerConfig> = {
   PAUSE_ENTRE_VIBRATION: 0,
   FORCE_VIBRATION: 128,
   DELAI_CHASSEUR_SECONDES: 60,
+  DELAIS_POUR_LANCEMENT_PARTIE_SECONDE: 600,
   CUPID_MS: 80_000,
   LOVERS_MS: 80_000,
   SEER_MS: 80_000,
