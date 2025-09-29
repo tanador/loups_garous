@@ -8,7 +8,7 @@ environment:
 # Flutter versioning: versionName+versionCode for Android (Play Store)
 # Bump build number (+N) before every Play Console upload to avoid
 # "Le code de version X a déjà été utilisé" errors.
-version: 1.0.0+2
+version: 1.0.0+3
 
 dependencies:
   flutter:

@@ -95,8 +95,9 @@ class GameController extends Notifier<GameModel> {
   /// Réinitialise complètement l'état du jeu côté client.
   void _resetGameState() {
     state = state.copy(
-      socketUrl: null,
-      socketConnected: false,
+      // Préserve l'état de connexion au serveur et l'URL du socket afin
+      // d'éviter un effet visuel de "déconnexion" (bouton grisé) lorsque
+      // le lobby est annulé côté serveur ou lors d'un leave/cancel local.
       gameId: null,
       playerId: null,
       isOwner: false,
@@ -255,10 +256,14 @@ class GameController extends Notifier<GameModel> {
         youReadyLocal: leavingRoles ? false : state.youReadyLocal,
       );
 
-      if (previousPhase != phase &&
-          GameController.shouldVibrateWake(state, phase)) {
+      if (previousPhase != phase) {
         try {
-          await _vibrateWakeIfAlive();
+          if (GameController.isGlobalWakePhase(phase) &&
+              GameController.shouldVibrateWake(state, phase)) {
+            await _vibrateGlobalOneSecond();
+          } else if (GameController.shouldVibrateWake(state, phase)) {
+            await _vibrateWakeIfAlive();
+          }
         } catch (_) {}
       }
       AppLogger.log('[evt] game:stateChanged $phase deadline=$deadline');
@@ -327,7 +332,12 @@ class GameController extends Notifier<GameModel> {
 
       if (wasClosing && !closing) {
         try {
-          await _vibrateWakeIfAlive();
+          if (GameController.isGlobalWakePhase(phase) &&
+              GameController.shouldVibrateWake(state, phase)) {
+            await _vibrateGlobalOneSecond();
+          } else if (GameController.shouldVibrateWake(state, phase)) {
+            await _vibrateWakeIfAlive();
+          }
         } catch (_) {}
       }
       // Si nous venons d'apprendre gameId/playerId via le snapshot, fixe le contexte
@@ -797,6 +807,18 @@ class GameController extends Notifier<GameModel> {
     }
   }
 
+  // Phases de réveil "globaux" (concernent tous les vivants)
+  @visibleForTesting
+  static bool isGlobalWakePhase(GamePhase phase) {
+    switch (phase) {
+      case GamePhase.MORNING:
+      case GamePhase.VOTE:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   // ------------- Context & ready -------------
   Future<void> _setContext() async {
     final ack = await _socketSvc.emitAck('context:set', {
@@ -963,6 +985,34 @@ class GameController extends Notifier<GameModel> {
     } catch (_) {
       return false;
     }
+  }
+
+  // Vibration globale forte et courte (~1s) pour MORNING et VOTE
+  // Objectif: ressenti homogène iOS/Android -> séquence d'impacts "heavy"
+  // sur ~1 seconde, au lieu d'un long buzz dépendant de la plate-forme.
+  Future<void> _vibrateGlobalOneSecond() async {
+    try {
+      final meId = state.playerId;
+      if (meId == null) return;
+      final me = state.players.firstWhere(
+        (p) => p.id == meId,
+        orElse: () => const PlayerView(id: '', connected: true, alive: true),
+      );
+      if (!me.alive) return;
+      if (!state.vibrations) return;
+
+      // 8 impacts espacés de ~120ms ≈ 1s
+      const int taps = 8;
+      const int gapMs = 120;
+      for (var i = 0; i < taps; i++) {
+        try {
+          await HapticFeedback.heavyImpact();
+        } catch (_) {}
+        if (i < taps - 1) {
+          await Future.delayed(const Duration(milliseconds: gapMs));
+        }
+      }
+    } catch (_) {}
   }
 
   // Marque l'animation de mort comme jouée (empêche les replays)
