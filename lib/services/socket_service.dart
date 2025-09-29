@@ -8,6 +8,10 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 /// Il centralise l'ouverture, l'envoi d'évènements et la fermeture du socket.
 class SocketService {
   io.Socket? _socket;
+  // Serialize acked emissions to avoid overlapping addStream bindings in
+  // socket_io_client internals that can cause
+  // "Bad state: StreamSink is bound to a Stream" in some race conditions.
+  Future<void> _ackSerial = Future<void>.value();
 
   /// Crée une connexion Socket.IO vers l'[url].
   ///
@@ -57,22 +61,34 @@ class SocketService {
     Map<String, Object?> payload, {
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    try {
-      final res =
-          await socket.emitWithAckAsync(event, payload).timeout(timeout);
-      if (res is Map) {
-        return Map<String, dynamic>.from(
-          res.map((k, v) => MapEntry(k.toString(), v)),
-        );
+    // Chain onto the previous emission to ensure only one is in flight
+    // through the Socket.IO ack path at a time. This prevents the internal
+    // StreamSink from being re-bound while an addStream is active.
+    final completer = Completer<Map<String, dynamic>>();
+    _ackSerial = _ackSerial.then((_) async {
+      try {
+        final res = await socket
+            .emitWithAckAsync(event, payload)
+            .timeout(timeout);
+        if (res is Map) {
+          completer.complete(Map<String, dynamic>.from(
+            res.map((k, v) => MapEntry(k.toString(), v)),
+          ));
+          return;
+        }
+        completer.complete(
+            {'ok': false, 'error': 'bad_ack_format', 'got': res});
+      } on TimeoutException {
+        completer.complete({'ok': false, 'error': 'timeout'});
+      } catch (e, st) {
+        AppLogger.logError('[socket] emitAck error', e, st,
+            name: 'SocketService');
+        completer.complete({'ok': false, 'error': e.toString()});
       }
-      return {'ok': false, 'error': 'bad_ack_format', 'got': res};
-    } on TimeoutException {
-      return {'ok': false, 'error': 'timeout'};
-    } catch (e, st) {
-      AppLogger.logError('[socket] emitAck error', e, st,
-          name: 'SocketService');
-      return {'ok': false, 'error': e.toString()};
-    }
+    }).catchError((_) {
+      // Swallow to keep the chain healthy; per-call result is already completed.
+    });
+    return completer.future;
   }
 
   /// Ferme proprement la connexion courante.
