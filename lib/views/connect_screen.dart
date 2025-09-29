@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -6,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../state/game_provider.dart';
-import '../state/models.dart';
 import '../utils/app_logger.dart';
 import 'game_options_screen.dart';
 
@@ -93,18 +93,7 @@ const String _primaryServerUrl = 'http://Satigny.giize.com:3000';
 const String _fallbackServerUrl = 'http://127.0.0.1:3000';
 const String _connectivityPath = '/connectivity';
 const Duration _probeTimeout = Duration(seconds: 2);
-
-class _ServerResolution {
-  const _ServerResolution({
-    required this.displayUrl,
-    required this.connectUrl,
-    required this.usedFallback,
-  });
-
-  final String displayUrl;
-  final String connectUrl;
-  final bool usedFallback;
-}
+const Duration _autoConnectInterval = Duration(seconds: 5);
 
 // Écran initial permettant de se connecter au serveur et de créer ou rejoindre une partie.
 
@@ -115,79 +104,110 @@ class ConnectScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
-  late final TextEditingController _url;
   final _nick = TextEditingController(text: _paramNick);
   static bool _autoRan =
       false; // évite de relancer autoCreate après un retour au ConnectScreen
   static bool _autoClientRan =
       false; // évite de relancer l'auto connexion/join via PSEUDO
+  Timer? _autoConnectTimer;
+  bool _autoConnectInFlight = false;
 
   @override
   void initState() {
     super.initState();
-    _url = TextEditingController(text: _primaryServerUrl);
-    _loadLastNick().then((_) {
+    _loadLastNick().then((_) async {
       if (_autoCreate) {
-        _autoStart();
+        await _autoStart();
       }
       // Si un pseudonyme est fourni (_paramNick),
-      // on simule un clic sur "Se connecter" puis on rejoint automatiquement
+      // on lance immédiatement la connexion automatique puis on rejoint
       // une partie en attente s'il y en a au lobby.
       if (_paramNick.isNotEmpty) {
-        _autoConnectAndJoinIfPossible();
+        await _autoConnectAndJoinIfPossible();
       }
+      _startAutoConnectLoop();
+      await _onAutoConnectTick();
     });
   }
 
   @override
   void dispose() {
-    _url.dispose();
+    _autoConnectTimer?.cancel();
     _nick.dispose();
     super.dispose();
   }
 
-  Future<void> _connectPreferredServer({bool waitForHandshake = false}) async {
-    final trimmed = _url.text.trim();
-    final resolution = await _resolveServerUrl(trimmed);
-    if (mounted && resolution.displayUrl != trimmed) {
-      _url.text = resolution.displayUrl;
-    }
+  void _startAutoConnectLoop() {
+    _autoConnectTimer?.cancel();
+    _autoConnectTimer = Timer.periodic(
+      _autoConnectInterval,
+      (_) => unawaited(_onAutoConnectTick()),
+    );
+  }
 
-    final targetUrl = resolution.connectUrl;
-
-    if (_isConnectedTo(targetUrl)) {
+  Future<void> _onAutoConnectTick() async {
+    if (!mounted) return;
+    if (_autoConnectInFlight) return;
+    final snapshot = ref.read(gameProvider);
+    if (snapshot.socketConnected) {
       return;
     }
-
-    final shouldWait =
-        waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
-    var connected =
-        await _attemptConnection(targetUrl, shouldWait, resolution.displayUrl);
-    if (connected || !waitForHandshake) {
-      return;
-    }
-
-    if (!resolution.usedFallback && targetUrl != _fallbackServerUrl) {
+    _autoConnectInFlight = true;
+    try {
+      await _connectPreferredServer(waitForHandshake: true);
+    } catch (err, stack) {
       AppLogger.log(
-        '[connect] remote satigny.giize.com indisponible, bascule sur localhost',
+        '[auto-connect] tentative échouée: $err',
+        name: 'ConnectScreen',
+        error: err,
+        stackTrace: stack,
+      );
+    } finally {
+      _autoConnectInFlight = false;
+    }
+  }
+
+  Future<void> _connectPreferredServer({bool waitForHandshake = false}) async {
+    final wait = waitForHandshake ? const Duration(seconds: 8) : Duration.zero;
+
+    Future<bool> connectTo(String socketUrl, String displayUrl) async {
+      if (_isConnectedTo(socketUrl)) {
+        return true;
+      }
+      return _attemptConnection(socketUrl, wait, displayUrl);
+    }
+
+    var primaryReachable = true;
+    if (!kIsWeb) {
+      try {
+        primaryReachable =
+            await _probeConnectivity(Uri.parse(_primaryServerUrl));
+      } catch (_) {
+        primaryReachable = false;
+      }
+    }
+
+    if (primaryReachable) {
+      final connected = await connectTo(_primaryServerUrl, _primaryServerUrl);
+      if (connected || !waitForHandshake) {
+        return;
+      }
+      AppLogger.log(
+        '[connect] handshake Satigny échoué, essai localhost',
         name: 'ConnectScreen',
       );
-      await _attemptConnection(
-        _fallbackServerUrl,
-        const Duration(seconds: 8),
-        resolution.displayUrl,
+    } else {
+      AppLogger.log(
+        '[connect] healthcheck Satigny KO, essai localhost',
+        name: 'ConnectScreen',
       );
+    }
+
+    if (_primaryServerUrl == _fallbackServerUrl) {
       return;
     }
 
-    if (targetUrl == _fallbackServerUrl) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      await _attemptConnection(
-        _fallbackServerUrl,
-        const Duration(seconds: 8),
-        resolution.displayUrl,
-      );
-    }
+    await connectTo(_fallbackServerUrl, _fallbackServerUrl);
   }
 
   Future<bool> _attemptConnection(
@@ -221,79 +241,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     return _isConnectedTo(socketUrl);
   }
 
-  Future<_ServerResolution> _resolveServerUrl(String rawUrl) async {
-    final trimmed = rawUrl.trim();
-    final parsed = _parseUrl(trimmed);
-    if (parsed == null) {
-      final fallback = trimmed.isEmpty ? _fallbackServerUrl : trimmed;
-      return _ServerResolution(
-        displayUrl: fallback,
-        connectUrl: fallback,
-        usedFallback: false,
-      );
-    }
-    final normalized = parsed.toString();
-    if (kIsWeb) {
-      return _ServerResolution(
-        displayUrl: normalized,
-        connectUrl: normalized,
-        usedFallback: false,
-      );
-    }
-
-    if (parsed.host.toLowerCase() != 'satigny.giize.com') {
-      return _ServerResolution(
-        displayUrl: normalized,
-        connectUrl: normalized,
-        usedFallback: false,
-      );
-    }
-
-    final reachable = await _probeConnectivity(parsed);
-    if (reachable) {
-      return _ServerResolution(
-        displayUrl: normalized,
-        connectUrl: normalized,
-        usedFallback: false,
-      );
-    }
-
-    if (normalized != _fallbackServerUrl) {
-      AppLogger.log(
-        '[connect] remote satigny.giize.com indisponible, bascule sur localhost',
-        name: 'ConnectScreen',
-      );
-    }
-
-    return _ServerResolution(
-      displayUrl: normalized,
-      connectUrl: _fallbackServerUrl,
-      usedFallback: true,
-    );
-  }
-
-  Uri? _parseUrl(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    try {
-      final direct = Uri.parse(trimmed);
-      if (direct.hasScheme) {
-        return (direct.scheme == 'http' || direct.scheme == 'https')
-            ? direct
-            : null;
-      }
-    } catch (_) {}
-    try {
-      final inferred = Uri.parse('http://$trimmed');
-      if (inferred.scheme == 'http' || inferred.scheme == 'https') {
-        return inferred;
-      }
-    } catch (_) {}
-    return null;
-  }
-
   Future<bool> _probeConnectivity(Uri base) async {
     if (kIsWeb) {
       return false;
@@ -316,11 +263,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   Future<void> _autoConnectAndJoinIfPossible() async {
     if (_autoClientRan) return;
     final ctl = ref.read(gameProvider.notifier);
-    // Assure une connexion socket comme si on avait cliqué sur "Se connecter"
+    // Assure une tentative de connexion automatique sur les serveurs connus
     await _connectPreferredServer(waitForHandshake: true);
     await _saveNick();
-    // Rafraîchit et attend la liste de parties du lobby
-    await ctl.refreshLobby();
+    // Attend que le serveur pousse la liste du lobby
     for (int i = 0; i < 50; i++) {
       // ~5s max
       await Future.delayed(const Duration(milliseconds: 100));
@@ -378,11 +324,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           TextField(
-              controller: _url,
-              decoration: const InputDecoration(
-                  labelText: 'URL serveur (http://IP:3000)')),
-          const SizedBox(height: 8),
-          TextField(
             controller: _nick,
             decoration: const InputDecoration(labelText: 'Pseudonyme'),
             onChanged: (_) => _saveNick(),
@@ -391,18 +332,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final buttons = <Widget>[
-                ElevatedButton(
-                  onPressed: () async {
-                    await _connectPreferredServer(waitForHandshake: true);
-                    if (!mounted) return;
-                    if (ref.read(gameProvider).socketConnected) {
-                      await ctl.refreshLobby();
-                    }
-                  },
-                  child: Text(
-                    gm.socketConnected ? 'Reconnecté' : 'Se connecter',
-                  ),
-                ),
                 ElevatedButton(
                   onPressed: gm.socketConnected
                       ? () async {
@@ -417,11 +346,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                         }
                       : null,
                   child: const Text('Créer partie'),
-                ),
-                ElevatedButton(
-                  onPressed:
-                      gm.socketConnected ? () => ctl.refreshLobby() : null,
-                  child: const Text('Actualiser'),
                 ),
               ];
               // Ne pas proposer d'annulation ici : une fois qu'une partie est

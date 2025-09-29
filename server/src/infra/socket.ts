@@ -76,11 +76,8 @@ export function createSocketServer(httpServer: HttpServer) {
     });
 
     // Lobby
-    socket.on('lobby:listGames', (_: unknown, ack?: (res: any) => void) => {
-      if (typeof ack === 'function') {
-        ack({ ok: true, data: { games: orch.listGames() } });
-      }
-    });
+    // Push the current lobby snapshot immediately so newcomers stay in sync.
+    socket.emit('lobby:updated', { games: orch.listGames() });
 
     handle(socket, 'lobby:create', CreateGameSchema, (data, ack) => {
       const res = orch.createGame(data.nickname, data.maxPlayers, socket);
