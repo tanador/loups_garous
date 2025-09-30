@@ -10,6 +10,7 @@ import '../services/socket_service.dart';
 import 'models.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:vibration/vibration.dart';
+import '../utils/haptics.dart';
 
 final gameProvider =
     NotifierProvider<GameController, GameModel>(GameController.new);
@@ -894,6 +895,18 @@ class GameController extends Notifier<GameModel> {
           ? 1
           : (state.vibrationForce > 255 ? 255 : state.vibrationForce);
       final totalMs = _totalVibrationDuration(pulses, pulseMs, pauseMs);
+
+      // iOS: remappe le pattern Android en impacts medium pour homogénéité
+      try {
+        // Détecte iOS de façon indirecte: le helper choisit la plateforme.
+        await HapticsPatternAdapter.play(
+          pulses: pulses,
+          pulseMs: pulseMs,
+          pauseMs: pauseMs,
+          amplitude: amplitude,
+        );
+        return;
+      } catch (_) {}
 
       if (await Vibration.hasVibrator()) {
         final supportsCustom = await Vibration.hasCustomVibrationsSupport();

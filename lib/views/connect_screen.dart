@@ -14,22 +14,13 @@ import 'game_options_screen.dart';
 // _paramNick     -> force le pseudo par défaut
 // _autoCreate    -> si "true" (ou 1/yes/y), crée automatiquement une partie (4 joueurs)
 //
-// Sources prises en compte, par ordre de priorité :
-// 1) Variables d'environnement (ex: _paramNick, _autoCreate)
-// 2) Dart-define (compat: PSEUDO / AUTO_CREATE)
+// Sources prises en compte
+// - Pseudo: uniquement via dart-define (compat: PSEUDO). Les variables d'environnement
+//   système ne sont plus supportées pour fixer le pseudo (sécurité/cohérence).
+// - Auto-create/Auto-max: variables d'environnement OU dart-define (compat: AUTO_CREATE / AUTO_MAX_PLAYERS)
 final String _paramNick = (() {
-  try {
-    if (!kIsWeb) {
-      final env = Platform.environment;
-      final v = (env['_paramNick'] ??
-              env['_PARAMNICK'] ??
-              env['PARAMNICK'] ??
-              env['PSEUDO'] ??
-              '')
-          .trim();
-      if (v.isNotEmpty) return v;
-    }
-  } catch (_) {}
+  // Note: on ne lit plus Platform.environment pour le pseudo.
+  // Utiliser: --dart-define=_paramNick=Alice ou --dart-define=PSEUDO=Alice
   const byKey = String.fromEnvironment('_paramNick', defaultValue: '');
   if (byKey.isNotEmpty) return byKey;
   const legacy = String.fromEnvironment('PSEUDO', defaultValue: '');
