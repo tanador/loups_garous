@@ -11,8 +11,29 @@ export const zGameId = z.string().regex(/^[A-Z]{3}\d$/);
 // - La répartition des rôles dépend ensuite de roles.config.json.
 export const CreateGameSchema = z.object({
   nickname: zNickname,
-  // Autorise 3, 4, 5 ou 6 joueurs. La valeur par défaut reste 3 pour la compatibilité.
-  maxPlayers: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).default(3)
+  // Autorise désormais 3–6 et 8–20 joueurs (7 non pris en charge faute de setup dédié).
+  // La valeur par défaut reste 3 pour la compatibilité.
+  maxPlayers: z
+    .union([
+      z.literal(3),
+      z.literal(4),
+      z.literal(5),
+      z.literal(6),
+      z.literal(8),
+      z.literal(9),
+      z.literal(10),
+      z.literal(11),
+      z.literal(12),
+      z.literal(13),
+      z.literal(14),
+      z.literal(15),
+      z.literal(16),
+      z.literal(17),
+      z.literal(18),
+      z.literal(19),
+      z.literal(20),
+    ])
+    .default(3),
 });
 
 export const JoinGameSchema = z.object({

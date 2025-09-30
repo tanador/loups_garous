@@ -180,9 +180,8 @@ class _WaitingPanel extends StatelessWidget {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (ctx, _) {
-            final shown = players.take(6).toList();
             final tiles = <Widget>[];
-            for (var p in shown) {
+            for (var p in players) {
               tiles.add(
                 _ReadyTile(
                   name: p.id == meId ? '${p.id} (vous)' : p.id,
@@ -191,11 +190,16 @@ class _WaitingPanel extends StatelessWidget {
                 ),
               );
             }
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: tiles,
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: tiles,
+                ),
+              ),
             );
           },
         ),

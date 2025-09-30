@@ -37,6 +37,136 @@
       "SEER": 1,
       "VILLAGER": 1,
 	  "THIEF" : 1
+    },
+    "8": {
+      "WOLF": 1,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 1
+    },
+    "9": {
+      "WOLF": 2,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 1
+    },
+    "10": {
+      "WOLF": 2,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 2
+    },
+    "11": {
+      "WOLF": 2,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 3
+    },
+    "12": {
+      "WOLF": 3,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 3
+    },
+    "13": {
+      "WOLF": 3,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 4
+    },
+    "14": {
+      "WOLF": 3,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 5
+    },
+    "15": {
+      "WOLF": 3,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 6
+    },
+    "16": {
+      "WOLF": 3,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 7
+    },
+    "17": {
+      "WOLF": 4,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 7
+    },
+    "18": {
+      "WOLF": 4,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 8
+    },
+    "19": {
+      "WOLF": 4,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 9
+    },
+    "20": {
+      "WOLF": 4,
+      "SEER": 1,
+      "WITCH": 1,
+      "HUNTER": 1,
+      "CUPID": 1,
+      "PETITE_FILLE": 1,
+      "THIEF": 1,
+      "VILLAGER": 10
     }
   }
 }

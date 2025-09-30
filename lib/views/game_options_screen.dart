@@ -13,7 +13,7 @@ class GameOptionsScreen extends ConsumerStatefulWidget {
 }
 
 class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
-  int _maxPlayers = 4; // valeur initiale (3/4/5/6 possibles)
+  int _maxPlayers = 4; // valeur initiale
 
   @override
   Widget build(BuildContext context) {
@@ -26,32 +26,14 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Nombre de joueurs'),
-          // Sélection du nombre de joueurs autorisés (3 à 6)
-          // Note: côté serveur, CreateGameSchema et roles.config.json acceptent
-          // maintenant 5 et 6 joueurs; étendre ici expose ces options à l'UI.
-          RadioGroup<int>(
-            groupValue: _maxPlayers,
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+            value: _maxPlayers,
             onChanged: (v) => setState(() => _maxPlayers = v ?? 4),
-            child: Column(
-              children: const [
-                RadioListTile<int>(
-                  value: 3,
-                  title: Text('3 joueurs'),
-                ),
-                RadioListTile<int>(
-                  value: 4,
-                  title: Text('4 joueurs'),
-                ),
-                RadioListTile<int>(
-                  value: 5,
-                  title: Text('5 joueurs'),
-                ),
-                RadioListTile<int>(
-                  value: 6,
-                  title: Text('6 joueurs'),
-                ),
-              ],
-            ),
+            items: [
+              3, 4, 5, 6,
+              8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+            ].map((n) => DropdownMenuItem<int>(value: n, child: Text('$n joueurs'))).toList(),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
