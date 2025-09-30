@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import '../utils/snackbars.dart';
 import 'widgets/common.dart';
 
 // Écran du village pour voter contre un joueur pendant la journée.
@@ -91,7 +92,12 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
           _isCasting = false;
           _optimisticVoted = false;
         });
-        messenger.showSnackBar(SnackBar(content: Text(err)));
+        messenger.showSnackBar(
+          badgeAwareSnackBar(
+            context,
+            content: Text(err),
+          ),
+        );
         return;
       }
       setState(() {
@@ -107,7 +113,12 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       try {
         await ctl.voteCancel();
       } catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+        messenger.showSnackBar(
+          badgeAwareSnackBar(
+            context,
+            content: Text(e.toString()),
+          ),
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -124,7 +135,12 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       try {
         await ctl.voteAck();
       } catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+        messenger.showSnackBar(
+          badgeAwareSnackBar(
+            context,
+            content: Text(e.toString()),
+          ),
+        );
       }
       if (!mounted) return;
       setState(() {

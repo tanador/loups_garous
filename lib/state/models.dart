@@ -86,6 +86,8 @@ class GameModel {
   // URL réelle utilisée par le socket (peut être différente pour un fallback transparent).
   final String? socketUrl;
   final bool socketConnected;
+  // Niveau de verbosité des logs Socket.IO (voir _resolveLaunchServerLogLevel).
+  final int serverLogLevel;
   final List<LobbyGameInfo> lobby;
   final String? gameId;
   final String? playerId; // also your nickname
@@ -155,6 +157,7 @@ class GameModel {
     required this.serverUrl,
     required this.socketUrl,
     required this.socketConnected,
+    required this.serverLogLevel,
     required this.lobby,
     required this.gameId,
     required this.playerId,
@@ -204,6 +207,7 @@ class GameModel {
         serverUrl: 'http://localhost:3000',
         socketUrl: null,
         socketConnected: false,
+        serverLogLevel: 3,
         lobby: [],
         gameId: null,
         playerId: null,
@@ -256,6 +260,7 @@ class GameModel {
     String? serverUrl,
     Object? socketUrl = _unset,
     bool? socketConnected,
+    Object? serverLogLevel = _unset,
     List<LobbyGameInfo>? lobby,
     Object? gameId = _unset,
     Object? playerId = _unset,
@@ -304,6 +309,9 @@ class GameModel {
       socketUrl:
           identical(socketUrl, _unset) ? this.socketUrl : socketUrl as String?,
       socketConnected: socketConnected ?? this.socketConnected,
+      serverLogLevel: identical(serverLogLevel, _unset)
+          ? this.serverLogLevel
+          : serverLogLevel as int,
       lobby: lobby ?? this.lobby,
       gameId: identical(gameId, _unset) ? this.gameId : gameId as String?,
       playerId:

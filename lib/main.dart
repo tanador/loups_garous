@@ -39,6 +39,7 @@ import 'views/end_screen.dart';
 import 'views/dead_screen.dart';
 import 'views/hunter_screen.dart';
 import 'utils/app_logger.dart';
+import 'utils/snackbars.dart';
 import 'views/role_screen.dart';
 import 'state/models.dart';
 import 'views/widgets/player_badge.dart';
@@ -349,8 +350,13 @@ class WaitingLobby extends ConsumerWidget {
                 } finally {
                   if (context.mounted) {
                     if (err != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          backgroundColor: Colors.red, content: Text(err)));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        badgeAwareSnackBar(
+                          context,
+                          content: Text(err),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                     }
                     // Pas de navigation nécessaire : le routeur principal
                     // réaffichera automatiquement l'écran de connexion
@@ -398,7 +404,9 @@ class _WithGlobalOverlay extends ConsumerWidget {
           right: 0,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
-            child: (s.hunterPending && s.hunterTargets.isEmpty && s.phase != GamePhase.MORNING)
+            child: (s.hunterPending &&
+                    s.hunterTargets.isEmpty &&
+                    s.phase != GamePhase.MORNING)
                 ? Center(
                     key: const ValueKey('hunter-banner-visible'),
                     child: Container(

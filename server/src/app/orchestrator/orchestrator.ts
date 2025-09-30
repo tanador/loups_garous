@@ -397,6 +397,7 @@ export class Orchestrator {
       if (!p) continue;
       p.connected = false;
       p.lastSeen = now();
+      this.lobby.handleOwnerDisconnected(g.id, p.id);
       this.log(g.id, g.state, p.id, "player.disconnected");
       if (g.state === "RESOLVE" && this.pendingDayElimAck.get(g.id) === p.id) {
         this.pendingDayElimAck.delete(g.id);

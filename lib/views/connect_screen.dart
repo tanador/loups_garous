@@ -10,37 +10,101 @@ import '../state/game_provider.dart';
 import '../utils/app_logger.dart';
 import 'game_options_screen.dart';
 
-// Paramètres de lancement (lecture à l'exécution)
-// _paramNick     -> force le pseudo par défaut
-// _autoCreate    -> si "true" (ou 1/yes/y), crée automatiquement une partie (4 joueurs)
-//
-// Sources prises en compte
-// - Pseudo: uniquement via dart-define (compat: PSEUDO). Les variables d'environnement
-//   système ne sont plus supportées pour fixer le pseudo (sécurité/cohérence).
-// - Auto-create/Auto-max: variables d'environnement OU dart-define (compat: AUTO_CREATE / AUTO_MAX_PLAYERS)
-final String _paramNick = (() {
-  // Note: on ne lit plus Platform.environment pour le pseudo.
-  // Utiliser: --dart-define=_paramNick=Alice ou --dart-define=PSEUDO=Alice
-  const byKey = String.fromEnvironment('_paramNick', defaultValue: '');
-  if (byKey.isNotEmpty) return byKey;
-  const legacy = String.fromEnvironment('PSEUDO', defaultValue: '');
-  return legacy;
-})();
+String? _cliArgumentValue(List<String> args, String flag, [String? alias]) {
+  String? extract(String candidate) {
+    final eqPrefix = '$candidate=';
+    for (var i = 0; i < args.length; i++) {
+      final arg = args[i];
+      if (arg == candidate) {
+        if (i + 1 < args.length) {
+          final value = args[i + 1].trim();
+          if (value.isNotEmpty) return value;
+        }
+      } else if (arg.startsWith(eqPrefix)) {
+        final value = arg.substring(eqPrefix.length).trim();
+        if (value.isNotEmpty) return value;
+      }
+    }
+    return null;
+  }
 
-final bool _autoCreate = (() {
+  String? value = extract(flag);
+  if (value != null && value.isNotEmpty) return value;
+  if (alias != null) {
+    value = extract(alias);
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
+}
+
+bool? _parseEnvFlag(String? raw) {
+  if (raw == null) return null;
+  final normalized = raw.trim().toLowerCase();
+  if (normalized.isEmpty) return null;
+  if (normalized == '1' ||
+      normalized == 'true' ||
+      normalized == 'yes' ||
+      normalized == 'y' ||
+      normalized == 'on') {
+    return true;
+  }
+  if (normalized == '0' ||
+      normalized == 'false' ||
+      normalized == 'no' ||
+      normalized == 'n' ||
+      normalized == 'off') {
+    return false;
+  }
+  return null;
+}
+
+bool? _tryReadEnvFlag(List<String> keys) {
+  if (kIsWeb) return null;
   try {
-    if (!kIsWeb) {
-      final env = Platform.environment;
-      final raw = env['_autoCreate'] ??
-          env['_AUTOCREATE'] ??
-          env['AUTOCREATE'] ??
-          env['AUTO_CREATE'];
-      if (raw != null) {
-        final s = raw.toLowerCase();
-        if (s == '1' || s == 'true' || s == 'yes' || s == 'y') return true;
+    final env = Platform.environment;
+    for (final key in keys) {
+      final parsed = _parseEnvFlag(env[key]);
+      if (parsed != null) {
+        return parsed;
       }
     }
   } catch (_) {}
+  return null;
+}
+
+// Paramètres de lancement (lecture à l'exécution)
+// _paramNick     -> force le pseudo par défaut
+// _autoCreate    -> si "true" (ou 1/yes/y), crée automatiquement une partie (4 joueurs)
+// _autoJoin      -> si "true", rejoint automatiquement la première partie disponible
+//
+// Sources prises en compte
+// - Pseudo: dart-define (compat: PSEUDO) ou argument CLI `--paramNick`.
+// - Auto-create/Auto-max: variables d'environnement OU dart-define (compat: AUTO_CREATE / AUTO_MAX_PLAYERS)
+final String _paramNick = (() {
+  const byKey = String.fromEnvironment('_paramNick', defaultValue: '');
+  if (byKey.isNotEmpty) return byKey;
+  const legacy = String.fromEnvironment('PSEUDO', defaultValue: '');
+  if (legacy.isNotEmpty) return legacy;
+  if (!kIsWeb) {
+    final cliValue = _cliArgumentValue(
+        Platform.executableArguments, '--paramNick', '--nick');
+    if (cliValue != null && cliValue.trim().isNotEmpty) {
+      return cliValue.trim().replaceAll('"', '');
+    }
+  }
+  return '';
+})();
+
+final bool _autoCreate = (() {
+  final fromEnv = _tryReadEnvFlag(const [
+    '_autoCreate',
+    '_AUTOCREATE',
+    'AUTOCREATE',
+    'AUTO_CREATE',
+  ]);
+  if (fromEnv != null) {
+    return fromEnv;
+  }
   const byKey = bool.fromEnvironment('_autoCreate', defaultValue: false);
   const legacy = bool.fromEnvironment('AUTO_CREATE', defaultValue: false);
   return byKey || legacy;
@@ -51,6 +115,20 @@ final bool _autoCreate = (() {
 // 1) Variables d'environnement (_maxPlayers, _AUTOMAXPLAYERS, AUTOMAXPLAYERS, AUTO_MAX_PLAYERS)
 // 2) Dart-define (compat: _maxPlayers / AUTO_MAX_PLAYERS)
 // Valeur par défaut: 4
+final bool _autoJoin = (() {
+  final fromEnv = _tryReadEnvFlag(const [
+    '_autoJoin',
+    '_AUTOJOIN',
+    'AUTOJOIN',
+    'AUTO_JOIN',
+  ]);
+  if (fromEnv != null) {
+    return fromEnv;
+  }
+  const byKey = bool.fromEnvironment('_autoJoin', defaultValue: false);
+  const legacy = bool.fromEnvironment('AUTO_JOIN', defaultValue: false);
+  return byKey || legacy;
+})();
 final int _autoMaxPlayers = (() {
   int parseInt(dynamic v) {
     try {
@@ -96,10 +174,8 @@ class ConnectScreen extends ConsumerStatefulWidget {
 
 class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   final _nick = TextEditingController(text: _paramNick);
-  static bool _autoRan =
-      false; // évite de relancer autoCreate après un retour au ConnectScreen
-  static bool _autoClientRan =
-      false; // évite de relancer l'auto connexion/join via PSEUDO
+  static bool _autoFlowHandled =
+      false; // évite de relancer la logique auto (create/join) après usage initial
   Timer? _autoConnectTimer;
   bool _autoConnectInFlight = false;
 
@@ -107,15 +183,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   void initState() {
     super.initState();
     _loadLastNick().then((_) async {
-      if (_autoCreate) {
-        await _autoStart();
-      }
-      // Si un pseudonyme est fourni (_paramNick),
-      // on lance immédiatement la connexion automatique puis on rejoint
-      // une partie en attente s'il y en a au lobby.
-      if (_paramNick.isNotEmpty) {
-        await _autoConnectAndJoinIfPossible();
-      }
+      await _runAutoFlowIfNeeded();
       _startAutoConnectLoop();
       await _onAutoConnectTick();
     });
@@ -251,28 +319,56 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
   }
 
-  Future<void> _autoConnectAndJoinIfPossible() async {
-    if (_autoClientRan) return;
+  Future<void> _runAutoFlowIfNeeded() async {
+    if ((!_autoCreate && !_autoJoin) || _autoFlowHandled) {
+      return;
+    }
+    _autoFlowHandled = true;
     final ctl = ref.read(gameProvider.notifier);
-    // Assure une tentative de connexion automatique sur les serveurs connus
+
+    if (_nick.text.trim().isEmpty) {
+      final rnd = Random();
+      _nick.text = 'Player${1000 + rnd.nextInt(9000)}';
+    }
+
     await _connectPreferredServer(waitForHandshake: true);
     await _saveNick();
-    // Attend que le serveur pousse la liste du lobby
-    for (int i = 0; i < 50; i++) {
-      // ~5s max
+
+    final joined = await _attemptAutoJoin(ctl);
+    if (joined) {
+      return;
+    }
+
+    if (_autoCreate) {
+      final err = await ctl.createGame(_nick.text.trim(), _autoMaxPlayers);
+      if (err != null) {
+        AppLogger.log('[auto] createGame failed: $err', name: 'ConnectScreen');
+      }
+    }
+  }
+
+  Future<bool> _attemptAutoJoin(GameController ctl) async {
+    const maxChecks = 50; // ~5s
+    for (var i = 0; i < maxChecks; i++) {
+      final snapshot = ref.read(gameProvider);
+      if (snapshot.gameId != null) {
+        return true;
+      }
+      if (snapshot.lobby.isNotEmpty) {
+        final games = snapshot.lobby;
+        final withSlots = games.where((g) => g.slots > 0).toList();
+        final target = (withSlots.isNotEmpty ? withSlots : games).first;
+        final err = await ctl.joinGame(target.id, _nick.text.trim());
+        if (err != null) {
+          AppLogger.log('[auto] joinGame failed: $err', name: 'ConnectScreen');
+          return false;
+        }
+        return true;
+      }
       await Future.delayed(const Duration(milliseconds: 100));
-      final lobby = ref.read(gameProvider).lobby;
-      if (lobby.isNotEmpty) break;
     }
-    final s = ref.read(gameProvider);
-    if (s.gameId == null && s.lobby.isNotEmpty) {
-      // Prend une partie qui a des places disponibles si possible, sinon la première.
-      final games = s.lobby;
-      final withSlots = games.where((g) => g.slots > 0).toList();
-      final target = (withSlots.isNotEmpty ? withSlots : games).first;
-      await ctl.joinGame(target.id, _nick.text.trim());
-    }
-    _autoClientRan = true;
+    final finalState = ref.read(gameProvider);
+    return finalState.gameId != null;
   }
 
   Future<void> _loadLastNick() async {
@@ -280,23 +376,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     if (_nick.text.isEmpty) {
       _nick.text = prefs.getString('nick') ?? '';
     }
-  }
-
-  Future<void> _autoStart() async {
-    if (_autoRan) return; // déjà exécuté pendant cette session
-    final ctl = ref.read(gameProvider.notifier);
-    // Ensure nickname (fallback if none provided via PSEUDO or prefs)
-    if (_nick.text.trim().isEmpty) {
-      final rnd = Random();
-      _nick.text = 'Player${1000 + rnd.nextInt(9000)}';
-    }
-
-    // Connect if needed and wait until the socket handshake completes
-    await _connectPreferredServer(waitForHandshake: true);
-
-    await _saveNick();
-    await ctl.createGame(_nick.text.trim(), _autoMaxPlayers);
-    _autoRan = true; // marque l'auto démarrage comme effectué
   }
 
   Future<void> _saveNick() async {
@@ -382,11 +461,10 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                           final err =
                               await ctl.joinGame(g.id, _nick.text.trim());
                           if (err != null && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  backgroundColor: Colors.red,
-                                  content: Text(err)),
-                            );
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              backgroundColor: Colors.red,
+                              content: Text(err),
+                            ));
                           }
                         }
                       : null,

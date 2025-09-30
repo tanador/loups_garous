@@ -10,7 +10,7 @@ import { mustGet, scheduleTimer, cancelTimer } from "./utils.js";
 export function createLobbyApi(ctx: OrchestratorContext) {
   type CancelSource =
     | { type: "manual"; actor: string }
-    | { type: "timeout" };
+    | { type: "timeout"; trigger: "owner_disconnected" };
 
   const timeoutKey = (gameId: string) => `lobby:autoCancel:${gameId}`;
 
@@ -28,24 +28,48 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     const event = reason.type === "manual" ? "lobby.cancel" : "lobby.auto_cancel";
     const extra =
       reason.type === "timeout"
-        ? { waitedSeconds: CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE }
+        ? {
+            waitedSeconds: CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE,
+            trigger: reason.trigger,
+          }
         : undefined;
     ctx.log(game.id, "LOBBY", actor, event, extra);
   }
 
-  function scheduleLobbyTimeout(game: Game) {
+  function scheduleOwnerDisconnectCancel(gameId: string) {
     const seconds = Number(CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE);
     if (!Number.isFinite(seconds) || seconds <= 0) {
-      clearLobbyTimeout(game.id);
+      clearLobbyTimeout(gameId);
       return;
     }
     const ms = Math.max(0, Math.trunc(seconds * 1000));
-    scheduleTimer(ctx, timeoutKey(game.id), ms, () => {
-      const current = ctx.store.get(game.id);
+    scheduleTimer(ctx, timeoutKey(gameId), ms, () => {
+      const current = ctx.store.get(gameId);
       if (!current) return;
       if (current.state !== "LOBBY") return;
-      performCancel(current, { type: "timeout" });
+      const owner = current.players[0];
+      if (!owner || owner.connected) return;
+      performCancel(current, { type: "timeout", trigger: "owner_disconnected" });
     });
+  }
+
+  function handleOwnerDisconnected(gameId: string, playerId: string) {
+    const game = ctx.store.get(gameId);
+    if (!game) return;
+    if (game.state !== "LOBBY") return;
+    const owner = game.players[0];
+    if (!owner || owner.id !== playerId) return;
+    if (owner.connected) return;
+    scheduleOwnerDisconnectCancel(gameId);
+  }
+
+  function handleOwnerReconnected(gameId: string, playerId: string) {
+    const game = ctx.store.get(gameId);
+    if (!game) return;
+    if (game.state !== "LOBBY") return;
+    const owner = game.players[0];
+    if (!owner || owner.id !== playerId) return;
+    clearLobbyTimeout(gameId);
   }
 
   function listGames() {
@@ -89,7 +113,6 @@ export function createLobbyApi(ctx: OrchestratorContext) {
       socketId: socket.id,
     });
     ctx.store.put(game);
-    scheduleLobbyTimeout(game);
     bindPlayerToRooms(game, player, socket);
     ctx.helpers.sendSnapshot(game, player.id);
     ctx.helpers.emitLobbyUpdate();
@@ -165,6 +188,7 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     player.lastSeen = Date.now();
     bindPlayerToRooms(game, player, socket);
     ctx.helpers.sendSnapshot(game, playerId);
+    handleOwnerReconnected(gameId, playerId);
     ctx.log(game.id, game.state, playerId, "session.resume");
   }
 
@@ -211,5 +235,6 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     playerReady,
     playerUnready,
     bindPlayerToRooms,
+    handleOwnerDisconnected,
   };
 }

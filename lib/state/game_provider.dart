@@ -1,10 +1,11 @@
 // Couche "state": gestion de l'état global et des interactions avec le serveur.
 // Le [GameController] ci-dessous centralise toute la logique métier côté client.
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../utils/app_logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/socket_service.dart';
 import 'models.dart';
@@ -14,6 +15,61 @@ import '../utils/haptics.dart';
 
 final gameProvider =
     NotifierProvider<GameController, GameModel>(GameController.new);
+
+int _resolveLaunchServerLogLevel() {
+  const primary = String.fromEnvironment('_serverLogLevel', defaultValue: '');
+  const legacy = String.fromEnvironment('SERVER_LOG_LEVEL', defaultValue: '');
+  var candidate = primary.isNotEmpty ? primary : legacy;
+  if (candidate.isEmpty && !kIsWeb) {
+    try {
+      final env = Platform.environment;
+      candidate = (env['_serverLogLevel'] ??
+              env['_SERVER_LOG_LEVEL'] ??
+              env['SERVER_LOG_LEVEL'] ??
+              env['LG_SERVER_LOG_LEVEL'] ??
+              '')
+          .trim();
+      if (candidate.isEmpty) {
+        final fromArgs = _extractLaunchLogLevelFromArgs(
+          Platform.executableArguments,
+        );
+        if (fromArgs != null && fromArgs.isNotEmpty) {
+          candidate = fromArgs.trim();
+        }
+      }
+    } catch (_) {
+      // Ignore environment access failures (e.g. web).
+    }
+  }
+  final parsed = int.tryParse(candidate);
+  return _normalizeServerLogLevel(parsed ?? 3);
+}
+
+String? _extractLaunchLogLevelFromArgs(List<String> args) {
+  String? candidate;
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i];
+    if (arg == '--serverLogLevel' || arg == '--logLevel') {
+      if (i + 1 < args.length) {
+        candidate = args[i + 1];
+        break;
+      }
+    } else if (arg.startsWith('--serverLogLevel=')) {
+      candidate = arg.substring('--serverLogLevel='.length);
+      break;
+    } else if (arg.startsWith('--logLevel=')) {
+      candidate = arg.substring('--logLevel='.length);
+      break;
+    }
+  }
+  return candidate?.replaceAll('"', '');
+}
+
+int _normalizeServerLogLevel(int level) {
+  if (level < 0) return 0;
+  if (level > 3) return 3;
+  return level;
+}
 
 /// Contrôleur principal de l'application.
 /// Il maintient l'état du jeu dans [GameModel] et gère
@@ -48,11 +104,13 @@ final gameProvider =
 class GameController extends Notifier<GameModel> {
   @override
   GameModel build() {
+    final launchLogLevel = _resolveLaunchServerLogLevel();
+    _socketSvc.setServerLogLevel(launchLogLevel);
     // Restore persisted preferences/session on startup.
     // This is fire-and-forget; it may update state asynchronously.
     // ignore: discarded_futures
     _restoreSession();
-    return GameModel.initial();
+    return GameModel.initial().copy(serverLogLevel: launchLogLevel);
   }
 
   final _socketSvc = SocketService();
@@ -74,6 +132,7 @@ class GameController extends Notifier<GameModel> {
   Future<void> _saveSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverUrl', state.serverUrl);
+    await prefs.setInt('serverLogLevel', state.serverLogLevel);
     if (state.gameId != null) {
       await prefs.setString('gameId', state.gameId!);
     } else {
@@ -194,12 +253,21 @@ class GameController extends Notifier<GameModel> {
     });
 
     // --- Lobby events
-    s.on('lobby:updated', (data) {
+    s.on('lobby:updated', (data) async {
       final games = (data?['games'] as List?)
               ?.map((e) => LobbyGameInfo.fromJson(Map<String, dynamic>.from(e)))
               .toList() ??
           [];
+      final currentGameId = state.gameId;
+      final currentPhase = state.phase;
       state = state.copy(lobby: games);
+      if (currentGameId != null &&
+          currentPhase == GamePhase.LOBBY &&
+          !games.any((g) => g.id == currentGameId)) {
+        _resetGameState();
+        await _clearSession();
+        AppLogger.log('[evt] lobby:current game missing -> local reset');
+      }
       AppLogger.log('[evt] lobby:updated ${games.length}');
     });
 
@@ -724,20 +792,30 @@ class GameController extends Notifier<GameModel> {
   }
 
   Future<String?> cancelGame() async {
+    final currentGameId = state.gameId;
+    final currentPlayerId = state.playerId;
+    if (currentGameId == null || currentPlayerId == null) {
+      _resetGameState();
+      await _clearSession();
+      return null;
+    }
     String? err;
     try {
       final ack = await _socketSvc.emitAck('lobby:cancel', {
-        'gameId': state.gameId,
-        'playerId': state.playerId,
+        'gameId': currentGameId,
+        'playerId': currentPlayerId,
       });
       AppLogger.log('[ack] lobby:cancel $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
         AppLogger.log('cancelGame error: $err');
+        final isStreamSinkBound =
+            err.contains('StreamSink is bound to a Stream');
         // Tolère game_not_found côté client: on nettoie quand même l'état
         if (err == 'game_not_found' ||
             err == 'invalid_payload' ||
-            err == 'invalid_context') {
+            err == 'invalid_context' ||
+            isStreamSinkBound) {
           err = null;
         }
       }
@@ -751,20 +829,30 @@ class GameController extends Notifier<GameModel> {
   }
 
   Future<String?> leaveGame() async {
+    final currentGameId = state.gameId;
+    final currentPlayerId = state.playerId;
+    if (currentGameId == null || currentPlayerId == null) {
+      _resetGameState();
+      await _clearSession();
+      return null;
+    }
     String? err;
     try {
       final ack = await _socketSvc.emitAck('lobby:leave', {
-        'gameId': state.gameId,
-        'playerId': state.playerId,
+        'gameId': currentGameId,
+        'playerId': currentPlayerId,
       });
       AppLogger.log('[ack] lobby:leave $ack');
       if (ack['ok'] != true) {
         err = ack['error']?.toString() ?? 'unknown_error';
         AppLogger.log('leaveGame error: $err');
+        final isStreamSinkBound =
+            err.contains('StreamSink is bound to a Stream');
         // Tolère game_not_found côté client (ex: jeu déjà annulé)
         if (err == 'game_not_found' ||
             err == 'invalid_payload' ||
-            err == 'invalid_context') {
+            err == 'invalid_context' ||
+            isStreamSinkBound) {
           err = null;
         }
       }
@@ -776,7 +864,6 @@ class GameController extends Notifier<GameModel> {
     await _clearSession();
     return err;
   }
-
 
   Future<void> toggleVibrations(bool on) async {
     state = state.copy(vibrations: on);
@@ -1219,8 +1306,13 @@ class GameController extends Notifier<GameModel> {
 
   // ------------- Reset -------------
   Future<void> leaveToHome() async {
+    final preservedUrl = state.serverUrl;
+    final preservedLogLevel = state.serverLogLevel;
     _socketSvc.dispose();
-    state = GameModel.initial();
+    state = GameModel.initial().copy(
+      serverUrl: preservedUrl,
+      serverLogLevel: preservedLogLevel,
+    );
     await _clearSession();
   }
 }

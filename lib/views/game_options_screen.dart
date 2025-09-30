@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/game_provider.dart';
+import '../utils/snackbars.dart';
 
 // Écran de configuration d'une partie avant de rejoindre le lobby.
 
@@ -31,18 +32,41 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
             value: _maxPlayers,
             onChanged: (v) => setState(() => _maxPlayers = v ?? 4),
             items: [
-              3, 4, 5, 6,
-              8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-            ].map((n) => DropdownMenuItem<int>(value: n, child: Text('$n joueurs'))).toList(),
+              3,
+              4,
+              5,
+              6,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+            ]
+                .map((n) =>
+                    DropdownMenuItem<int>(value: n, child: Text('$n joueurs')))
+                .toList(),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: gm.socketConnected
                 ? () async {
-                    final err = await ctl.createGame(widget.nickname, _maxPlayers);
+                    final err =
+                        await ctl.createGame(widget.nickname, _maxPlayers);
                     if (err != null && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(backgroundColor: Colors.red, content: Text(err)),
+                        badgeAwareSnackBar(
+                          context,
+                          content: Text(err),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     } else if (context.mounted) {
                       Navigator.of(context).pop();

@@ -84,6 +84,9 @@ Checklist before PR
 ## Security & Config
 - Dev CORS is permissive; restrict for production deployments.
 - Keep ACK contract stable: `{ ok: true, data? } | { ok: false, error }`.
+- Client Socket.IO logging (`serverLogLevel`): 0 désactive tout, 1 consigne uniquement les erreurs (payload inclus), 2 trace chaque événement avec son payload, 3 se limite au résumé des événements (défaut, les erreurs gardent leur payload).
+  - Le niveau se passe au lancement via un dart-define (`--dart-define=_serverLogLevel=2`), un argument CLI (`--serverLogLevel 2`) ou une variable d'environnement (`_serverLogLevel`/`SERVER_LOG_LEVEL`).
+  - Valeur lue au démarrage, appliquée à `SocketService` et gardée dans l'état client (pas d'option UI).
 
 ## Troubleshooting
 - Port 3000 busy: run with `PORT=3001 npm run start` and update client URL.

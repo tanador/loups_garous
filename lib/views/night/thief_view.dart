@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/game_provider.dart';
 import '../../state/models.dart';
+import '../../utils/snackbars.dart';
 import '../widgets/common.dart';
 
 /// Écran privé du Voleur (Nuit 0).
@@ -16,7 +17,8 @@ class ThiefView extends ConsumerWidget {
     final s = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
     final center = s.thiefCenter;
-    final mustTakeWolf = center.length == 2 && center[0] == Role.WOLF && center[1] == Role.WOLF;
+    final mustTakeWolf =
+        center.length == 2 && center[0] == Role.WOLF && center[1] == Role.WOLF;
     final messenger = ScaffoldMessenger.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Nuit — Voleur')),
@@ -41,13 +43,19 @@ class ThiefView extends ConsumerWidget {
                     title: 'Prendre :',
                     subtitle: _roleLabel(center.isNotEmpty ? center[0] : null),
                     icon: _roleIcon(center.isNotEmpty ? center[0] : null),
-                    color: _roleColor(context, center.isNotEmpty ? center[0] : null),
+                    color: _roleColor(
+                        context, center.isNotEmpty ? center[0] : null),
                     enabled: center.isNotEmpty,
                     onTap: center.isNotEmpty
                         ? () async {
                             final err = await ctl.thiefSwap(0);
                             if (err != null) {
-                              messenger.showSnackBar(SnackBar(content: Text(err)));
+                              messenger.showSnackBar(
+                                badgeAwareSnackBar(
+                                  context,
+                                  content: Text(err),
+                                ),
+                              );
                             } else {
                               // Pas de notification de prise pour préserver la confidentialité
                             }
@@ -61,13 +69,19 @@ class ThiefView extends ConsumerWidget {
                     title: 'Prendre :',
                     subtitle: _roleLabel(center.length > 1 ? center[1] : null),
                     icon: _roleIcon(center.length > 1 ? center[1] : null),
-                    color: _roleColor(context, center.length > 1 ? center[1] : null),
+                    color: _roleColor(
+                        context, center.length > 1 ? center[1] : null),
                     enabled: center.length > 1,
                     onTap: center.length > 1
                         ? () async {
                             final err = await ctl.thiefSwap(1);
                             if (err != null) {
-                              messenger.showSnackBar(SnackBar(content: Text(err)));
+                              messenger.showSnackBar(
+                                badgeAwareSnackBar(
+                                  context,
+                                  content: Text(err),
+                                ),
+                              );
                             } else {
                               // Pas de notification de prise pour préserver la confidentialité
                             }
@@ -89,10 +103,18 @@ class ThiefView extends ConsumerWidget {
                   ? () async {
                       final err = await ctl.thiefKeep();
                       if (err != null) {
-                        messenger.showSnackBar(SnackBar(content: Text(err)));
+                        messenger.showSnackBar(
+                          badgeAwareSnackBar(
+                            context,
+                            content: Text(err),
+                          ),
+                        );
                       } else {
                         messenger.showSnackBar(
-                          const SnackBar(content: Text('Vous gardez votre carte.')),
+                          badgeAwareSnackBar(
+                            context,
+                            content: const Text('Vous gardez votre carte.'),
+                          ),
                         );
                       }
                     }
@@ -195,16 +217,21 @@ class _ChoiceTile extends StatelessWidget {
     final card = Container(
       height: 120,
       decoration: BoxDecoration(
-        border: Border.all(color: enabled ? outline : outline.withValues(alpha: 0.4)),
+        border: Border.all(
+            color: enabled ? outline : outline.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: enabled ? color : color.withValues(alpha: 0.4), size: 28),
+          Icon(icon,
+              color: enabled ? color : color.withValues(alpha: 0.4), size: 28),
           const SizedBox(height: 8),
-          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: enabled ? null : Colors.grey)),
+          Text(title,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: enabled ? null : Colors.grey)),
           const SizedBox(height: 4),
           Text(subtitle, style: TextStyle(color: enabled ? null : Colors.grey)),
         ],

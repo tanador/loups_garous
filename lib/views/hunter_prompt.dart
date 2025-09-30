@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/game_provider.dart';
 import '../state/models.dart';
+import '../utils/snackbars.dart';
 import 'widgets/common.dart';
 
 /// Shared widget rendering the hunter target selection.
@@ -87,7 +88,10 @@ class _HunterPromptState extends ConsumerState<HunterPrompt> {
                     if (!mounted) return;
                     if (err != null) {
                       messenger.showSnackBar(
-                        SnackBar(content: Text(err)),
+                        badgeAwareSnackBar(
+                          context,
+                          content: Text(err),
+                        ),
                       );
                       return;
                     }

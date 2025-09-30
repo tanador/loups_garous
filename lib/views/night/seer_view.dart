@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/game_provider.dart';
+import '../../utils/snackbars.dart';
 import '../widgets/common.dart';
 
 /// Écran de la voyante pendant la phase de nuit.
@@ -43,13 +44,21 @@ class _SeerViewState extends ConsumerState<SeerView> {
             children: [
               const Icon(Icons.visibility, size: 72),
               const SizedBox(height: 16),
-              Text('Vous avez sondé :', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+              Text('Vous avez sondé :',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text(name, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+              Text(name,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
-              Text('Son rôle est :', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+              Text('Son rôle est :',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text(roleName, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+              Text(roleName,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () async {
@@ -81,9 +90,7 @@ class _SeerViewState extends ConsumerState<SeerView> {
               },
               child: Column(
                 children: [
-                  ...targets
-                      .where((t) => t.id != s.playerId)
-                      .map(
+                  ...targets.where((t) => t.id != s.playerId).map(
                         (t) => RadioListTile<String?>(
                           title: Text(t.id),
                           value: t.id,
@@ -102,7 +109,10 @@ class _SeerViewState extends ConsumerState<SeerView> {
                         if (mounted) setState(() => _sent = true);
                       } catch (e) {
                         messenger.showSnackBar(
-                          SnackBar(content: Text('Erreur: $e')),
+                          badgeAwareSnackBar(
+                            context,
+                            content: Text('Erreur: $e'),
+                          ),
                         );
                       }
                     }

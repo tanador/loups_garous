@@ -13,14 +13,14 @@
     -NbJoueurs <int>    Nombre d’instances client à lancer (défaut 5)
     -Port <int>         Port HTTP du serveur (défaut 3000)
     -ScreenIndex <int>  Écran cible (0 = principal, 1 = second, ... ; défaut 0)
-    -NoAuto             Si présent, n’envoie pas _paramNick/_autoCreate/_maxPlayers aux clients
+    -NoAuto             Si present, n'envoie pas _autoCreate/_autoJoin/_maxPlayers aux clients
     -NoServer           Passe la phase de démarrage du serveur
     -FirstX <int>       Décalage X (px) du coin haut‑gauche de la grille
     -FirstY <int>       Décalage Y (px) du coin haut‑gauche de la grille
 
   Comportement par défaut (sans -NoAuto):
-    - 1ère instance:  _paramNick=fabrice_serveur, _autoCreate=true, _maxPlayers=NbJoueurs
-    - 2..N:           _paramNick=fabrice_{i}, _autoCreate=false
+    - 1ere instance:  pseudo "Fabrice 1", _autoCreate=true, _autoJoin=true, _maxPlayers=NbJoueurs
+    - 2..N:           pseudo "Fabrice {i}", _autoCreate=false, _autoJoin=true
 
   Remarques:
     - Le serveur n’acceptera que les tailles prévues côté back; avec la version
@@ -33,7 +33,7 @@ param(
   [int]$Port = 3000,
   [int]$ScreenIndex = 0,
   [switch]$NoAuto,
-  [switch]$NoServer,
+  [Alias('NoServer1')] [switch]$NoServer,
   [int]$FirstX = 0,
   [int]$FirstY = 0
 )
@@ -287,7 +287,7 @@ function Start-ClientLogCollector {
 }
 
 function Spawn-Client {
-  param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[int]$X,[int]$Y,[int]$W,[int]$H,[switch]$NoAuto)
+  param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[bool]$AutoJoin,[int]$X,[int]$Y,[int]$W,[int]$H,[switch]$NoAuto)
   $safeNick = ($Nick -replace '[^a-zA-Z0-9_-]', '_')
   if ([string]::IsNullOrWhiteSpace($safeNick)) { $safeNick = 'client' }
   $clientLogPath = Join-Path $clientLogsRoot ("flutter-client-{0}-{1}.log" -f $launchStamp, $safeNick)
@@ -295,17 +295,25 @@ function Spawn-Client {
   New-Item -ItemType File -Path $clientLogPath -Force | Out-Null
   $env:LG_CLIENT_LOG_FILE = $clientLogPath
 
+  # Même avec -NoAuto, on fournit le pseudo pour simplifier la connexion.
+  $env:_paramNick = $Nick
+  $env:LG_PARAM_NICK = $Nick
   if ($NoAuto) {
-    Remove-Item Env:_paramNick -ErrorAction SilentlyContinue
-    Remove-Item Env:_autoCreate -ErrorAction SilentlyContinue
+    $env:_autoCreate = 'false'
+    $env:_autoJoin = 'false'
     Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
   } else {
-    $env:_paramNick = $Nick
     if ($AutoCreate) {
       $env:_autoCreate = 'true'
-      if ($AutoMaxPlayers -gt 0) { $env:_maxPlayers = "$AutoMaxPlayers" }
+      $env:_autoJoin = 'true'
+      if ($AutoMaxPlayers -gt 0) {
+        $env:_maxPlayers = "$AutoMaxPlayers"
+      } else {
+        Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
+      }
     } else {
       $env:_autoCreate = 'false'
+      $env:_autoJoin = $AutoJoin ? 'true' : 'false'
       Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
     }
   }
@@ -331,12 +339,11 @@ for ($i = 0; $i -lt $NbJoueurs; $i++) {
 
 $procs = @()
 # 1er client: crée la partie si -NoAuto n'est pas passé
-$procs += Spawn-Client -Nick 'fabrice_serveur' -AutoCreate ($NoAuto ? $false : $true) -AutoMaxPlayers $NbJoueurs -X $positions[0].X -Y $positions[0].Y -W $tileW -H $tileH -NoAuto:$NoAuto
+$procs += Spawn-Client -Nick 'Fabrice 1' -AutoCreate:(-not $NoAuto) -AutoMaxPlayers $NbJoueurs -AutoJoin $true -X $positions[0].X -Y $positions[0].Y -W $tileW -H $tileH -NoAuto:$NoAuto
 
 # Autres clients
 for ($i = 1; $i -lt $NbJoueurs; $i++) {
-  $nick = ('fabrice_{0}' -f ($i + 1))
-  $procs += Spawn-Client -Nick $nick -AutoCreate $false -AutoMaxPlayers 0 -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH -NoAuto:$NoAuto
+  $procs += Spawn-Client -Nick $nick -AutoCreate $false -AutoMaxPlayers 0 -AutoJoin:(-not $NoAuto) -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH -NoAuto:$NoAuto
 }
 
 for ($i=0; $i -lt $procs.Count; $i++) { Set-WindowBounds -Process $procs[$i] -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH }
@@ -355,4 +362,3 @@ try {
     Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue
   }
 } catch { }
-

@@ -101,12 +101,13 @@ describe('Lobby orchestration', () => {
     const snaps = io.emits.filter(e => e.event === 'game:snapshot');
     expect(snaps.length).toBeGreaterThan(0);
   });
-  it('auto cancels lobby when countdown expires', () => {
+  it('auto cancels lobby when owner stays disconnected', () => {
     vi.useFakeTimers();
     CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = 3;
     const s1 = fakeSocket('s1');
     const { gameId } = orch.createGame('Alice', 4, s1 as any);
     expect(orch.listGames()).toHaveLength(1);
+    orch.markDisconnected(s1 as any);
     vi.advanceTimersByTime(2999);
     expect(orch.listGames()).toHaveLength(1);
     vi.advanceTimersByTime(1);
@@ -117,7 +118,23 @@ describe('Lobby orchestration', () => {
     expect(orch.listGames()).toHaveLength(0);
   });
 
-  it('does not cancel started games after timeout', () => {
+  it('keeps lobby when owner reconnects before delay', () => {
+    vi.useFakeTimers();
+    CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = 3;
+    const s1 = fakeSocket('s1');
+    const { gameId } = orch.createGame('Alice', 4, s1 as any);
+    expect(orch.listGames()).toHaveLength(1);
+    orch.markDisconnected(s1 as any);
+    vi.advanceTimersByTime(2000);
+    const s1b = fakeSocket('s1b');
+    orch.resume(gameId, 'Alice', s1b as any);
+    vi.advanceTimersByTime(2000);
+    const cancelled = io.emits.find(e => e.event === 'game:cancelled' && e.room === `room:${gameId}`);
+    expect(cancelled).toBeFalsy();
+    expect(orch.listGames()).toHaveLength(1);
+  });
+
+  it('does not cancel started games after owner disconnects', () => {
     vi.useFakeTimers();
     CONFIG.DELAIS_POUR_LANCEMENT_PARTIE_SECONDE = 1;
     const s1 = fakeSocket('s1');
@@ -127,6 +144,7 @@ describe('Lobby orchestration', () => {
     const s3 = fakeSocket('s3');
     orch.joinGame(gameId, 'Cara', s3 as any);
     expect(orch.listGames()).toHaveLength(0);
+    orch.markDisconnected(s1 as any);
     vi.advanceTimersByTime(60000);
     const autoCancelled = io.emits.find(e => e.event === 'game:cancelled' && e.room === `room:${gameId}`);
     expect(autoCancelled).toBeFalsy();
