@@ -258,16 +258,7 @@ class GameController extends Notifier<GameModel> {
               ?.map((e) => LobbyGameInfo.fromJson(Map<String, dynamic>.from(e)))
               .toList() ??
           [];
-      final currentGameId = state.gameId;
-      final currentPhase = state.phase;
       state = state.copy(lobby: games);
-      if (currentGameId != null &&
-          currentPhase == GamePhase.LOBBY &&
-          !games.any((g) => g.id == currentGameId)) {
-        _resetGameState();
-        await _clearSession();
-        AppLogger.log('[evt] lobby:current game missing -> local reset');
-      }
       AppLogger.log('[evt] lobby:updated ${games.length}');
     });
 
@@ -398,6 +389,14 @@ class GameController extends Notifier<GameModel> {
                     )
                     .alive)),
       );
+
+      if (phase == GamePhase.ROLES &&
+          role != null &&
+          state.roleRevealUntilMs == null) {
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        final until = nowMs + 10 * 1000;
+        state = state.copy(roleRevealUntilMs: until, youReadyLocal: false);
+      }
 
       if (wasClosing && !closing) {
         try {
