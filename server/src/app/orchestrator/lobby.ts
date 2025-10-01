@@ -90,14 +90,28 @@ export function createLobbyApi(ctx: OrchestratorContext) {
       setState(game, "ROLES");
       clearLobbyTimeout(game.id);
       assignRoles(game);
+      const countdownSecondsRaw = Number(CONFIG.COUNTDOWN_SECONDS);
+      const countdownMs = Number.isFinite(countdownSecondsRaw)
+        ? Math.max(0, Math.trunc(countdownSecondsRaw * 1000))
+        : 0;
+      const now = Date.now();
+      const endsAt = countdownMs > 0 ? now + countdownMs : now;
+      game.roleRevealEndsAt = endsAt;
       for (const p of game.players) {
         const socket = ctx.io.sockets.sockets.get(p.socketId);
         if (socket) bindPlayerToRooms(game, p, socket);
       }
       for (const p of game.players) {
+        const endsAtForPlayer = game.roleRevealEndsAt ?? Date.now();
+        const nowForPlayer = Date.now();
+        const remainingSeconds = Math.max(
+          0,
+          Math.ceil((endsAtForPlayer - nowForPlayer) / 1000),
+        );
         ctx.io.to(p.socketId).emit("role:assigned", {
           role: game.roles[p.id],
-          countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
+          countdownSeconds: remainingSeconds,
+          roleRevealEndsAt: endsAtForPlayer,
           pressToRevealMs: CONFIG.TIME_PRESS_BEFOR_REVEAL_ROLE,
         });
       }
@@ -201,6 +215,7 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     for (const p of game.players) ctx.helpers.sendSnapshot(game, p.id);
     const allReady = game.players.every((p) => p.isReady);
     if (allReady && game.state === "ROLES") {
+      game.roleRevealEndsAt = undefined;
       const thief = game.players.find((p) => game.roles[p.id] === "THIEF");
       const cupid = game.players.find((p) => game.roles[p.id] === "CUPID");
       ctx.helpers.globalSleep(game, () => {
@@ -238,3 +253,4 @@ export function createLobbyApi(ctx: OrchestratorContext) {
     handleOwnerDisconnected,
   };
 }
+

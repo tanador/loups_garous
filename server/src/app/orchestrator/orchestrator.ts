@@ -348,6 +348,7 @@ export class Orchestrator {
   }
 
   private broadcastState(game: Game) {
+    const roleRevealEndsAt = game.roleRevealEndsAt ?? null;
     this.io.to(`room:${game.id}`).emit("game:stateChanged", {
       gameId: game.id,
       state: game.state,
@@ -355,13 +356,25 @@ export class Orchestrator {
       deadline: game.deadlines?.phaseEndsAt ?? null,
       hunterPending: game.hunterPending === true,
       closingEyes: (game as any).closingEyes === true,
-      config: { vibrations: VIBRATION },
+      roleRevealEndsAt,
+      config: {
+        vibrations: VIBRATION,
+        countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
+        pressToRevealMs: CONFIG.TIME_PRESS_BEFOR_REVEAL_ROLE,
+      },
     });
   }
 
   sendSnapshot(game: Game, toPlayerId: string) {
     const you = game.players.find((p) => p.id === toPlayerId)!;
     const publicAlive = Array.from(game.alive.values());
+    const isCupid = game.roles[you.id] === "CUPID";
+    const cupidTargets =
+      isCupid && game.state === "NIGHT_CUPID"
+        ? game.players
+            .filter((p) => game.alive.has(p.id))
+            .map((p) => ({ id: p.id }))
+        : undefined;
     const sanitized = {
       id: game.id,
       state: game.state,
@@ -383,10 +396,16 @@ export class Orchestrator {
         poisoned: undefined,
       },
       alive: publicAlive,
+      cupidTargets,
       deadline: game.deadlines?.phaseEndsAt ?? null,
       hunterPending: game.hunterPending === true,
       closingEyes: (game as any).closingEyes === true,
-      config: { vibrations: VIBRATION },
+      roleRevealEndsAt: game.roleRevealEndsAt ?? null,
+      config: {
+        vibrations: VIBRATION,
+        countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
+        pressToRevealMs: CONFIG.TIME_PRESS_BEFOR_REVEAL_ROLE,
+      },
     };
     this.io.to(you.socketId).emit("game:snapshot", sanitized);
   }

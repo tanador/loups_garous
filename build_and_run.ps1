@@ -283,7 +283,7 @@ function Spawn-Client {
 
   $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
 
-  [string[]]$arguments = @('--paramNick', $Nick)
+  [string[]]$arguments = @('--paramNick="' + $Nick + '"')
   if ($AutoCreate) {
     $arguments += '--autoCreate'
     $arguments += '--autoJoin'

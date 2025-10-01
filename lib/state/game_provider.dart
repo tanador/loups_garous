@@ -13,6 +13,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:vibration/vibration.dart';
 import '../utils/haptics.dart';
 
+const int _defaultRoleCountdownSeconds = 10;
 final gameProvider =
     NotifierProvider<GameController, GameModel>(GameController.new);
 
@@ -265,16 +266,17 @@ class GameController extends Notifier<GameModel> {
     // --- Role and state
     s.on('role:assigned', (data) {
       final role = roleFromStr(data['role']);
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final seconds = (data['countdownSeconds'] is num)
-          ? (data['countdownSeconds'] as num).toInt()
-          : 10;
-      final pressMs = (data['pressToRevealMs'] is num)
-          ? (data['pressToRevealMs'] as num).toInt()
-          : state.rolePressRevealMs;
-      final until = now + seconds * 1000;
-      // Affiche localement un compte à rebours configuré côté serveur,
-      // même si l'état serveur bouge rapidement après l'assignation.
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final endsAt = _normalizeFutureTimestamp(data['roleRevealEndsAt'], nowMs);
+      final seconds =
+          _clampConfigInt(data['countdownSeconds'], min: 0, max: 600) ??
+              _defaultRoleCountdownSeconds;
+      final pressMs =
+          _clampConfigInt(data['pressToRevealMs'], min: 0, max: 60000) ??
+              state.rolePressRevealMs;
+      final until = endsAt ?? (nowMs + seconds * 1000);
+      // Affiche localement un compte � rebours configur� c�t� serveur,
+      // m�me si l'�tat serveur bouge rapidement apr�s l'assignation.
       state = state.copy(
         role: role,
         phase: GamePhase.ROLES,
@@ -290,8 +292,12 @@ class GameController extends Notifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final closing = data['closingEyes'] == true;
-      final vibCfg = _parseVibrationConfig(data['config']);
-      // Robustness: si on n'est plus en phase Amoureux, masque l'écran localement
+      final configRaw = data['config'];
+      final vibCfg = _parseVibrationConfig(configRaw);
+      final pressCfg = _extractPressToRevealMs(configRaw);
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final roleEndsAt = _normalizeFutureTimestamp(data['roleRevealEndsAt'], nowMs);
+      // Robustness: si on n'est plus en phase Amoureux, masque l'�cran localement
       final loverPartnerId =
           phase == GamePhase.NIGHT_LOVERS ? state.loverPartnerId : null;
       // Clear the day recap when leaving RESOLVE phase
@@ -299,6 +305,8 @@ class GameController extends Notifier<GameModel> {
           phase != GamePhase.RESOLVE ? null : state.dayVoteRecap;
       final leavingRoles =
           previousPhase == GamePhase.ROLES && phase != GamePhase.ROLES;
+      final nextRoleRevealUntil =
+          phase == GamePhase.ROLES ? (roleEndsAt ?? state.roleRevealUntilMs) : null;
       state = state.copy(
         phase: phase,
         deadlineMs: deadline,
@@ -311,8 +319,8 @@ class GameController extends Notifier<GameModel> {
         vibrationPulseMs: vibCfg?.pulseMs ?? state.vibrationPulseMs,
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
-        roleRevealUntilMs:
-            phase == GamePhase.ROLES ? state.roleRevealUntilMs : null,
+        roleRevealUntilMs: nextRoleRevealUntil,
+        rolePressRevealMs: pressCfg ?? state.rolePressRevealMs,
         youReadyLocal: leavingRoles ? false : state.youReadyLocal,
       );
 
@@ -349,11 +357,26 @@ class GameController extends Notifier<GameModel> {
       final phase = phaseFromStr(data['state']);
       final deadline = data['deadline'] as int?;
       final closing = data['closingEyes'] == true;
-      final vibCfg = _parseVibrationConfig(data['config']);
+      final configRaw = data['config'];
+      final vibCfg = _parseVibrationConfig(configRaw);
+      final pressCfg = _extractPressToRevealMs(configRaw);
+      final countdownCfg = _extractCountdownSeconds(configRaw);
+      final nowMsSnapshot = DateTime.now().millisecondsSinceEpoch;
+      final bool clearCupidTargets =
+          role != Role.CUPID || phase != GamePhase.NIGHT_CUPID;
+      List<Lite>? snapshotCupidTargets;
+      if (!clearCupidTargets && data is Map && (data as Map).containsKey('cupidTargets')) {
+        final rawCupidTargets = ((data as Map)['cupidTargets'] as List?) ?? const [];
+        snapshotCupidTargets = rawCupidTargets
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .map((j) => Lite(id: j['id']))
+            .toList();
+      }
+      final roleEndsAt = _normalizeFutureTimestamp(data['roleRevealEndsAt'], nowMsSnapshot);
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
       final snapshotGameId = data['id']?.toString();
-      // Si nous n'avions pas encore les identifiants (fallback quand l'ACK a échoué),
-      // les récupérer depuis le snapshot pour permettre à l'UI d'avancer.
+      // Si nous n'avions pas encore les identifiants (fallback quand l'ACK a �chou�),
+      // les r�cup�rer depuis le snapshot pour permettre � l'UI d'avancer.
       final nextGameId = state.gameId ?? snapshotGameId;
       final nextPlayerId = state.playerId ?? youId;
       final gainedContext =
@@ -361,6 +384,8 @@ class GameController extends Notifier<GameModel> {
       final isOwner = players.isNotEmpty &&
           nextPlayerId != null &&
           players.first.id == nextPlayerId;
+      final nextRoleRevealUntil =
+          phase == GamePhase.ROLES ? (roleEndsAt ?? state.roleRevealUntilMs) : null;
       state = state.copy(
         gameId: nextGameId,
         playerId: nextPlayerId,
@@ -370,6 +395,8 @@ class GameController extends Notifier<GameModel> {
         deadlineMs: deadline,
         closingEyes: closing,
         hunterPending: data['hunterPending'] == true,
+        cupidTargets: snapshotCupidTargets ??
+            (clearCupidTargets ? const <Lite>[] : state.cupidTargets),
         maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
@@ -378,7 +405,7 @@ class GameController extends Notifier<GameModel> {
         vibrationPauseMs: vibCfg?.pauseMs ?? state.vibrationPauseMs,
         vibrationForce: vibCfg?.force ?? state.vibrationForce,
         youVoted: phase == GamePhase.VOTE ? state.youVoted : false,
-        // Déclenche l'animation si l'on apprend via snapshot qu'on vient de mourir
+        // D�clenche l'animation si l'on apprend via snapshot qu'on vient de mourir
         showDeathAnim: state.showDeathAnim ||
             (wasAliveBefore &&
                 !(players
@@ -388,15 +415,20 @@ class GameController extends Notifier<GameModel> {
                           id: '', connected: true, alive: true),
                     )
                     .alive)),
+        roleRevealUntilMs: nextRoleRevealUntil,
+        rolePressRevealMs: pressCfg ?? state.rolePressRevealMs,
       );
 
       if (phase == GamePhase.ROLES &&
           role != null &&
           state.roleRevealUntilMs == null) {
-        final nowMs = DateTime.now().millisecondsSinceEpoch;
-        final until = nowMs + 10 * 1000;
-        state = state.copy(roleRevealUntilMs: until, youReadyLocal: false);
+        final fallbackSeconds = countdownCfg ?? _defaultRoleCountdownSeconds;
+        final fallbackUntil = nowMsSnapshot + fallbackSeconds * 1000;
+        final pressMs = pressCfg ?? state.rolePressRevealMs;
+        state = state.copy(roleRevealUntilMs: fallbackUntil, rolePressRevealMs: pressMs, youReadyLocal: false);
       }
+
+
 
       if (wasClosing && !closing) {
         try {
@@ -543,6 +575,11 @@ class GameController extends Notifier<GameModel> {
           .toList();
       state = state.copy(cupidTargets: list);
       AppLogger.log('[evt] cupid:wake targets=${list.length}');
+    });
+
+    s.on('cupid:sleep', (_) {
+      state = state.copy(cupidTargets: []);
+      AppLogger.log('[evt] cupid:sleep');
     });
 
     s.on('lovers:wake', (data) async {
@@ -1070,6 +1107,24 @@ class GameController extends Notifier<GameModel> {
       return null;
     }
     return (pulses: pulses, pulseMs: pulseMs, pauseMs: pauseMs, force: force);
+  }
+
+  static int? _extractCountdownSeconds(dynamic raw) {
+    if (raw is! Map) return null;
+    return _clampConfigInt(raw['countdownSeconds'], min: 0, max: 600);
+  }
+
+  static int? _extractPressToRevealMs(dynamic raw) {
+    if (raw is! Map) return null;
+    return _clampConfigInt(raw['pressToRevealMs'], min: 0, max: 60000);
+  }
+
+  static int? _normalizeFutureTimestamp(dynamic raw, int nowMs) {
+    if (raw is num && raw.isFinite) {
+      final value = raw.toInt();
+      return value < nowMs ? nowMs : value;
+    }
+    return null;
   }
 
   bool _youAlive() {

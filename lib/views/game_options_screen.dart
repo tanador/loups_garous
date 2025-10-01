@@ -21,6 +21,14 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
     final gm = ref.watch(gameProvider);
     final ctl = ref.read(gameProvider.notifier);
 
+    if (gm.gameId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final nav = Navigator.of(context);
+        if (nav.canPop()) nav.pop();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Options de partie')),
       body: Padding(
@@ -56,7 +64,7 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: gm.socketConnected
+            onPressed: (gm.socketConnected && gm.gameId == null)
                 ? () async {
                     final err =
                         await ctl.createGame(widget.nickname, _maxPlayers);

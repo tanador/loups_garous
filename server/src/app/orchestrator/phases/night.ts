@@ -121,6 +121,7 @@ export function createNightApi(ctx: OrchestratorContext) {
     }
     setDeadline(ctx, game, DURATION.CUPID_MS);
     ctx.helpers.broadcastState(game);
+    ctx.helpers.sendSnapshot(game, cid);
     const socket = ctx.io.sockets.sockets.get(cupid.socketId);
     if (socket) {
       socket.emit("cupid:wake", {

@@ -63,7 +63,16 @@ class SocketService {
         (n) => AppLogger.log('[socket] reconnect $n', name: _logName));
     socket.onReconnectAttempt(
         (_) => AppLogger.log('[socket] reconnect_attempt', name: _logName));
-    socket.onAny(_handleIncomingEvent);
+    socket.onAny((event, [dynamic arg1, dynamic arg2, dynamic arg3, dynamic arg4]) {
+      final args = <dynamic>[];
+      for (final value in [arg1, arg2, arg3, arg4]) {
+        if (value != null) args.add(value);
+      }
+      final payload = args.isEmpty
+          ? null
+          : (args.length == 1 ? args.first : args);
+      _handleIncomingEvent(event, payload);
+    });
     // Do not connect yet; caller will initiate connection after registering listeners
     _socket = socket;
     return socket;

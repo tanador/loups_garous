@@ -111,6 +111,7 @@ export interface Game {
   revoteRound?: number;
   history: HistoryEvent[];
   privateLog?: any[];
+  roleRevealEndsAt?: number;
   deadlines?: { phaseEndsAt?: number };
   wolvesChoices: Record<string, string | null>;
   morningAcks: Set<string>;
