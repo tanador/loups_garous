@@ -1,38 +1,38 @@
 <#
-  build_and_run.ps1 — Multi‑run helper (server + N clients)
+  build_and_run.ps1 - Multi-run helper (server + N clients)
 
-  Ce script paramétrable:
-  - Démarre le serveur dans une nouvelle fenêtre via start_server.cmd (logs visibles)
-  - Lance la compilation Windows du client Flutter en parallèle
-  - Ouvre N instances du client et les dispose en grille sur l’écran choisi
-  - Définit la taille/position de chaque fenêtre; s’adapte pour faire tenir N fenêtres
-  - Avant de lancer, ferme toute instance serveur (port choisi) et toute instance
-    Windows du client déjà en cours d’exécution
+  Ce script parametreable :
+  - Demarre le serveur dans une nouvelle fenetre via start_server.cmd (logs visibles)
+  - Lance la compilation Windows du client Flutter en parallele
+  - Ouvre N instances du client et les dispose en grille sur l'ecran choisi
+  - Force chaque fenetre a 300x600 px et ajuste la position selon les offsets
+  - Avant de lancer, ferme les instances serveurs/clients deja en cours d'execution
 
-  Paramètres:
-    -NbJoueurs <int>    Nombre d’instances client à lancer (défaut 5)
-    -Port <int>         Port HTTP du serveur (défaut 3000)
-    -ScreenIndex <int>  Écran cible (0 = principal, 1 = second, ... ; défaut 0)
-    -NoAuto             Si present, n'envoie pas _autoCreate/_autoJoin/_maxPlayers aux clients
-    -NoServer           Passe la phase de démarrage du serveur
-    -FirstX <int>       Décalage X (px) du coin haut‑gauche de la grille
-    -FirstY <int>       Décalage Y (px) du coin haut‑gauche de la grille
+  Parametres :
+    -NbJoueurs <int>    Nombre d'instances client a lancer (defaut 5)
+    -Port <int>         Port HTTP du serveur (defaut 3000)
+    -ScreenIndex <int>  Ecran cible (0 = principal, 1 = second, ... ; defaut 0)
+    -AutoCreate         Active le flux automatique (rejoindre ou creer la partie)
+    -NoServer           Ignore le lancement du serveur
+    -FirstX <int>       Decalage X (px) du coin haut-gauche de la grille
+    -FirstY <int>       Decalage Y (px) du coin haut-gauche de la grille
 
-  Comportement par défaut (sans -NoAuto):
-    - 1ere instance:  pseudo "Fabrice 1", _autoCreate=true, _autoJoin=true, _maxPlayers=NbJoueurs
-    - 2..N:           pseudo "Fabrice {i}", _autoCreate=false, _autoJoin=true
+  Comportement par defaut :
+    - 1ere instance : pseudo "Fabrice 1", autoCreate & autoJoin actifs, autoMaxPlayers=NbJoueurs
+    - 2..N           : pseudo "Fabrice {i}", autoJoin actif
 
-  Remarques:
-    - Le serveur n’acceptera que les tailles prévues côté back; avec la version
-      actuelle du dépôt, les valeurs autorisées sont 3–6 et 8–20. 7 sera refusé.
-    - Ce script n’édite pas timer.config.json.
+  Remarques :
+    - Le serveur n'acceptera que les tailles prevues cote back; avec la version
+      actuelle du depot, les valeurs autorisees sont 3-6 et 8-20. 7 sera refuse.
+    - Ce script n'edite pas timer.config.json.
 #>
+
 
 param(
   [int]$NbJoueurs = 5,
   [int]$Port = 3000,
   [int]$ScreenIndex = 0,
-  [switch]$NoAuto,
+  [switch]$AutoCreate,
   [Alias('NoServer1')] [switch]$NoServer,
   [int]$FirstX = 0,
   [int]$FirstY = 0
@@ -218,30 +218,14 @@ $target = if ($ScreenIndex -ge 0 -and $ScreenIndex -lt $screens.Length) { $scree
 $wa = $target.WorkingArea
 Write-Host "[INFO] Using screen index $([array]::IndexOf($screens, $target)) ($($target.DeviceName)) area: X=$($wa.X) Y=$($wa.Y) W=$($wa.Width) H=$($wa.Height)"
 
-# Dimensionnement dynamique: calcule colonnes/ligne pour faire tenir N fenêtres
-$minTileW = 260; $minTileH = 520
-$prefTileW = 300; $prefTileH = 600
-$cols = [math]::Max(1, [math]::Floor($wa.Width / $prefTileW))
+# Conserve une taille fixe (300x600) pour aligner le comportement sur build_and_run_5.ps1.
+$tileW = 300
+$tileH = 600
+$cols = [math]::Max(1, [math]::Floor($wa.Width / $tileW))
 if ($cols -gt $NbJoueurs) { $cols = $NbJoueurs }
 if ($cols -lt 1) { $cols = 1 }
 $rows = [math]::Ceiling($NbJoueurs / $cols)
-if (($rows * $prefTileH) -le $wa.Height) {
-  $tileW = [int][math]::Floor($wa.Width / $cols)
-  $tileH = [int][math]::Floor($wa.Height / $rows)
-} else {
-  # Trop haut: ajuste le nombre de colonnes pour réduire le nombre de lignes
-  while ($cols -gt 1) {
-    $cols -= 1
-    $rows = [math]::Ceiling($NbJoueurs / $cols)
-    if (($rows * $prefTileH) -le $wa.Height) { break }
-  }
-  $tileW = [int][math]::Floor($wa.Width / $cols)
-  $tileH = [int][math]::Floor($wa.Height / $rows)
-  if ($tileW -lt $minTileW) { $tileW = $minTileW }
-  if ($tileH -lt $minTileH) { $tileH = $minTileH }
-}
 
-# Respecte éventuellement un décalage manuel de départ
 $maxRelX = [int]([math]::Max(0, $wa.Width - ($tileW * $cols)))
 $maxRelY = [int]([math]::Max(0, $wa.Height - ($tileH * $rows)))
 $baseRelX = [int]([math]::Max(0, [math]::Min($maxRelX, $FirstX)))
@@ -287,47 +271,38 @@ function Start-ClientLogCollector {
 }
 
 function Spawn-Client {
-  param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[bool]$AutoJoin,[int]$X,[int]$Y,[int]$W,[int]$H,[switch]$NoAuto)
+  param([string]$Nick,[bool]$AutoCreate,[int]$AutoMaxPlayers,[bool]$AutoJoin,[int]$X,[int]$Y,[int]$W,[int]$H)
+
   $safeNick = ($Nick -replace '[^a-zA-Z0-9_-]', '_')
   if ([string]::IsNullOrWhiteSpace($safeNick)) { $safeNick = 'client' }
+
   $clientLogPath = Join-Path $clientLogsRoot ("flutter-client-{0}-{1}.log" -f $launchStamp, $safeNick)
   try { Remove-Item $clientLogPath -ErrorAction SilentlyContinue } catch { }
   New-Item -ItemType File -Path $clientLogPath -Force | Out-Null
   $env:LG_CLIENT_LOG_FILE = $clientLogPath
 
-  # Même avec -NoAuto, on fournit le pseudo pour simplifier la connexion.
-  $env:_paramNick = $Nick
-  $env:LG_PARAM_NICK = $Nick
-  if ($NoAuto) {
-    $env:_autoCreate = 'false'
-    $env:_autoJoin = 'false'
-    Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
-  } else {
-    if ($AutoCreate) {
-      $env:_autoCreate = 'true'
-      $env:_autoJoin = 'true'
-      if ($AutoMaxPlayers -gt 0) {
-        $env:_maxPlayers = "$AutoMaxPlayers"
-      } else {
-        Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
-      }
-    } else {
-      $env:_autoCreate = 'false'
-      $env:_autoJoin = $AutoJoin ? 'true' : 'false'
-      Remove-Item Env:_maxPlayers -ErrorAction SilentlyContinue
+  $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
+
+  [string[]]$arguments = @('--paramNick', $Nick)
+  if ($AutoCreate) {
+    $arguments += '--autoCreate'
+    $arguments += '--autoJoin'
+    if ($AutoMaxPlayers -gt 0) {
+      $arguments += @('--autoMaxPlayers', "$AutoMaxPlayers")
     }
+  } elseif ($AutoJoin) {
+    $arguments += '--autoJoin'
   }
 
-  $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
-  $process = Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru
+  $process = Start-Process -FilePath $exePath -ArgumentList $arguments -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru
   Remove-Item Env:LG_CLIENT_LOG_FILE -ErrorAction SilentlyContinue
   Start-ClientLogCollector -LogPath $clientLogPath -Nick $Nick
   return $process
 }
 
 # Warn si nb joueurs 7 (non supporté par le serveur avec les setups actuels)
-if ($NbJoueurs -eq 7 -and -not $NoAuto) {
-  Write-Warning "7 joueurs n'est pas supporté par la configuration serveur actuelle (setups manquants). La création auto échouera."
+if ($NbJoueurs -eq 7 -and $AutoCreate) {
+  Write-Warning "7 joueurs ne sont pas supportes par la configuration serveur actuelle (setups manquants). La creation auto echouera."
 }
 
 $positions = @()
@@ -338,12 +313,13 @@ for ($i = 0; $i -lt $NbJoueurs; $i++) {
 }
 
 $procs = @()
-# 1er client: crée la partie si -NoAuto n'est pas passé
-$procs += Spawn-Client -Nick 'Fabrice 1' -AutoCreate:(-not $NoAuto) -AutoMaxPlayers $NbJoueurs -AutoJoin $true -X $positions[0].X -Y $positions[0].Y -W $tileW -H $tileH -NoAuto:$NoAuto
+# 1er client
+$procs += Spawn-Client -Nick 'Fabrice 1' -AutoCreate $AutoCreate -AutoMaxPlayers $NbJoueurs -AutoJoin $AutoCreate -X $positions[0].X -Y $positions[0].Y -W $tileW -H $tileH
 
 # Autres clients
 for ($i = 1; $i -lt $NbJoueurs; $i++) {
-  $procs += Spawn-Client -Nick $nick -AutoCreate $false -AutoMaxPlayers 0 -AutoJoin:(-not $NoAuto) -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH -NoAuto:$NoAuto
+  $nick = ('Fabrice {0}' -f ($i + 1))
+  $procs += Spawn-Client -Nick $nick -AutoCreate $false -AutoMaxPlayers 0 -AutoJoin $AutoCreate -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH
 }
 
 for ($i=0; $i -lt $procs.Count; $i++) { Set-WindowBounds -Process $procs[$i] -X $positions[$i].X -Y $positions[$i].Y -W $tileW -H $tileH }

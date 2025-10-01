@@ -37,7 +37,7 @@ String? _cliArgumentValue(List<String> args, String flag, [String? alias]) {
   return null;
 }
 
-bool? _parseEnvFlag(String? raw) {
+bool? _parseBoolString(String? raw) {
   if (raw == null) return null;
   final normalized = raw.trim().toLowerCase();
   if (normalized.isEmpty) return null;
@@ -63,7 +63,7 @@ bool? _tryReadEnvFlag(List<String> keys) {
   try {
     final env = Platform.environment;
     for (final key in keys) {
-      final parsed = _parseEnvFlag(env[key]);
+      final parsed = _parseBoolString(env[key]);
       if (parsed != null) {
         return parsed;
       }
@@ -72,14 +72,46 @@ bool? _tryReadEnvFlag(List<String> keys) {
   return null;
 }
 
-// Paramètres de lancement (lecture à l'exécution)
-// _paramNick     -> force le pseudo par défaut
-// _autoCreate    -> si "true" (ou 1/yes/y), crée automatiquement une partie (4 joueurs)
-// _autoJoin      -> si "true", rejoint automatiquement la première partie disponible
+bool? _cliFlag(
+  List<String> args,
+  String flag, {
+  List<String> aliases = const [],
+  List<String> negations = const [],
+}) {
+  final names = <String>[flag, ...aliases];
+  final negs = <String>[...negations];
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i];
+    if (negs.contains(arg)) return false;
+    for (final name in names) {
+      if (arg == name) {
+        if (i + 1 < args.length) {
+          final parsed = _parseBoolString(args[i + 1]);
+          if (parsed != null) return parsed;
+        }
+        return true;
+      }
+      final prefix = '$name=';
+      if (arg.startsWith(prefix)) {
+        final parsed = _parseBoolString(arg.substring(prefix.length));
+        if (parsed != null) return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+// Parametres de lancement (lecture a l'execution)
+// _paramNick     -> force le pseudo par defaut
+// _autoCreate    -> active la creation auto (ou rejoint si une partie existe)
+// _autoJoin      -> rejoint automatiquement la premiere partie disponible
 //
 // Sources prises en compte
 // - Pseudo: dart-define (compat: PSEUDO) ou argument CLI `--paramNick`.
-// - Auto-create/Auto-max: variables d'environnement OU dart-define (compat: AUTO_CREATE / AUTO_MAX_PLAYERS)
+// - Auto-create/Auto-max: argument CLI (`--autoCreate`, `--autoMaxPlayers`), variables d'environnement,
+//   ou dart-define (compat: AUTO_CREATE / AUTO_MAX_PLAYERS).
+// - Auto-join: argument CLI (`--autoJoin`), variables d'environnement, ou dart-define (compat: AUTO_JOIN).
+
 final String _paramNick = (() {
   const byKey = String.fromEnvironment('_paramNick', defaultValue: '');
   if (byKey.isNotEmpty) return byKey;
@@ -96,6 +128,15 @@ final String _paramNick = (() {
 })();
 
 final bool _autoCreate = (() {
+  if (!kIsWeb) {
+    final cliFlag = _cliFlag(
+      Platform.executableArguments,
+      '--autoCreate',
+      aliases: const ['--auto-create'],
+      negations: const ['--no-autoCreate', '--no-auto-create'],
+    );
+    if (cliFlag != null) return cliFlag;
+  }
   final fromEnv = _tryReadEnvFlag(const [
     '_autoCreate',
     '_AUTOCREATE',
@@ -116,6 +157,15 @@ final bool _autoCreate = (() {
 // 2) Dart-define (compat: _maxPlayers / AUTO_MAX_PLAYERS)
 // Valeur par défaut: 4
 final bool _autoJoin = (() {
+  if (!kIsWeb) {
+    final cliFlag = _cliFlag(
+      Platform.executableArguments,
+      '--autoJoin',
+      aliases: const ['--auto-join'],
+      negations: const ['--no-autoJoin', '--no-auto-join'],
+    );
+    if (cliFlag != null) return cliFlag;
+  }
   final fromEnv = _tryReadEnvFlag(const [
     '_autoJoin',
     '_AUTOJOIN',
@@ -141,6 +191,15 @@ final int _autoMaxPlayers = (() {
     }
   }
 
+  if (!kIsWeb) {
+    final cliValue = _cliArgumentValue(
+      Platform.executableArguments,
+      '--autoMaxPlayers',
+      '--auto-max-players',
+    );
+    final cliParsed = parseInt(cliValue);
+    if (cliParsed > 0) return cliParsed;
+  }
   try {
     if (!kIsWeb) {
       final env = Platform.environment;
@@ -403,7 +462,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
             builder: (context, constraints) {
               final buttons = <Widget>[
                 ElevatedButton(
-                  onPressed: gm.socketConnected
+                  onPressed: (gm.socketConnected && gm.gameId == null)
                       ? () async {
                           await _saveNick();
                           if (!context.mounted) return;
