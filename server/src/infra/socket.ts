@@ -333,6 +333,11 @@ export function createSocketServer(httpServer: HttpServer) {
         socket.data.gameId = gameId;
         socket.data.playerId = playerId;
         socket.join(`room:${gameId}`);
+        try {
+          orch.setSocketContext(gameId, playerId, socket);
+        } catch (err) {
+          logger.warn({ event: 'context.set.failed', gameId, playerId, reason: String((err as Error)?.message ?? err) });
+        }
         if (typeof ack === 'function') {
           ack({ ok: true });
         }
@@ -346,4 +351,3 @@ export function createSocketServer(httpServer: HttpServer) {
 
   return { io, orch };
 }
-

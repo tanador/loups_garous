@@ -118,6 +118,18 @@ final String _paramNick = (() {
   const legacy = String.fromEnvironment('PSEUDO', defaultValue: '');
   if (legacy.isNotEmpty) return legacy;
   if (!kIsWeb) {
+    try {
+      final env = Platform.environment;
+      final envNick = (env['_paramNick'] ??
+              env['_PARAMNICK'] ??
+              env['PSEUDO'] ??
+              env['LG_PARAM_NICK'] ??
+              '')
+          .trim();
+      if (envNick.isNotEmpty) {
+        return envNick.replaceAll('"', '');
+      }
+    } catch (_) {}
     final cliValue = _cliArgumentValue(
         Platform.executableArguments, '--paramNick', '--nick');
     if (cliValue != null && cliValue.trim().isNotEmpty) {
@@ -536,3 +548,4 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     );
   }
 }
+

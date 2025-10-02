@@ -15,6 +15,7 @@ import {
   mustGet,
   setDeadline,
 } from "./utils.js";
+import { targetsForWitch } from "../../domain/rules.js";
 
 function now() {
   return Date.now();
@@ -140,6 +141,18 @@ export class Orchestrator {
 
   private beginNightThief(game: Game) {
     this.night.beginNightThief(game);
+  }
+
+  setSocketContext(gameId: string, playerId: string, socket: Socket) {
+    const game = mustGet(this.ctx, gameId);
+    const player = game.players.find((p) => p.id === playerId);
+    if (!player) throw new Error("player_not_found");
+    player.socketId = socket.id;
+    player.connected = true;
+    player.lastSeen = Date.now();
+    this.lobby.bindPlayerToRooms(game, player, socket);
+    this.ctx.store.put(game);
+    this.log(gameId, game.state, playerId, "socket.context_set");
   }
 
   thiefChoose(gameId: string, playerId: string, action: "keep" | "swap", index?: number) {
@@ -375,6 +388,17 @@ export class Orchestrator {
             .filter((p) => game.alive.has(p.id))
             .map((p) => ({ id: p.id }))
         : undefined;
+    const isWitch = game.roles[you.id] === "WITCH";
+    const witchWake =
+      isWitch && game.state === "NIGHT_WITCH"
+        ? {
+            attacked: game.night.attacked,
+            healAvailable: !game.inventory.witch.healUsed && !!game.night.attacked,
+            poisonAvailable: !game.inventory.witch.poisonUsed,
+            alive: targetsForWitch(game).map((pid) => ({ id: pid })),
+          }
+        : undefined;
+
     const sanitized = {
       id: game.id,
       state: game.state,
@@ -397,6 +421,7 @@ export class Orchestrator {
       },
       alive: publicAlive,
       cupidTargets,
+      witchWake,
       deadline: game.deadlines?.phaseEndsAt ?? null,
       hunterPending: game.hunterPending === true,
       closingEyes: (game as any).closingEyes === true,

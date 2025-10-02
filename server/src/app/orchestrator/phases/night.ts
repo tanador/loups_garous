@@ -375,6 +375,7 @@ export function createNightApi(ctx: OrchestratorContext) {
     }
     setDeadline(ctx, game, DURATION.WITCH_MS);
     ctx.helpers.broadcastState(game);
+    ctx.helpers.sendSnapshot(game, wid);
     const attacked = game.night.attacked;
     const socket = ctx.io.sockets.sockets.get(witch.socketId);
     if (socket) {

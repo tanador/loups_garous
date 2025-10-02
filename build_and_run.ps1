@@ -282,11 +282,12 @@ function Spawn-Client {
   $env:LG_CLIENT_LOG_FILE = $clientLogPath
 
   $env:WINDOW_W = "$W"; $env:WINDOW_H = "$H"; $env:WINDOW_X = "$X"; $env:WINDOW_Y = "$Y"
+  $env:_paramNick = $Nick
 
-  [string[]]$arguments = @('--paramNick="' + $Nick + '"')
+  # Pass arguments as separate tokens to avoid quoting issues with spaces
+  [string[]]$arguments = @('--paramNick', $Nick)
   if ($AutoCreate) {
-    $arguments += '--autoCreate'
-    $arguments += '--autoJoin'
+    $arguments += @('--autoCreate', '--autoJoin')
     if ($AutoMaxPlayers -gt 0) {
       $arguments += @('--autoMaxPlayers', "$AutoMaxPlayers")
     }
@@ -294,8 +295,13 @@ function Spawn-Client {
     $arguments += '--autoJoin'
   }
 
-  $process = Start-Process -FilePath $exePath -ArgumentList $arguments -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru
-  Remove-Item Env:LG_CLIENT_LOG_FILE -ErrorAction SilentlyContinue
+  $process = $null
+  try {
+    $process = Start-Process -FilePath $exePath -ArgumentList $arguments -WorkingDirectory (Split-Path -Parent $exePath) -WindowStyle Normal -PassThru
+  } finally {
+    Remove-Item Env:_paramNick -ErrorAction SilentlyContinue
+    Remove-Item Env:LG_CLIENT_LOG_FILE -ErrorAction SilentlyContinue
+  }
   Start-ClientLogCollector -LogPath $clientLogPath -Nick $Nick
   return $process
 }

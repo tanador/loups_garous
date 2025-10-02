@@ -372,6 +372,24 @@ class GameController extends Notifier<GameModel> {
             .map((j) => Lite(id: j['id']))
             .toList();
       }
+      final bool clearWitchWake =
+          role != Role.WITCH || phase != GamePhase.NIGHT_WITCH;
+      WitchWake? snapshotWitchWake;
+      if (!clearWitchWake) {
+        final rawWitch = data['witchWake'];
+        if (rawWitch is Map) {
+          final witchAlive = ((rawWitch['alive'] as List?) ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .map((j) => Lite(id: j['id']))
+              .toList();
+          snapshotWitchWake = WitchWake(
+            attacked: rawWitch['attacked'] as String?,
+            healAvailable: rawWitch['healAvailable'] == true,
+            poisonAvailable: rawWitch['poisonAvailable'] == true,
+            alive: witchAlive,
+          );
+        }
+      }
       final roleEndsAt = _normalizeFutureTimestamp(data['roleRevealEndsAt'], nowMsSnapshot);
       final maxPlayers = (data['maxPlayers'] as int?) ?? state.maxPlayers;
       final snapshotGameId = data['id']?.toString();
@@ -397,6 +415,8 @@ class GameController extends Notifier<GameModel> {
         hunterPending: data['hunterPending'] == true,
         cupidTargets: snapshotCupidTargets ??
             (clearCupidTargets ? const <Lite>[] : state.cupidTargets),
+        witchWake: snapshotWitchWake ??
+            (clearWitchWake ? null : state.witchWake),
         maxPlayers: maxPlayers,
         isOwner: isOwner,
         hasSnapshot: true,
