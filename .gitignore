@@ -99,3 +99,5 @@ dist
 /ios/Runner.xcworkspace/contents.xcworkspacedata
 /ios/RunnerTests/RunnerTests.swift
 /ios/.gitignore
+/codex.patch
+/assets/Chernobyl_Exclusion_Zone_Sunset.mp4
