@@ -365,8 +365,8 @@ class GameController extends Notifier<GameModel> {
       final bool clearCupidTargets =
           role != Role.CUPID || phase != GamePhase.NIGHT_CUPID;
       List<Lite>? snapshotCupidTargets;
-      if (!clearCupidTargets && data is Map && (data as Map).containsKey('cupidTargets')) {
-        final rawCupidTargets = ((data as Map)['cupidTargets'] as List?) ?? const [];
+      if (!clearCupidTargets && data is Map && data.containsKey('cupidTargets')) {
+        final rawCupidTargets = (data['cupidTargets'] as List?) ?? const [];
         snapshotCupidTargets = rawCupidTargets
             .map((e) => Map<String, dynamic>.from(e as Map))
             .map((j) => Lite(id: j['id']))

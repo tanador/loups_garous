@@ -19,7 +19,6 @@ class ThiefView extends ConsumerWidget {
     final center = s.thiefCenter;
     final mustTakeWolf =
         center.length == 2 && center[0] == Role.WOLF && center[1] == Role.WOLF;
-    final messenger = ScaffoldMessenger.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Nuit — Voleur')),
       body: Padding(
@@ -49,16 +48,16 @@ class ThiefView extends ConsumerWidget {
                     onTap: center.isNotEmpty
                         ? () async {
                             final err = await ctl.thiefSwap(0);
+                            if (!context.mounted) return;
                             if (err != null) {
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(context).showSnackBar(
                                 badgeAwareSnackBar(
                                   context,
                                   content: Text(err),
                                 ),
                               );
-                            } else {
-                              // Pas de notification de prise pour préserver la confidentialité
                             }
+                            // Pas d'alerte sur succès pour préserver la confidentialité.
                           }
                         : null,
                   ),
@@ -75,16 +74,16 @@ class ThiefView extends ConsumerWidget {
                     onTap: center.length > 1
                         ? () async {
                             final err = await ctl.thiefSwap(1);
+                            if (!context.mounted) return;
                             if (err != null) {
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(context).showSnackBar(
                                 badgeAwareSnackBar(
                                   context,
                                   content: Text(err),
                                 ),
                               );
-                            } else {
-                              // Pas de notification de prise pour préserver la confidentialité
                             }
+                            // Pas d'alerte sur succès pour préserver la confidentialité.
                           }
                         : null,
                   ),
@@ -102,15 +101,16 @@ class ThiefView extends ConsumerWidget {
               onTap: !mustTakeWolf
                   ? () async {
                       final err = await ctl.thiefKeep();
+                      if (!context.mounted) return;
                       if (err != null) {
-                        messenger.showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           badgeAwareSnackBar(
                             context,
                             content: Text(err),
                           ),
                         );
                       } else {
-                        messenger.showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           badgeAwareSnackBar(
                             context,
                             content: const Text('Vous gardez votre carte.'),

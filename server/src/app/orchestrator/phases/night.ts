@@ -36,7 +36,41 @@ export function createNightApi(ctx: OrchestratorContext) {
     scheduleTimer(ctx, timerKey(game.id, "sleep"), pause, () => {
       (game as any).closingEyes = false;
       ctx.helpers.broadcastState(game);
-      next();
+      try {
+        next();
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        ctx.log(game.id, game.state, undefined, "night.transition_error", {
+          level: "warn",
+          message: err.message,
+          stack: err.stack,
+        });
+        if (canTransition(game, game.state, "NIGHT_SEER")) {
+          try {
+            ctx.log(game.id, game.state, undefined, "night.transition_recover", {
+              level: "warn",
+              fallback: "NIGHT_SEER",
+            });
+            beginNightSeer(game);
+          } catch (recoveryError) {
+            const recErr =
+              recoveryError instanceof Error
+                ? recoveryError
+                : new Error(String(recoveryError));
+            ctx.log(game.id, game.state, undefined, "night.transition_recover_failed", {
+              level: "warn",
+              message: recErr.message,
+              stack: recErr.stack,
+            });
+          }
+        } else {
+          ctx.log(game.id, game.state, undefined, "night.transition_recover_skipped", {
+            level: "warn",
+            fallback: "NIGHT_SEER",
+            reason: "cannot_transition",
+          });
+        }
+      }
     });
   }
 

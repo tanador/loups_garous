@@ -37,7 +37,7 @@ class _GameOptionsScreenState extends ConsumerState<GameOptionsScreen> {
           const Text('Nombre de joueurs'),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            value: _maxPlayers,
+            initialValue: _maxPlayers,
             onChanged: (v) => setState(() => _maxPlayers = v ?? 4),
             items: [
               3,

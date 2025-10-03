@@ -72,8 +72,6 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
     final eliminated = s.lastVote?.eliminatedId;
     final youMustAck = isResolve && you != null && eliminated == you;
 
-    final messenger = ScaffoldMessenger.of(context);
-
     Future<void> castVote() async {
       if (targetId == null || _isCasting) return;
       setState(() {
@@ -86,13 +84,13 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       } catch (e) {
         err = e.toString();
       }
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       if (err != null) {
         setState(() {
           _isCasting = false;
           _optimisticVoted = false;
         });
-        messenger.showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           badgeAwareSnackBar(
             context,
             content: Text(err),
@@ -110,17 +108,21 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       setState(() {
         _isCancelling = true;
       });
+      String? err;
       try {
         await ctl.voteCancel();
       } catch (e) {
-        messenger.showSnackBar(
+        err = e.toString();
+      }
+      if (!mounted || !context.mounted) return;
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
           badgeAwareSnackBar(
             context,
-            content: Text(e.toString()),
+            content: Text(err),
           ),
         );
       }
-      if (!mounted) return;
       setState(() {
         _isCancelling = false;
         _optimisticVoted = false;
@@ -132,17 +134,21 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       setState(() {
         _isAcking = true;
       });
+      String? err;
       try {
         await ctl.voteAck();
       } catch (e) {
-        messenger.showSnackBar(
+        err = e.toString();
+      }
+      if (!mounted || !context.mounted) return;
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
           badgeAwareSnackBar(
             context,
-            content: Text(e.toString()),
+            content: Text(err),
           ),
         );
       }
-      if (!mounted) return;
       setState(() {
         _isAcking = false;
       });

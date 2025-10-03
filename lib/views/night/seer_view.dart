@@ -103,12 +103,13 @@ class _SeerViewState extends ConsumerState<SeerView> {
             ElevatedButton(
               onPressed: !_sent && _selected != null
                   ? () async {
-                      final messenger = ScaffoldMessenger.of(context);
                       try {
                         await ctl.seerPeek(_selected!);
-                        if (mounted) setState(() => _sent = true);
+                        if (!mounted || !context.mounted) return;
+                        setState(() => _sent = true);
                       } catch (e) {
-                        messenger.showSnackBar(
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
                           badgeAwareSnackBar(
                             context,
                             content: Text('Erreur: $e'),

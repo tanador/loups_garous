@@ -51,18 +51,18 @@ class _NightWolvesScreenState extends ConsumerState<NightWolvesScreen> {
 
     Future<void> submitChoice() async {
       if (selectedId == null) return;
-      final messenger = ScaffoldMessenger.of(context);
       final err = await ctl.wolvesChoose(selectedId!);
+      if (!mounted || !context.mounted) return;
       if (err == null) {
-        if (mounted) setState(() => _locked = true);
-      } else {
-        messenger.showSnackBar(
-          badgeAwareSnackBar(
-            context,
-            content: Text(err),
-          ),
-        );
+        setState(() => _locked = true);
+        return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        badgeAwareSnackBar(
+          context,
+          content: Text(err),
+        ),
+      );
     }
 
     return Scaffold(

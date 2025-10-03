@@ -33,7 +33,7 @@ param(
   [int]$Port = 3000,
   [int]$ScreenIndex = 0,
   [switch]$AutoCreate,
-  [Alias('NoServer1')] [switch]$NoServer,
+  [switch]$NoServer,
   [int]$FirstX = 0,
   [int]$FirstY = 0
 )
